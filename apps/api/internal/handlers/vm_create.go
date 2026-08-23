@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"strings"
@@ -8,24 +9,53 @@ import (
 	"github.com/MaxwellCaron/kamino/internal/audit"
 	"github.com/MaxwellCaron/kamino/internal/authorization"
 	"github.com/MaxwellCaron/kamino/internal/inventory"
-	"github.com/MaxwellCaron/kamino/internal/names"
+	"github.com/MaxwellCaron/kamino/internal/podnetwork"
 	"github.com/MaxwellCaron/kamino/internal/proxmox"
 	"github.com/MaxwellCaron/kamino/internal/vmidalloc"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5/pgxpool"
+	"golang.org/x/sync/errgroup"
 )
+
+type vmCreateProxmox interface {
+	GetNodes(ctx context.Context) ([]proxmox.Node, error)
+	ResolvePrimaryNode(ctx context.Context) (proxmox.Node, error)
+	GetCreateStorages(ctx context.Context, node string) (diskStorages []proxmox.Storage, isoStorages []proxmox.Storage, err error)
+	GetCreateNetworks(ctx context.Context, node string) (bridges []proxmox.NetworkBridge, vnets []proxmox.VNet, err error)
+	GetStorages(ctx context.Context, node string) ([]proxmox.Storage, error)
+	IsSharedStorage(storage proxmox.Storage) bool
+	IsExcludedStorage(storage proxmox.Storage) bool
+	GetISOs(ctx context.Context, node, storage string) ([]proxmox.ISOContent, error)
+	GetCreateISOs(ctx context.Context, node, storage string) ([]proxmox.ISOContent, error)
+	GetNextVMID(ctx context.Context) (int, error)
+	IsVMIDAvailable(ctx context.Context, vmid int) (bool, error)
+	GetBridges(ctx context.Context, node string) ([]proxmox.NetworkBridge, error)
+	GetVNets(ctx context.Context) ([]proxmox.VNet, error)
+	GetOptimalNode(ctx context.Context) (proxmox.Node, error)
+	CreateVM(ctx context.Context, node string, params map[string]string) error
+	SyncVMPoolMembership(ctx context.Context, node string, vmid int, desiredPool string, path []string) error
+	DeleteVM(ctx context.Context, gt proxmox.GuestType, node string, vmid int) error
+	GetClusterUsageHistory(ctx context.Context, timeframe string) (proxmox.ClusterUsageHistory, error)
+}
+
+type vmCreateAuthz interface {
+	vmAuthz
+	HasAny(ctx context.Context, principalID uuid.UUID, required authorization.Mask) (bool, error)
+	RequireManagement(ctx context.Context, principalID uuid.UUID, required authorization.ManagementPermission) error
+}
 
 // VMCreateHandler handles VM creation and related metadata endpoints.
 type VMCreateHandler struct {
-	PX                    *proxmox.Client
-	DB                    *pgxpool.Pool
+	PX                    vmCreateProxmox
 	Importer              *proxmox.InventoryImporter
 	Service               *inventory.Service
-	Authz                 *authorization.Service
+	Authz                 vmCreateAuthz
 	Audit                 *audit.Service
 	Allocator             *vmidalloc.Allocator
-	PersonalPodVNetPrefix string
+	TemplatesFolderItemID uuid.UUID
+	TemplateLibrary       templateLibraryReader
+	NetworkScopeReader    podNetworkScopeReader
+	NetworkCatalog        *podnetwork.Catalog
 }
 
 // GetNodes returns all cluster nodes.
@@ -33,7 +63,7 @@ type VMCreateHandler struct {
 func (h *VMCreateHandler) GetNodes(c *gin.Context) {
 	principalID, ok := currentPrincipalID(c)
 	if !ok {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "authentication required"})
+		writeUnauthorized(c)
 		return
 	}
 	if !requireVMCreateMetadataAccess(c, h.Authz, principalID) {
@@ -48,23 +78,51 @@ func (h *VMCreateHandler) GetNodes(c *gin.Context) {
 	c.JSON(http.StatusOK, nodes)
 }
 
-type createOptionsResponse struct {
-	Nodes        []proxmox.Node          `json:"nodes"`
-	DiskStorages []proxmox.Storage       `json:"disk_storages"`
-	ISOStorages  []proxmox.Storage       `json:"iso_storages"`
-	Bridges      []proxmox.NetworkBridge `json:"bridges"`
-	VNets        []proxmox.VNet          `json:"vnets"`
+// scopedNetworkResponse is authoritative display data only; the server enforces the same policy independently on mutation.
+type scopedNetworkResponse struct {
+	Bridge         string   `json:"bridge"`
+	AllowedBridges []string `json:"allowed_bridges"`
+	VLANTag        int      `json:"vlan_tag"`
 }
 
+func scopedNetworkResponseFromScope(scope VMNetworkScope) *scopedNetworkResponse {
+	return &scopedNetworkResponse{
+		Bridge:         scope.VNet,
+		AllowedBridges: scope.AllowedVNets,
+		VLANTag:        scope.VLANTag,
+	}
+}
+
+type createOptionsResponse struct {
+	Nodes         []proxmox.Node          `json:"nodes"`
+	DiskStorages  []proxmox.Storage       `json:"disk_storages"`
+	ISOStorages   []proxmox.Storage       `json:"iso_storages"`
+	Bridges       []proxmox.NetworkBridge `json:"bridges"`
+	VNets         []proxmox.VNet          `json:"vnets"`
+	ScopedNetwork *scopedNetworkResponse  `json:"scoped_network,omitempty"`
+	Templates     []templateLibraryOption `json:"templates"`
+}
+
+// filterVNetsByName keeps only the VNet named scopedVNetName, preserving Proxmox response order.
 func filterVNetsByName(vnets []proxmox.VNet, scopedVNetName string) []proxmox.VNet {
-	scopedVNets := make([]proxmox.VNet, 0, 1)
+	return filterVNetsByNames(vnets, []string{scopedVNetName})
+}
+
+// filterVNetsByNames keeps only the VNets whose name is in allowedVNetNames, preserving Proxmox response order.
+func filterVNetsByNames(vnets []proxmox.VNet, allowedVNetNames []string) []proxmox.VNet {
+	allowed := make(map[string]struct{}, len(allowedVNetNames))
+	for _, name := range allowedVNetNames {
+		allowed[name] = struct{}{}
+	}
+
+	filtered := make([]proxmox.VNet, 0, len(allowedVNetNames))
 	for _, vnet := range vnets {
-		if vnet.VNet == scopedVNetName {
-			scopedVNets = append(scopedVNets, vnet)
+		if _, ok := allowed[vnet.VNet]; ok {
+			filtered = append(filtered, vnet)
 		}
 	}
 
-	return scopedVNets
+	return filtered
 }
 
 // GetCreateOptions returns VM create options sourced from the configured
@@ -73,7 +131,7 @@ func filterVNetsByName(vnets []proxmox.VNet, scopedVNetName string) []proxmox.VN
 func (h *VMCreateHandler) GetCreateOptions(c *gin.Context) {
 	principalID, ok := currentPrincipalID(c)
 	if !ok {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "authentication required"})
+		writeUnauthorized(c)
 		return
 	}
 	if !requireVMCreateMetadataAccess(c, h.Authz, principalID) {
@@ -96,483 +154,78 @@ func (h *VMCreateHandler) GetCreateOptions(c *gin.Context) {
 		writeLoggedError(c, http.StatusBadGateway, "failed to fetch nodes", "fetch create options nodes", err)
 		return
 	}
-
-	createOptionsNode, err := h.PX.ResolvePrimaryNode(c.Request.Context())
-	if err != nil {
-		writeLoggedError(c, http.StatusBadGateway, "failed to resolve primary node", "resolve primary node", err)
+	if len(nodes) == 0 {
+		writeLoggedError(c, http.StatusBadGateway, "failed to resolve primary node", "resolve primary node", fmt.Errorf("no managed cluster nodes available"))
 		return
 	}
+	createOptionsNode := nodes[0]
 
-	diskStorages, isoStorages, err := h.PX.GetCreateStorages(
-		c.Request.Context(),
-		createOptionsNode.Node,
+	var (
+		diskStorages []proxmox.Storage
+		isoStorages  []proxmox.Storage
+		storagesErr  error
+		bridges      []proxmox.NetworkBridge
+		vnets        []proxmox.VNet
+		networksErr  error
 	)
-	if err != nil {
-		writeLoggedError(c, http.StatusBadGateway, "failed to fetch storages", "fetch create option storages", err)
-		return
-	}
 
-	bridges, vnets, err := h.PX.GetCreateNetworks(
-		c.Request.Context(),
-		createOptionsNode.Node,
-	)
-	if err != nil {
-		writeLoggedError(c, http.StatusBadGateway, "failed to fetch networks", "fetch create option networks", err)
-		return
-	}
-
-	if scopeItemID != uuid.Nil {
-		isManager, err := h.Authz.IsManager(c.Request.Context(), principalID)
-		if err != nil {
-			writeLoggedError(c, http.StatusInternalServerError, "failed to determine management permissions", "check vm create options management permission", err)
-			return
-		}
-		if !isManager {
-			scopedVNetName, scoped, err := personalPodNetworkScope(
-				c.Request.Context(),
-				h.DB,
-				h.PersonalPodVNetPrefix,
-				scopeItemID,
-			)
-			if err != nil {
-				writeLoggedError(c, http.StatusInternalServerError, "failed to determine personal pod network scope", "resolve vm create options network scope", err)
-				return
-			}
-			if scoped {
-				bridges = []proxmox.NetworkBridge{}
-				vnets = filterVNetsByName(vnets, scopedVNetName)
-			}
-		}
-	}
-
-	c.JSON(http.StatusOK, createOptionsResponse{
-		Nodes:        nodes,
-		DiskStorages: diskStorages,
-		ISOStorages:  isoStorages,
-		Bridges:      bridges,
-		VNets:        vnets,
-	})
-}
-
-// GetStorages returns storages for a node.
-// GET /api/v1/proxmox/nodes/:node/storages
-func (h *VMCreateHandler) GetStorages(c *gin.Context) {
-	principalID, ok := currentPrincipalID(c)
-	if !ok {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "authentication required"})
-		return
-	}
-	if !requireVMCreateMetadataAccess(c, h.Authz, principalID) {
-		return
-	}
-
-	node := c.Param("node")
-	storages, err := h.PX.GetStorages(c.Request.Context(), node)
-	if err != nil {
-		writeLoggedError(c, http.StatusBadGateway, "failed to fetch storages", "fetch node storages", err)
-		return
-	}
-	c.JSON(http.StatusOK, storages)
-}
-
-// GetISOs returns ISO files available on a storage.
-// GET /api/v1/proxmox/nodes/:node/storages/:storage/isos
-func (h *VMCreateHandler) GetISOs(c *gin.Context) {
-	principalID, ok := currentPrincipalID(c)
-	if !ok {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "authentication required"})
-		return
-	}
-	if !requireVMCreateMetadataAccess(c, h.Authz, principalID) {
-		return
-	}
-
-	node := c.Param("node")
-	storage := c.Param("storage")
-	isos, err := h.PX.GetISOs(c.Request.Context(), node, storage)
-	if err != nil {
-		writeLoggedError(c, http.StatusBadGateway, "failed to fetch ISOs", "fetch node isos", err)
-		return
-	}
-	c.JSON(http.StatusOK, isos)
-}
-
-// GetCreateISOs returns ISO files for a storage from the configured metadata node.
-// GET /api/v1/proxmox/create/isos/:storage
-func (h *VMCreateHandler) GetCreateISOs(c *gin.Context) {
-	principalID, ok := currentPrincipalID(c)
-	if !ok {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "authentication required"})
-		return
-	}
-	if !requireVMCreateMetadataAccess(c, h.Authz, principalID) {
-		return
-	}
-
-	storage := c.Param("storage")
-
-	createOptionsNode, err := h.PX.ResolvePrimaryNode(c.Request.Context())
-	if err != nil {
-		writeLoggedError(c, http.StatusBadGateway, "failed to resolve primary node", "resolve primary node", err)
-		return
-	}
-
-	isos, err := h.PX.GetCreateISOs(
-		c.Request.Context(),
-		createOptionsNode.Node,
-		storage,
-	)
-	if err != nil {
-		writeLoggedError(c, http.StatusBadGateway, "failed to fetch ISOs", "fetch create option isos", err)
-		return
-	}
-	c.JSON(http.StatusOK, isos)
-}
-
-// GetNextVMID returns the next available VMID.
-// GET /api/v1/proxmox/nextid
-func (h *VMCreateHandler) GetNextVMID(c *gin.Context) {
-	principalID, ok := currentPrincipalID(c)
-	if !ok {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "authentication required"})
-		return
-	}
-	if !requireVMCreateMetadataAccess(c, h.Authz, principalID) {
-		return
-	}
-
-	id, err := h.PX.GetNextVMID(c.Request.Context())
-	if err != nil {
-		writeLoggedError(c, http.StatusBadGateway, "failed to fetch next VMID", "fetch next vmid", err)
-		return
-	}
-	c.JSON(http.StatusOK, gin.H{"vmid": id})
-}
-
-// ValidateVMID reports whether a VMID is available.
-// GET /api/v1/proxmox/vmid/:vmid/validate
-func (h *VMCreateHandler) ValidateVMID(c *gin.Context) {
-	principalID, ok := currentPrincipalID(c)
-	if !ok {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "authentication required"})
-		return
-	}
-	if !requireVMCreateMetadataAccess(c, h.Authz, principalID) {
-		return
-	}
-
-	vmid, err := parseIntParam(c, "vmid")
-	if err != nil {
-		return
-	}
-
-	available, err := h.PX.IsVMIDAvailable(c.Request.Context(), vmid)
-	if err != nil {
-		writeLoggedError(c, http.StatusBadGateway, "failed to validate VMID", "validate vmid", err)
-		return
-	}
-
-	c.JSON(http.StatusOK, gin.H{"valid": available})
-}
-
-// GetBridges returns network bridges for a node.
-// GET /api/v1/proxmox/nodes/:node/bridges
-func (h *VMCreateHandler) GetBridges(c *gin.Context) {
-	principalID, ok := currentPrincipalID(c)
-	if !ok {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "authentication required"})
-		return
-	}
-	if !requireVMCreateMetadataAccess(c, h.Authz, principalID) {
-		return
-	}
-
-	scopeItemIDValue := strings.TrimSpace(c.Query("scope_item_id"))
-	scopeItemID := uuid.Nil
-	if scopeItemIDValue != "" {
-		parsedItemID, err := uuid.Parse(scopeItemIDValue)
-		if err != nil {
-			c.JSON(http.StatusUnprocessableEntity, gin.H{"error": "invalid scope_item_id"})
-			return
-		}
-		scopeItemID = parsedItemID
-	}
-
-	node := c.Param("node")
-	bridges, err := h.PX.GetBridges(c.Request.Context(), node)
-	if err != nil {
-		writeLoggedError(c, http.StatusBadGateway, "failed to fetch bridges", "fetch node bridges", err)
-		return
-	}
-	vnets, err := h.PX.GetVNets(c.Request.Context())
-	if err != nil {
-		writeLoggedError(c, http.StatusBadGateway, "failed to fetch VNets", "fetch vnets", err)
-		return
-	}
-
-	if scopeItemID != uuid.Nil {
-		isManager, err := h.Authz.IsManager(c.Request.Context(), principalID)
-		if err != nil {
-			writeLoggedError(c, http.StatusInternalServerError, "failed to determine management permissions", "check vm bridge options management permission", err)
-			return
-		}
-		if !isManager {
-			scopedVNetName, scoped, err := personalPodNetworkScope(
-				c.Request.Context(),
-				h.DB,
-				h.PersonalPodVNetPrefix,
-				scopeItemID,
-			)
-			if err != nil {
-				writeLoggedError(c, http.StatusInternalServerError, "failed to determine personal pod network scope", "resolve vm bridge options network scope", err)
-				return
-			}
-			if scoped {
-				c.JSON(http.StatusOK, gin.H{
-					"bridges": []proxmox.NetworkBridge{},
-					"vnets":   filterVNetsByName(vnets, scopedVNetName),
-				})
-				return
-			}
-		}
-	}
-
-	c.JSON(http.StatusOK, gin.H{"bridges": bridges, "vnets": vnets})
-}
-
-type networkInterface struct {
-	Bridge   string `json:"bridge"`
-	Model    string `json:"model"`
-	VLANTag  int    `json:"vlan_tag"`
-	Firewall bool   `json:"firewall"`
-}
-
-type createVMRequest struct {
-	TargetFolderID string             `json:"target_folder_id" binding:"required"`
-	Node           string             `json:"node"`
-	VMID           int                `json:"vmid"`
-	Name           string             `json:"name" binding:"required"`
-	OSType         string             `json:"ostype"`
-	ISO            string             `json:"iso"`
-	BIOS           string             `json:"bios"`
-	Machine        string             `json:"machine"`
-	SCSI           string             `json:"scsi"`
-	Sockets        int                `json:"sockets"`
-	Cores          int                `json:"cores"`
-	CPUType        string             `json:"cpu_type"`
-	Memory         int                `json:"memory"`
-	Balloon        int                `json:"balloon"`
-	Storage        string             `json:"storage"`
-	DiskSize       int                `json:"disk_size"`
-	Networks       []networkInterface `json:"networks"`
-}
-
-func normalizeMachineType(machine string) string {
-	switch strings.TrimSpace(machine) {
-	case "", "i440fx":
-		return "pc"
-	default:
-		return machine
-	}
-}
-
-// CreateVM creates a new virtual machine.
-// POST /api/v1/vms
-func (h *VMCreateHandler) CreateVM(c *gin.Context) {
-	principalID, ok := currentPrincipalID(c)
-	if !ok {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "authentication required"})
-		return
-	}
-
-	var req createVMRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		writeInvalidRequest(c, "invalid request body")
-		return
-	}
-	req.Name = names.Normalize(req.Name)
-	if err := names.ValidateVM(req.Name); err != nil {
-		c.JSON(http.StatusUnprocessableEntity, gin.H{"error": err.Error()})
-		return
-	}
-
-	targetFolderID, err := uuid.Parse(req.TargetFolderID)
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid target_folder_id"})
-		return
-	}
-	if !requireInventoryPermission(c, h.Authz, principalID, targetFolderID, authorization.CreateVM) {
-		return
-	}
-
-	isManager, err := h.Authz.IsManager(c.Request.Context(), principalID)
-	if err != nil {
-		writeLoggedError(c, http.StatusInternalServerError, "failed to determine management permissions", "check vm create management permission", err)
-		return
-	}
-	if !isManager {
-		scopedVNetName, scoped, err := personalPodNetworkScope(
+	group := new(errgroup.Group)
+	group.Go(func() error {
+		diskStorages, isoStorages, storagesErr = h.PX.GetCreateStorages(
 			c.Request.Context(),
-			h.DB,
-			h.PersonalPodVNetPrefix,
-			targetFolderID,
+			createOptionsNode.Node,
+		)
+		return nil
+	})
+	group.Go(func() error {
+		bridges, vnets, networksErr = h.PX.GetCreateNetworks(
+			c.Request.Context(),
+			createOptionsNode.Node,
+		)
+		return nil
+	})
+	_ = group.Wait()
+
+	if storagesErr != nil {
+		writeLoggedError(c, http.StatusBadGateway, "failed to fetch storages", "fetch create option storages", storagesErr)
+		return
+	}
+	if networksErr != nil {
+		writeLoggedError(c, http.StatusBadGateway, "failed to fetch networks", "fetch create option networks", networksErr)
+		return
+	}
+
+	var scopedNetwork *scopedNetworkResponse
+	if scopeItemID != uuid.Nil {
+		scope, scoped, err := resolveVMNetworkScope(
+			c.Request.Context(), h.NetworkScopeReader, h.NetworkCatalog, scopeItemID,
 		)
 		if err != nil {
-			writeLoggedError(c, http.StatusInternalServerError, "failed to determine personal pod network scope", "resolve vm create network scope", err)
+			writeLoggedError(c, http.StatusInternalServerError, "failed to determine pod network scope", "resolve vm create options network scope", err)
 			return
 		}
 		if scoped {
-			for _, network := range req.Networks {
-				if strings.TrimSpace(network.Bridge) != scopedVNetName {
-					c.JSON(http.StatusUnprocessableEntity, gin.H{
-						"error": fmt.Sprintf("virtual machines in a personal pod may only use its assigned network %s", scopedVNetName),
-					})
-					return
-				}
-			}
+			bridges = []proxmox.NetworkBridge{}
+			vnets = filterVNetsByNames(vnets, scope.AllowedVNets)
+			scopedNetwork = scopedNetworkResponseFromScope(scope)
 		}
 	}
 
-	placement, err := h.Service.ResolveFolderPlacement(c.Request.Context(), targetFolderID)
-	if err != nil {
-		writeInventoryError(c, err)
-		return
-	}
-	reservation, err := h.Service.ReserveFolderVMCapacity(c.Request.Context(), targetFolderID, 1, "vm_create")
-	if err != nil {
-		writeInventoryError(c, err)
-		return
-	}
-	if reservation != nil {
-		defer reservation.Release(c.Request.Context())
-	}
-
-	params := map[string]string{
-		"name": req.Name,
-	}
-	upstreamUUID := uuid.New()
-	params["smbios1"] = fmt.Sprintf("uuid=%s", upstreamUUID.String())
-
-	if req.OSType != "" {
-		params["ostype"] = req.OSType
-	}
-	if req.ISO != "" {
-		params["ide2"] = req.ISO + ",media=cdrom"
-	}
-	if req.BIOS != "" {
-		params["bios"] = req.BIOS
-	}
-	if req.Machine != "" {
-		params["machine"] = normalizeMachineType(req.Machine)
-	}
-	if req.Sockets > 0 {
-		params["sockets"] = fmt.Sprintf("%d", req.Sockets)
-	}
-	if req.Cores > 0 {
-		params["cores"] = fmt.Sprintf("%d", req.Cores)
-	}
-	if req.CPUType != "" {
-		params["cpu"] = req.CPUType
-	}
-	if req.Memory > 0 {
-		params["memory"] = fmt.Sprintf("%d", req.Memory*1024)
-	}
-	if req.Balloon > 0 {
-		params["balloon"] = fmt.Sprintf("%d", req.Balloon*1024)
-	}
-	if req.Storage != "" && req.DiskSize > 0 {
-		params["scsi0"] = fmt.Sprintf("%s:%d", req.Storage, req.DiskSize)
-		if req.SCSI != "" {
-			params["scsihw"] = req.SCSI
-		} else {
-			params["scsihw"] = "virtio-scsi-single"
-		}
-	}
-
-	// Networks
-	for i, iface := range req.Networks {
-		model := iface.Model
-		if model == "" {
-			model = "virtio"
-		}
-		netStr := model
-		if iface.Bridge != "" {
-			netStr += ",bridge=" + iface.Bridge
-		}
-		if iface.Firewall {
-			netStr += ",firewall=1"
-		}
-		if iface.VLANTag > 0 {
-			netStr += fmt.Sprintf(",tag=%d", iface.VLANTag)
-		}
-		params[fmt.Sprintf("net%d", i)] = netStr
-	}
-
-	targetNode := req.Node
-	if targetNode == "" {
-		optimalNode, err := h.PX.GetOptimalNode(c.Request.Context())
-		if err != nil {
-			writeLoggedError(c, http.StatusBadGateway, "failed to resolve optimal node", "resolve optimal node", err)
-			return
-		}
-		targetNode = optimalNode.Node
-	}
-
-	vmid, err := runWithAvailableVMID(c.Request.Context(), h.Allocator, req.VMID, func(vmid int) error {
-		params["vmid"] = fmt.Sprintf("%d", vmid)
-		return h.PX.CreateVM(c.Request.Context(), targetNode, params)
-	})
-	switch {
-	case err == nil:
-	case isVMIDUnavailable(err):
-		c.JSON(http.StatusConflict, gin.H{"error": "VM ID is already in use"})
-		return
-	default:
-		writeLoggedError(c, http.StatusBadGateway, "failed to create VM", "create proxmox vm", err)
-		return
-	}
-
-	if err := h.PX.SyncVMPoolMembership(c.Request.Context(), targetNode, vmid, placement.PoolID, placement.Path); err != nil {
-		cleanupProxmoxVM(c.Request.Context(), h.PX, targetNode, vmid, "created VM pool sync failure")
-		writeLoggedError(c, http.StatusBadGateway, "failed to sync VM pool membership", "sync vm pool membership", err)
-		return
-	}
-
-	itemID, err := h.Importer.SyncVM(
-		c.Request.Context(),
-		placement.FolderID,
-		targetNode,
-		vmid,
+	templates, err := loadTemplateLibraryOptions(
+		c.Request.Context(), h.TemplateLibrary, h.TemplatesFolderItemID,
 	)
 	if err != nil {
-		cleanupProxmoxVM(c.Request.Context(), h.PX, targetNode, vmid, "created VM inventory sync failure")
-		writeLoggedError(c, http.StatusInternalServerError, "vm created in Proxmox but failed to sync inventory metadata", "sync created vm inventory metadata", err)
+		writeLoggedError(c, http.StatusInternalServerError, "failed to load VM creation options", "load VM template options", err)
 		return
 	}
 
-	h.Service.NotifyInventoryChanged(c.Request.Context(), itemID)
-
-	item, err := h.Service.GetInventoryItemWithPermissions(
-		c.Request.Context(),
-		principalID,
-		itemID,
-	)
-	if err != nil {
-		writeLoggedError(c, http.StatusInternalServerError, "vm created in Proxmox but failed to load inventory item", "load created vm inventory item", err)
-		return
-	}
-
-	h.Audit.RecordSuccess(c.Request.Context(), audit.EventParams{
-		ActorPrincipalID: &principalID,
-		ActionKind:       "vm.create",
-		TargetKind:       "vm",
-		InventoryItemID:  &itemID,
-		Metadata:         map[string]any{"vmid": vmid, "node": targetNode},
-	})
-	c.JSON(http.StatusOK, vmMutationResponse{
-		OK:     true,
-		VMID:   vmid,
-		ItemID: itemID,
-		Item:   buildInventoryItem(item),
+	c.JSON(http.StatusOK, createOptionsResponse{
+		Nodes:         nodes,
+		DiskStorages:  diskStorages,
+		ISOStorages:   isoStorages,
+		Bridges:       bridges,
+		VNets:         vnets,
+		ScopedNetwork: scopedNetwork,
+		Templates:     templates,
 	})
 }

@@ -3,9 +3,9 @@ import {
   Copy02Icon,
   DashboardSquare01Icon,
   FolderIcon,
+  GitPullRequestIcon,
   Globe02Icon,
   Home03Icon,
-  Invoice01Icon,
   Logout01Icon,
   Moon02Icon,
   NotebookIcon,
@@ -23,12 +23,14 @@ import {
 import type { IconSvgElement } from "@hugeicons/react"
 import type { ApiTreeNode } from "@/features/inventory/types/inventory-types"
 import type { ApiPrincipal } from "@/features/principals/types/principals-types"
-import type { PublishedPodCatalogEntry } from "@/features/pods/types/pod-types"
+import type {
+  PodCatalogSummary,
+  PublishedPodCatalogEntry,
+} from "@/features/pods/types/pod-types"
 import type { ApiRequestSummary } from "@/features/requests/types/request-types"
 import type { ApiVNet } from "@/features/sdn/types/sdn-types"
 import { formatPrincipalReference } from "@/components/principals/principal-label"
 import { searchDocs } from "@/features/documentation/utils/docs-search"
-import { findTreePath } from "@/features/inventory/utils/inventory-tree"
 import {
   formatRequestKind,
   formatRequestPowerAction,
@@ -113,9 +115,8 @@ export type BuildSiteCommandsParams = {
   completedRequests?: Array<ApiRequestSummary>
   groups?: Array<ApiPrincipal>
   inventoryTree?: Array<ApiTreeNode>
-  podCatalog?: Array<PublishedPodCatalogEntry>
+  podCatalog?: Array<PodCatalogSummary>
   publishedPods?: Array<PublishedPodCatalogEntry>
-  query: string
   users?: Array<ApiPrincipal>
   vnets?: Array<ApiVNet>
   pendingRequests?: Array<ApiRequestSummary>
@@ -197,7 +198,7 @@ const staticCommands: Array<StaticCommandConfig> = [
     group: "pages",
     label: "Requests",
     subtitle: "Review request queue",
-    icon: Invoice01Icon,
+    icon: GitPullRequestIcon,
     to: "/manager/requests",
     visibility: "manager",
     keywords: ["approval", "pending", "manager"],
@@ -314,27 +315,35 @@ export const groupOrder = [
   "requests",
 ] as const satisfies Array<CommandGroupKey>
 
-function principalLabel(principal: ApiPrincipal) {
-  return formatPrincipalReference(principal)
+export type SiteCommandRow = {
+  command: SiteCommandResult
+  group: CommandGroupKey
+  startsGroup: boolean
 }
 
-function collectTreeNodes(tree: Array<ApiTreeNode>) {
-  const nodes: Array<ApiTreeNode> = []
+export function buildSiteCommandRows(
+  commands: Array<SiteCommandResult>
+): Array<SiteCommandRow> {
+  const rows: Array<SiteCommandRow> = []
 
-  function walk(node: ApiTreeNode) {
-    nodes.push(node)
-    node.children?.forEach(walk)
+  for (const group of groupOrder) {
+    const groupCommands = commands.filter((command) => command.group === group)
+    if (groupCommands.length === 0) continue
+
+    for (let index = 0; index < groupCommands.length; index++) {
+      rows.push({
+        command: groupCommands[index],
+        group,
+        startsGroup: index === 0,
+      })
+    }
   }
 
-  tree.forEach(walk)
-  return nodes
+  return rows
 }
 
-function formatInventoryPath(tree: Array<ApiTreeNode>, itemId: string) {
-  const path = findTreePath(tree, itemId)
-  if (!path) return "Inventory"
-  if (path.length <= 1) return "Inventory"
-  return path.map((item) => item.name).join(" / ")
+function principalLabel(principal: ApiPrincipal) {
+  return formatPrincipalReference(principal)
 }
 
 function formatRequestLabel(request: ApiRequestSummary) {
@@ -383,7 +392,7 @@ function buildAccountCommands(actions: BuildSiteCommandsActions) {
     label: "Log out",
     subtitle: "Sign out of Kamino",
     keywords: ["logout", "sign out", "exit"],
-    onSelect: runCommand(actions, actions.logout),
+    onSelect: actions.logout,
     variant: "destructive",
   })
 
@@ -425,20 +434,18 @@ function buildDocsCommands({
   query: string
 }) {
   const matches = searchDocs(query, { canAdminister, canManage })
-  return matches.map(
-    (match): SiteCommandResult => ({
-      id: `docs:${match.docKey}:${match.anchor}`,
-      group: "docs",
-      icon: NotebookIcon,
-      label: match.heading,
-      subtitle: match.docTitle,
-      preview: match.preview,
-      keywords: [match.docTitle, match.heading, match.anchor],
-      onSelect: runCommand(actions, () =>
-        actions.navigateToDocsSection(match.route, match.anchor)
-      ),
-    })
-  )
+  return matches.map((match): SiteCommandResult => ({
+    id: `docs:${match.docKey}:${match.anchor}`,
+    group: "docs",
+    icon: NotebookIcon,
+    label: match.heading,
+    subtitle: match.docTitle,
+    preview: match.preview,
+    keywords: [match.docTitle, match.heading, match.anchor],
+    onSelect: runCommand(actions, () =>
+      actions.navigateToDocsSection(match.route, match.anchor)
+    ),
+  }))
 }
 
 function buildInventoryCommands(
@@ -447,17 +454,26 @@ function buildInventoryCommands(
 ) {
   const results: Array<SiteCommandResult> = []
 
-  for (const node of collectTreeNodes(tree)) {
-    const path = formatInventoryPath(tree, node.id)
+  function walk(nodes: Array<ApiTreeNode>, parentNames: Array<string>) {
+    for (const node of nodes) {
+      const path =
+        parentNames.length === 0
+          ? "Inventory"
+          : [...parentNames, node.name].join(" / ")
 
-    if (node.kind === "vm" && node.vm) {
-      appendVmCommands(results, node, path, actions)
-      continue
+      if (node.kind === "vm" && node.vm) {
+        appendVmCommands(results, node, path, actions)
+      } else {
+        appendFolderCommands(results, node, path, actions)
+      }
+
+      if (node.children) {
+        walk(node.children, [...parentNames, node.name])
+      }
     }
-
-    appendFolderCommands(results, node, path, actions)
   }
 
+  walk(tree, [])
   return results
 }
 
@@ -531,7 +547,6 @@ function buildPodCommands({
       keywords: [
         pod.slug,
         pod.description,
-        pod.source_folder,
         ...pod.creators.map((creator) => creator.label),
       ],
       onSelect: runCommand(actions, () => actions.navigateToPod(pod.slug)),
@@ -623,7 +638,7 @@ function buildRequestCommands({
     return {
       id: `request:${request.id}`,
       group: "requests",
-      icon: Invoice01Icon,
+      icon: GitPullRequestIcon,
       label: formatRequestLabel(request),
       subtitle: `${formatRequestStatus(request.status)} · ${request.requester_username}`,
       keywords: [
@@ -640,11 +655,18 @@ function buildRequestCommands({
   })
 }
 
+export function buildDocsCommandsForQuery(
+  query: string,
+  access: Pick<BuildSiteCommandsParams, "canAdminister" | "canManage">,
+  actions: BuildSiteCommandsActions
+) {
+  return buildDocsCommands({ ...access, actions, query })
+}
+
 export function buildSiteCommands(params: BuildSiteCommandsParams) {
   return [
     ...buildAccountCommands(params.actions),
     ...buildPageCommands(params),
-    ...buildDocsCommands(params),
     ...buildInventoryCommands(params.inventoryTree ?? [], params.actions),
     ...buildPodCommands(params),
     ...buildAdminCommands(params),

@@ -1,25 +1,44 @@
 import { Outlet, getRouteApi } from "@tanstack/react-router"
 import { SidebarProvider } from "@workspace/ui/components/sidebar"
+import { cn } from "@workspace/ui/lib/utils"
 import { SiteHeader } from "@/components/app-shell/site-header"
 import { AppSidebar } from "@/components/app-shell/app-sidebar"
 import { SiteLayoutInset } from "@/components/app-shell/site-layout-inset"
+import { SkipToContentLink } from "@/components/app-shell/skip-to-content-link"
 import { InventoryDialogsProvider } from "@/features/inventory/components/inventory-dialogs-provider"
 import { InventoryTreeProvider } from "@/features/inventory/components/tree/inventory-tree-provider"
-import { CommandManyItems } from "@/components/app-shell/site-command"
+import { InventorySidebarResizeHandle } from "@/features/inventory/components/tree/inventory-sidebar-resize-handle"
+import {
+  INVENTORY_SIDEBAR_MIN_WIDTH,
+  useInventorySidebarResize,
+} from "@/features/inventory/hooks/use-inventory-sidebar-resize"
+import { SiteCommandTrigger } from "@/components/app-shell/site-command"
 import { DashboardEvents } from "@/features/dashboard/components/dashboard-events"
+import { VncSessionVisibilityProvider } from "@/features/vms/components/dashboard/vnc-session-visibility-context"
+import { VncSessionWorkspace } from "@/features/vms/components/dashboard/vnc-session-workspace"
 
 const dashboardRouteApi = getRouteApi("/_dashboard")
 
-const commandManyItemsElement = <CommandManyItems />
+const siteCommandTrigger = <SiteCommandTrigger />
 
 export function DashboardLayout() {
   const { user } = dashboardRouteApi.useRouteContext()
+  const {
+    width,
+    effectiveMax,
+    isResizing,
+    updateWidthLive,
+    commitWidth,
+    onResizeStart,
+    onResizeEnd,
+  } = useInventorySidebarResize()
 
   return (
     <SidebarProvider
+      className={cn(isResizing && "**:duration-0")}
       style={
         {
-          "--sidebar-width": "calc(var(--spacing) * 96)",
+          "--sidebar-width": `${width}px`,
           "--sidebar-width-icon": "calc(var(--spacing) * 12)",
           "--header-height": "calc(var(--spacing) * 12)",
         } as React.CSSProperties
@@ -28,9 +47,22 @@ export function DashboardLayout() {
       <DashboardEvents />
       <InventoryDialogsProvider>
         <InventoryTreeProvider>
+          <SkipToContentLink targetId="main-content" />
           <AppSidebar user={user} variant="inset" />
-          <SiteLayoutInset header={<SiteHeader command={commandManyItemsElement} />}>
-            <Outlet />
+          <InventorySidebarResizeHandle
+            width={width}
+            minWidth={INVENTORY_SIDEBAR_MIN_WIDTH}
+            maxWidth={effectiveMax}
+            onLiveUpdate={updateWidthLive}
+            onCommit={commitWidth}
+            onResizeStart={onResizeStart}
+            onResizeEnd={onResizeEnd}
+          />
+          <SiteLayoutInset header={<SiteHeader command={siteCommandTrigger} />}>
+            <VncSessionVisibilityProvider>
+              <Outlet />
+              <VncSessionWorkspace />
+            </VncSessionVisibilityProvider>
           </SiteLayoutInset>
         </InventoryTreeProvider>
       </InventoryDialogsProvider>

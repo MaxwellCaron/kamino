@@ -1,0 +1,677 @@
+package handlers
+
+import (
+	"context"
+	"errors"
+	"net/http"
+	"sync/atomic"
+	"testing"
+
+	"github.com/MaxwellCaron/kamino/database"
+	"github.com/MaxwellCaron/kamino/internal/authorization"
+	"github.com/MaxwellCaron/kamino/internal/inventory"
+	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
+)
+
+func TestPublishedPodDeleteDecision(t *testing.T) {
+	tests := []struct {
+		name        string
+		cloneCount  int32
+		err         error
+		wantStatus  int
+		wantMessage string
+		wantDecided bool
+	}{
+		{
+			name:        "not found",
+			err:         pgx.ErrNoRows,
+			wantStatus:  http.StatusNotFound,
+			wantMessage: "pod not found",
+			wantDecided: true,
+		},
+		{
+			name:        "zero clones proceed",
+			cloneCount:  0,
+			wantDecided: true,
+		},
+		{
+			name:        "positive clones blocked",
+			cloneCount:  2,
+			wantStatus:  http.StatusConflict,
+			wantMessage: publishedPodDeleteBlockedMessage,
+			wantDecided: true,
+		},
+		{
+			name:        "unrelated database error",
+			err:         errors.New("connection reset"),
+			wantDecided: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			status, message, decided := publishedPodDeleteDecision(tt.cloneCount, tt.err)
+			if decided != tt.wantDecided {
+				t.Fatalf("decided = %v, want %v", decided, tt.wantDecided)
+			}
+			if status != tt.wantStatus {
+				t.Fatalf("status = %d, want %d", status, tt.wantStatus)
+			}
+			if message != tt.wantMessage {
+				t.Fatalf("message = %q, want %q", message, tt.wantMessage)
+			}
+		})
+	}
+}
+
+func TestPublishedPodDeleteHasCloneConflict(t *testing.T) {
+	tests := []struct {
+		name string
+		err  error
+		want bool
+	}{
+		{
+			name: "restrict violation",
+			err:  &pgconn.PgError{Code: "23001"},
+			want: true,
+		},
+		{
+			name: "foreign key violation",
+			err:  &pgconn.PgError{Code: "23503"},
+			want: true,
+		},
+		{
+			name: "unique violation",
+			err:  &pgconn.PgError{Code: "23505"},
+			want: false,
+		},
+		{
+			name: "unrelated error",
+			err:  errors.New("boom"),
+			want: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := publishedPodDeleteHasCloneConflict(tt.err); got != tt.want {
+				t.Fatalf("publishedPodDeleteHasCloneConflict() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestValidatePublishedPodPermissions(t *testing.T) {
+	tests := []struct {
+		name    string
+		perms   publishPodPermissionRequest
+		wantErr bool
+		errMsg  string
+	}{
+		{
+			name:    "valid non-overlapping masks",
+			perms:   publishPodPermissionRequest{AllowMask: 3, DenyMask: 12},
+			wantErr: false,
+		},
+		{
+			name:    "valid allow only",
+			perms:   publishPodPermissionRequest{AllowMask: 7, DenyMask: 0},
+			wantErr: false,
+		},
+		{
+			name:    "valid deny only",
+			perms:   publishPodPermissionRequest{AllowMask: 0, DenyMask: 4},
+			wantErr: false,
+		},
+		{
+			name:    "valid both zero",
+			perms:   publishPodPermissionRequest{AllowMask: 0, DenyMask: 0},
+			wantErr: false,
+		},
+		{
+			name:    "negative allow mask",
+			perms:   publishPodPermissionRequest{AllowMask: -1, DenyMask: 0},
+			wantErr: true,
+			errMsg:  "non-negative",
+		},
+		{
+			name:    "negative deny mask",
+			perms:   publishPodPermissionRequest{AllowMask: 0, DenyMask: -1},
+			wantErr: true,
+			errMsg:  "non-negative",
+		},
+		{
+			name:    "overlapping masks",
+			perms:   publishPodPermissionRequest{AllowMask: 5, DenyMask: 7},
+			wantErr: true,
+			errMsg:  "overlap",
+		},
+		{
+			name:    "mask exceeds full access",
+			perms:   publishPodPermissionRequest{AllowMask: int64(authorization.FullAccessMask) << 1, DenyMask: 0},
+			wantErr: true,
+			errMsg:  "unsupported bits",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := validatePublishedPodPermissions(tt.perms)
+			if tt.wantErr {
+				if err == nil {
+					t.Fatal("expected error, got nil")
+				}
+				if tt.errMsg != "" && !contains(err.Error(), tt.errMsg) {
+					t.Errorf("error %q does not contain %q", err.Error(), tt.errMsg)
+				}
+			} else if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+		})
+	}
+}
+
+func TestParsePublishedPodStatus(t *testing.T) {
+	tests := []struct {
+		input   string
+		want    database.PublishedPodStatus
+		wantErr bool
+	}{
+		{"listed", database.PublishedPodStatusListed, false},
+		{"unlisted", database.PublishedPodStatusUnlisted, false},
+		{" listed ", database.PublishedPodStatusListed, false},
+		{" unlisted ", database.PublishedPodStatusUnlisted, false},
+		{"draft", "", true},
+		{"", "", true},
+		{"LISTED", "", true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.input, func(t *testing.T) {
+			got, err := parsePublishedPodStatus(tt.input)
+			if tt.wantErr {
+				if err == nil {
+					t.Fatalf("expected error for input %q, got %v", tt.input, got)
+				}
+			} else {
+				if err != nil {
+					t.Fatalf("unexpected error: %v", err)
+				}
+				if got != tt.want {
+					t.Errorf("got %q, want %q", got, tt.want)
+				}
+			}
+		})
+	}
+}
+
+func TestPublishedPodQuestionAnswerStateChanged(t *testing.T) {
+	existing := database.ListPublishedPodQuestionsByTaskIDsRow{
+		Title:         "What is 2+2?",
+		AnswerOutline: "4",
+	}
+
+	t.Run("no change returns false", func(t *testing.T) {
+		next := normalizedPublishPodQuestion{Title: "What is 2+2?", AnswerOutline: "4"}
+		if publishedPodQuestionAnswerStateChanged(existing, next) {
+			t.Error("expected false for unchanged question")
+		}
+	})
+	t.Run("title change returns true", func(t *testing.T) {
+		next := normalizedPublishPodQuestion{Title: "What is 3+3?", AnswerOutline: "4"}
+		if !publishedPodQuestionAnswerStateChanged(existing, next) {
+			t.Error("expected true for title change")
+		}
+	})
+	t.Run("answer change returns true", func(t *testing.T) {
+		next := normalizedPublishPodQuestion{Title: "What is 2+2?", AnswerOutline: "five"}
+		if !publishedPodQuestionAnswerStateChanged(existing, next) {
+			t.Error("expected true for answer change")
+		}
+	})
+	t.Run("case-insensitive answer match returns false", func(t *testing.T) {
+		next := normalizedPublishPodQuestion{Title: "What is 2+2?", AnswerOutline: "4"}
+		if publishedPodQuestionAnswerStateChanged(existing, next) {
+			t.Error("expected false for case-insensitive match")
+		}
+	})
+}
+
+func TestInvalidPublishPod(t *testing.T) {
+	err := invalidPublishPod("test message")
+	if err == nil {
+		t.Fatal("expected non-nil error")
+	}
+	if err.Status != http.StatusUnprocessableEntity {
+		t.Errorf("status = %d, want %d", err.Status, http.StatusUnprocessableEntity)
+	}
+	if err.UserMessage != "test message" {
+		t.Errorf("UserMessage = %q, want %q", err.UserMessage, "test message")
+	}
+}
+
+func TestResolvePublishCloneTargetKey(t *testing.T) {
+	tests := []struct {
+		name      string
+		requested string
+		source    string
+		want      string
+	}{
+		{name: "inherits source target", source: "development", want: "development"},
+		{name: "inherits source target for blank request", requested: "  ", source: "development", want: "development"},
+		{name: "keeps explicit published target", requested: " future ", source: "development", want: "future"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := resolvePublishCloneTargetKey(tt.requested, tt.source); got != tt.want {
+				t.Fatalf("resolvePublishCloneTargetKey() = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestValidPublishedPodImageURL(t *testing.T) {
+	tests := []struct {
+		name  string
+		value string
+		want  bool
+	}{
+		{name: "HTTPS URL", value: "https://images.example.com/pod.png", want: true},
+		{name: "uppercase HTTPS URL", value: "HTTPS://images.example.com/pod.png", want: true},
+		{name: "root-relative path", value: "/assets/pods/pod.png", want: true},
+		{name: "HTTP URL", value: "http://images.example.com/pod.png", want: false},
+		{name: "script URL", value: "javascript:alert(1)", want: false},
+		{name: "protocol-relative URL", value: "//images.example.com/pod.png", want: false},
+		{name: "relative path", value: "assets/pods/pod.png", want: false},
+		{name: "URL with credentials", value: "https://user:password@images.example.com/pod.png", want: false},
+		{name: "empty value", value: "", want: false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := validPublishedPodImageURL(tt.value); got != tt.want {
+				t.Fatalf("validPublishedPodImageURL(%q) = %v, want %v", tt.value, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestPublishedPodTemplateIDs(t *testing.T) {
+	id1 := uuid.New()
+	id2 := uuid.New()
+
+	t.Run("extracts non-nil IDs", func(t *testing.T) {
+		vms := []normalizedPublishPodVM{
+			{SourceInventoryItemID: id1},
+			{SourceInventoryItemID: id2},
+		}
+		got := publishedPodTemplateIDs(vms)
+		if len(got) != 2 {
+			t.Fatalf("len = %d, want 2", len(got))
+		}
+	})
+	t.Run("skips nil UUIDs", func(t *testing.T) {
+		vms := []normalizedPublishPodVM{
+			{SourceInventoryItemID: id1},
+			{SourceInventoryItemID: uuid.Nil},
+			{SourceInventoryItemID: id2},
+		}
+		got := publishedPodTemplateIDs(vms)
+		if len(got) != 2 {
+			t.Fatalf("len = %d, want 2", len(got))
+		}
+	})
+	t.Run("empty input", func(t *testing.T) {
+		got := publishedPodTemplateIDs(nil)
+		if len(got) != 0 {
+			t.Fatalf("len = %d, want 0", len(got))
+		}
+	})
+}
+
+func TestNewPublishedPodTemplateIDs(t *testing.T) {
+	id1 := uuid.New()
+	id2 := uuid.New()
+	id3 := uuid.New()
+
+	existing := []database.ListPublishedPodVMsByPodIDsRow{
+		{SourceInventoryItemID: id1},
+	}
+
+	t.Run("excludes existing", func(t *testing.T) {
+		vms := []normalizedPublishPodVM{
+			{SourceInventoryItemID: id1},
+			{SourceInventoryItemID: id2},
+			{SourceInventoryItemID: id3},
+		}
+		got := newPublishedPodTemplateIDs(vms, existing)
+		if len(got) != 2 {
+			t.Fatalf("len = %d, want 2", len(got))
+		}
+	})
+	t.Run("skips nil UUIDs", func(t *testing.T) {
+		vms := []normalizedPublishPodVM{
+			{SourceInventoryItemID: uuid.Nil},
+			{SourceInventoryItemID: id2},
+		}
+		got := newPublishedPodTemplateIDs(vms, existing)
+		if len(got) != 1 {
+			t.Fatalf("len = %d, want 1", len(got))
+		}
+	})
+}
+
+func int32Ptr(v int32) *int32 {
+	return &v
+}
+
+func TestPublishedPodHostOctets(t *testing.T) {
+	lan := "lan"
+	dmz := "dmz"
+
+	tests := []struct {
+		name    string
+		vms     []normalizedPublishPodVM
+		wantErr bool
+	}{
+		{
+			name: "nil allowed",
+			vms: []normalizedPublishPodVM{
+				{SegmentKey: &lan},
+			},
+		},
+		{
+			name: "boundary 2 allowed",
+			vms: []normalizedPublishPodVM{
+				{SegmentKey: &lan, HostOctet: int32Ptr(2)},
+			},
+		},
+		{
+			name: "boundary 254 allowed",
+			vms: []normalizedPublishPodVM{
+				{SegmentKey: &lan, HostOctet: int32Ptr(254)},
+			},
+		},
+		{
+			name: "value 1 rejected",
+			vms: []normalizedPublishPodVM{
+				{SegmentKey: &lan, HostOctet: int32Ptr(1)},
+			},
+			wantErr: true,
+		},
+		{
+			name: "value 255 rejected",
+			vms: []normalizedPublishPodVM{
+				{SegmentKey: &lan, HostOctet: int32Ptr(255)},
+			},
+			wantErr: true,
+		},
+		{
+			name: "router rejected",
+			vms: []normalizedPublishPodVM{
+				{IsRouter: true, HostOctet: int32Ptr(50)},
+			},
+			wantErr: true,
+		},
+		{
+			name: "duplicate within one segment rejected",
+			vms: []normalizedPublishPodVM{
+				{SegmentKey: &lan, HostOctet: int32Ptr(50)},
+				{SegmentKey: &lan, HostOctet: int32Ptr(50)},
+			},
+			wantErr: true,
+		},
+		{
+			name: "same value across LAN and DMZ allowed",
+			vms: []normalizedPublishPodVM{
+				{SegmentKey: &lan, HostOctet: int32Ptr(50)},
+				{SegmentKey: &dmz, HostOctet: int32Ptr(50)},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			reqErr := validatePublishedPodHostOctets(tt.vms)
+			if tt.wantErr && reqErr == nil {
+				t.Fatal("expected error, got nil")
+			}
+			if !tt.wantErr && reqErr != nil {
+				t.Fatalf("unexpected error: %v", reqErr.UserMessage)
+			}
+			if reqErr != nil && reqErr.Status != http.StatusUnprocessableEntity {
+				t.Fatalf("status = %d, want %d", reqErr.Status, http.StatusUnprocessableEntity)
+			}
+		})
+	}
+}
+
+func TestPreservePublishedPodTemplateRefs(t *testing.T) {
+	sourceID := uuid.New()
+	existingID := uuid.New()
+	lan := "lan"
+
+	existingVMs := []database.ListPublishedPodVMsByPodIDsRow{
+		{
+			ID:                    existingID,
+			SourceInventoryItemID: sourceID,
+			Name:                  "web-1",
+			CpuCount:              2,
+			MemoryMb:              2048,
+			DiskGb:                20,
+		},
+	}
+	requestVMs := []normalizedPublishPodVM{
+		{
+			RequestInventoryItemID: sourceID,
+			Name:                   "web-1",
+			AllowMask:              1,
+			DenyMask:               2,
+			IsRouter:               false,
+			SegmentKey:             &lan,
+			HostOctet:              int32Ptr(50),
+		},
+	}
+
+	preserved, reqErr := preservePublishedPodTemplateRefs(requestVMs, existingVMs)
+	if reqErr != nil {
+		t.Fatalf("unexpected error: %v", reqErr.UserMessage)
+	}
+	if len(preserved) != 1 {
+		t.Fatalf("len = %d, want 1", len(preserved))
+	}
+	got := preserved[0]
+	if got.IsRouter != false {
+		t.Errorf("IsRouter = %v, want false", got.IsRouter)
+	}
+	if got.SegmentKey == nil || *got.SegmentKey != lan {
+		t.Errorf("SegmentKey = %v, want %q", got.SegmentKey, lan)
+	}
+	if got.HostOctet == nil || *got.HostOctet != 50 {
+		t.Errorf("HostOctet = %v, want 50", got.HostOctet)
+	}
+}
+
+func TestMarkSelectedUpdateVM(t *testing.T) {
+	id1 := uuid.New()
+	id2 := uuid.New()
+	id3 := uuid.New()
+	selected := map[uuid.UUID]struct{}{id1: {}, id2: {}}
+
+	t.Run("marks matching IDs", func(t *testing.T) {
+		matched := make(map[uuid.UUID]struct{})
+		got := markSelectedUpdateVM(selected, matched, id1, id3)
+		if !got {
+			t.Error("expected true")
+		}
+		if _, ok := matched[id1]; !ok {
+			t.Error("expected id1 in matched")
+		}
+		if _, ok := matched[id3]; ok {
+			t.Error("id3 should not be in matched")
+		}
+	})
+	t.Run("returns false when no match", func(t *testing.T) {
+		matched := make(map[uuid.UUID]struct{})
+		got := markSelectedUpdateVM(selected, matched, id3)
+		if got {
+			t.Error("expected false")
+		}
+	})
+}
+
+func TestDeletePublishedPodMetadataOrdersCatalogBeforeSourceFolder(t *testing.T) {
+	var events []string
+
+	err := deletePublishedPodMetadata(
+		context.Background(),
+		func(ctx context.Context) (int64, error) {
+			events = append(events, "catalog")
+			return 1, nil
+		},
+		func(ctx context.Context) error {
+			events = append(events, "source_folder")
+			return nil
+		},
+	)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(events) != 2 || events[0] != "catalog" || events[1] != "source_folder" {
+		t.Fatalf("events = %v, want [catalog source_folder]", events)
+	}
+}
+
+func TestDeletePublishedPodMetadataZeroRowsIsNotFound(t *testing.T) {
+	var sourceFolderCalled bool
+
+	err := deletePublishedPodMetadata(
+		context.Background(),
+		func(ctx context.Context) (int64, error) { return 0, nil },
+		func(ctx context.Context) error {
+			sourceFolderCalled = true
+			return nil
+		},
+	)
+	if !errors.Is(err, pgx.ErrNoRows) {
+		t.Fatalf("err = %v, want pgx.ErrNoRows", err)
+	}
+	if sourceFolderCalled {
+		t.Fatal("expected source folder delete to be skipped when the catalog row is already gone")
+	}
+}
+
+func TestDeletePublishedPodMetadataCatalogFailureSkipsSourceFolder(t *testing.T) {
+	var sourceFolderCalled bool
+
+	err := deletePublishedPodMetadata(
+		context.Background(),
+		func(ctx context.Context) (int64, error) { return 0, errors.New("db unavailable") },
+		func(ctx context.Context) error {
+			sourceFolderCalled = true
+			return nil
+		},
+	)
+	if err == nil {
+		t.Fatal("expected error")
+	}
+	if sourceFolderCalled {
+		t.Fatal("expected source folder delete to be skipped after catalog delete failure")
+	}
+}
+
+func TestPublishedPodDeleteResourceFailurePreventsCatalogAndFolderCallbacks(t *testing.T) {
+	var catalogCalled, sourceFolderCalled, poolsCalled atomic.Bool
+
+	plan := inventory.FolderDeletionPlan{
+		ProxmoxVMs:   []inventory.FolderDeletionVM{{Node: "pve1", VMID: 100, GuestType: "qemu"}},
+		ProxmoxPools: []string{"Pods/Lab"},
+	}
+
+	var metadataErr error
+	cbs := folderResourceDeletionCallbacks{
+		deleteVM: func(ctx context.Context, vm inventory.FolderDeletionVM) error {
+			return errors.New("proxmox unreachable")
+		},
+		deletePools: func(ctx context.Context, poolIDs []string) error {
+			poolsCalled.Store(true)
+			return nil
+		},
+		deleteMetadata: func(ctx context.Context) error {
+			err := deletePublishedPodMetadata(
+				ctx,
+				func(ctx context.Context) (int64, error) {
+					catalogCalled.Store(true)
+					return 1, nil
+				},
+				func(ctx context.Context) error {
+					sourceFolderCalled.Store(true)
+					return nil
+				},
+			)
+			metadataErr = err
+			return err
+		},
+	}
+
+	if err := runFolderResourceDeletion(context.Background(), plan, 4, cbs); err == nil {
+		t.Fatal("expected resource deletion error")
+	}
+	if poolsCalled.Load() {
+		t.Fatal("expected pool deletion to be skipped after VM failure")
+	}
+	if catalogCalled.Load() || sourceFolderCalled.Load() {
+		t.Fatal("expected catalog and source folder deletes to be skipped after resource failure")
+	}
+	if metadataErr != nil {
+		t.Fatalf("metadataErr = %v, want nil (metadata callback never ran)", metadataErr)
+	}
+}
+
+func TestPublishedPodDeleteSuccessOrdersResourceCleanupBeforeMetadataDeletes(t *testing.T) {
+	var events []string
+
+	plan := inventory.FolderDeletionPlan{
+		ProxmoxVMs:   []inventory.FolderDeletionVM{{Node: "pve1", VMID: 100, GuestType: "qemu"}},
+		ProxmoxPools: []string{"Pods/Lab/a0-Virtual-Machines", "Pods/Lab"},
+	}
+
+	cbs := folderResourceDeletionCallbacks{
+		deleteVM: func(ctx context.Context, vm inventory.FolderDeletionVM) error {
+			events = append(events, "vm")
+			return nil
+		},
+		deletePools: func(ctx context.Context, poolIDs []string) error {
+			events = append(events, "pools")
+			return nil
+		},
+		deleteMetadata: func(ctx context.Context) error {
+			return deletePublishedPodMetadata(
+				ctx,
+				func(ctx context.Context) (int64, error) {
+					events = append(events, "catalog")
+					return 1, nil
+				},
+				func(ctx context.Context) error {
+					events = append(events, "source_folder")
+					return nil
+				},
+			)
+		},
+	}
+
+	if err := runFolderResourceDeletion(context.Background(), plan, 4, cbs); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	want := []string{"vm", "pools", "catalog", "source_folder"}
+	if len(events) != len(want) {
+		t.Fatalf("events = %v, want %v", events, want)
+	}
+	for i := range want {
+		if events[i] != want[i] {
+			t.Fatalf("events = %v, want %v", events, want)
+		}
+	}
+}

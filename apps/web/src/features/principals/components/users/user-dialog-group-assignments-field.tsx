@@ -36,6 +36,7 @@ export function UserDialogGroupAssignmentsField({
           multiple
           autoHighlight
           items={groupItems}
+          itemToStringLabel={(groupID) => groupOptionMap.get(groupID) ?? groupID}
           value={selectedGroupIds}
           onValueChange={(value) =>
             setSelectedGroupIds(Array.from(new Set(value)))

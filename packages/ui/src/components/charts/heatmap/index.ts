@@ -1,4 +1,4 @@
-export { generateHeatmapSkeletonFromTarget } from "./generate-heatmap-skeleton-data"
+export { generateHeatmapSkeletonFromTarget } from "./generate-heatmap-skeleton-data";
 export {
   computeHeatmapEnterFadeDelayMs,
   computeHeatmapLevelRange,
@@ -14,17 +14,17 @@ export {
   type HeatmapLevelRange,
   heatmapLoadingCellParticipates,
   resolveHeatmapEnterFadeDurationSec,
-} from "./heatmap-animation"
-export { HeatmapCells, type HeatmapCellsProps } from "./heatmap-cells"
+} from "./heatmap-animation";
+export { HeatmapCells, type HeatmapCellsProps } from "./heatmap-cells";
 export {
   HeatmapChart,
   type HeatmapChartProps,
   type HeatmapLayout,
-} from "./heatmap-chart"
+} from "./heatmap-chart";
 export {
   HeatmapChartLoading,
   type HeatmapChartLoadingProps,
-} from "./heatmap-chart-loading"
+} from "./heatmap-chart-loading";
 export {
   buildHeatmapColorScale,
   buildHeatmapColorScaleFromStyles,
@@ -42,7 +42,7 @@ export {
   levelColorsFromStyles,
   levelStylesFromColors,
   resolveHeatmapLevelStyles,
-} from "./heatmap-colors"
+} from "./heatmap-colors";
 export {
   type HeatmapBin,
   type HeatmapColumn,
@@ -56,18 +56,84 @@ export {
   useHeatmap,
   useHeatmapInteraction,
   useHeatmapInteractionOptional,
-} from "./heatmap-context"
+} from "./heatmap-context";
 export {
   HEATMAP_LEGEND_LEVELS,
   HeatmapLegend,
   type HeatmapLegendProps,
-} from "./heatmap-legend"
-export { HeatmapTooltip, type HeatmapTooltipProps } from "./heatmap-tooltip"
+  type HeatmapLegendVariant,
+} from "./heatmap-legend";
 export {
+  resolveHeatmapSeparatorConfig,
+  resolveHeatmapSeparatorConfigWithData,
+} from "./heatmap-resolve-separator";
+export {
+  HeatmapSeparator,
+  type HeatmapSeparatorProps,
+} from "./heatmap-separator";
+export { HeatmapTooltip, type HeatmapTooltipProps } from "./heatmap-tooltip";
+export {
+  buildHeatmapLegendGradient,
+  buildHeatmapQuarterSeparatorGroups,
+  buildHeatmapRowOpacity,
+  buildHeatmapSeparatorGradientStops,
+  countHeatmapWeekDaysOnOrAfter,
   filterHeatmapColumns,
+  findHeatmapColumnIndexForDate,
   formatHeatmapContributionLabel,
+  formatHeatmapTooltipDate,
+  formatHeatmapTooltipWeekday,
+  formatHeatmapYAxisLabel,
+  getCalendarQuarter,
+  getCalendarQuarterStartDatesBetween,
+  getHeatmapCalendarRangeStart,
+  getHeatmapColumnMonthAnchor,
+  getHeatmapColumnQuarterAnchor,
+  getHeatmapColumnXOffset,
   getHeatmapContributionLevel,
+  getHeatmapDayLabels,
+  getHeatmapMonthLabelColumnIndex,
+  getHeatmapPlotInnerWidth,
+  getHeatmapSeparatorColumnIndices,
+  getHeatmapSeparatorCount,
+  getHeatmapSeparatorGroupStartColumn,
+  getHeatmapSeparatorLineY,
+  getHeatmapSeparatorX,
   getHeatmapTimeExtent,
-} from "./heatmap-utils"
-export { HeatmapXAxis, type HeatmapXAxisProps } from "./heatmap-x-axis"
-export { HeatmapYAxis, type HeatmapYAxisProps } from "./heatmap-y-axis"
+  getHeatmapWeekCount,
+  getHeatmapWeekStartAlignedToRange,
+  getHeatmapWeekStartSunday,
+  getHeatmapYearStartMonth,
+  HEATMAP_DAY_LABELS,
+  HEATMAP_MONTHS_ONE_YEAR,
+  HEATMAP_MONTHS_SIX,
+  HEATMAP_WEEKS_ONE_YEAR,
+  type HeatmapDisplayRange,
+  type HeatmapHoverStyleParams,
+  type HeatmapSeparatorGradient,
+  type HeatmapSeparatorGradientStop,
+  type HeatmapSeparatorGroup,
+  type HeatmapSeparatorGroupBy,
+  type HeatmapSeparatorLayout,
+  type HeatmapSeparatorParsedConfig,
+  type HeatmapSeparatorStrokeStyle,
+  type HeatmapWeekRange,
+  type HeatmapWeekStartDay,
+  type HeatmapYAxisLabelFormat,
+  type HeatmapYAxisTickFilter,
+  inferHeatmapCalendarRangeStart,
+  isHeatmapGhostBin,
+  isHeatmapHoverEffectEnabled,
+  isHeatmapInactiveEffectEnabled,
+  resolveHeatmapDisplayRange,
+  resolveHeatmapHoverStyle,
+  resolveHeatmapInactiveStyle,
+  resolveHeatmapRowOpacity,
+  resolveHeatmapSeparatorLayout,
+  resolveHeatmapSeparatorStrokeDasharray,
+  resolveHeatmapWeekRange,
+  rotateHeatmapColumnBins,
+  shouldShowHeatmapYAxisTick,
+} from "./heatmap-utils";
+export { HeatmapXAxis, type HeatmapXAxisProps } from "./heatmap-x-axis";
+export { HeatmapYAxis, type HeatmapYAxisProps } from "./heatmap-y-axis";

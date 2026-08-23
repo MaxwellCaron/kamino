@@ -12,7 +12,8 @@ import {
   DialogTitle,
 } from "@workspace/ui/components/dialog"
 import { cn } from "@workspace/ui/lib/utils"
-import { useRef } from "react"
+import { TabsList } from "@workspace/ui/components/tabs"
+import { useLayoutEffect, useRef } from "react"
 import { HugeiconsIcon } from "@hugeicons/react"
 import type { ComponentProps, ReactNode } from "react"
 import type { IconSvgElement } from "@hugeicons/react"
@@ -26,7 +27,10 @@ function Freeze({
   children: ReactNode
 }) {
   const frozen = useRef(children)
-  if (!freeze) frozen.current = children
+  useLayoutEffect(() => {
+    if (!freeze) frozen.current = children
+  }, [children, freeze])
+
   return <>{freeze ? frozen.current : children}</>
 }
 
@@ -48,39 +52,6 @@ type AppAlertDialogHeaderProps = {
   variant?: AppDialogVariant
 }
 
-function AppAlertDialogHeader({
-  description,
-  descriptionProps,
-  icon: Icon,
-  title,
-  variant = "default",
-}: AppAlertDialogHeaderProps) {
-  return (
-    <AlertDialogHeader>
-      <AlertDialogTitle className="flex items-center gap-2">
-        {variant === "child" ? (
-          <>
-            {Icon ? <HugeiconsIcon icon={Icon} /> : null}
-            <span>{title}</span>
-          </>
-        ) : (
-          <>
-            {Icon ? (
-              <HugeiconsIcon icon={Icon} className="text-muted-foreground" />
-            ) : null}
-            <span className="text-2xl font-semibold tracking-tight">
-              {title}
-            </span>
-          </>
-        )}
-      </AlertDialogTitle>
-      <AlertDialogDescription {...descriptionProps}>
-        {description}
-      </AlertDialogDescription>
-    </AlertDialogHeader>
-  )
-}
-
 type AppAlertDialogContentProps = ComponentProps<typeof AlertDialogContent> &
   AppAlertDialogHeaderProps & {
     open?: boolean
@@ -97,16 +68,36 @@ export function AppAlertDialogContent({
   className,
   ...props
 }: AppAlertDialogContentProps) {
+  const Icon = icon
+
   return (
     <AlertDialogContent className={cn("sm:max-w-xl", className)} {...props}>
       <Freeze freeze={open === false}>
-        <AppAlertDialogHeader
-          description={description}
-          descriptionProps={descriptionProps}
-          icon={icon}
-          title={title}
-          variant={variant}
-        />
+        <AlertDialogHeader>
+          <AlertDialogTitle className="flex items-center gap-2">
+            {variant === "child" ? (
+              <>
+                {Icon ? <HugeiconsIcon icon={Icon} /> : null}
+                <span>{title}</span>
+              </>
+            ) : (
+              <>
+                {Icon ? (
+                  <HugeiconsIcon
+                    icon={Icon}
+                    className="text-muted-foreground"
+                  />
+                ) : null}
+                <span className="text-2xl font-semibold tracking-tight">
+                  {title}
+                </span>
+              </>
+            )}
+          </AlertDialogTitle>
+          <AlertDialogDescription {...descriptionProps}>
+            {description}
+          </AlertDialogDescription>
+        </AlertDialogHeader>
         {children}
       </Freeze>
     </AlertDialogContent>
@@ -116,40 +107,10 @@ export function AppAlertDialogContent({
 type AppDialogHeaderProps = {
   description: ReactNode
   descriptionProps?: Omit<ComponentProps<typeof DialogDescription>, "children">
+  headerAfter?: ReactNode
   icon?: AppDialogIcon
   title: string
   variant?: AppDialogVariant
-}
-
-export function AppDialogHeader({
-  description,
-  descriptionProps,
-  icon: Icon,
-  title,
-  variant = "default",
-}: AppDialogHeaderProps) {
-  return (
-    <DialogHeader>
-      <DialogTitle className="flex items-center gap-2">
-        {variant === "child" ? (
-          <>
-            {Icon ? <HugeiconsIcon icon={Icon} /> : null}
-            <span>{title}</span>
-          </>
-        ) : (
-          <>
-            {Icon ? (
-              <HugeiconsIcon icon={Icon} className="text-muted-foreground" />
-            ) : null}
-            <span className="text-2xl font-semibold tracking-tight">
-              {title}
-            </span>
-          </>
-        )}
-      </DialogTitle>
-      <DialogDescription {...descriptionProps}>{description}</DialogDescription>
-    </DialogHeader>
-  )
 }
 
 type AppDialogContentProps = ComponentProps<typeof DialogContent> &
@@ -161,6 +122,7 @@ export function AppDialogContent({
   children,
   description,
   descriptionProps,
+  headerAfter,
   icon,
   title,
   variant = "default",
@@ -168,16 +130,37 @@ export function AppDialogContent({
   className,
   ...props
 }: AppDialogContentProps) {
+  const Icon = icon
+
   return (
     <DialogContent className={cn("sm:max-w-xl", className)} {...props}>
       <Freeze freeze={open === false}>
-        <AppDialogHeader
-          description={description}
-          descriptionProps={descriptionProps}
-          icon={icon}
-          title={title}
-          variant={variant}
-        />
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            {variant === "child" ? (
+              <>
+                {Icon ? <HugeiconsIcon icon={Icon} /> : null}
+                <span>{title}</span>
+              </>
+            ) : (
+              <>
+                {Icon ? (
+                  <HugeiconsIcon
+                    icon={Icon}
+                    className="text-muted-foreground"
+                  />
+                ) : null}
+                <span className="text-2xl font-semibold tracking-tight">
+                  {title}
+                </span>
+              </>
+            )}
+          </DialogTitle>
+          <DialogDescription {...descriptionProps}>
+            {description}
+          </DialogDescription>
+          {headerAfter}
+        </DialogHeader>
         {children}
       </Freeze>
     </DialogContent>
@@ -223,6 +206,15 @@ export function AppDialogScrollBody({
       )}
       {...props}
     />
+  )
+}
+
+export function AppDialogHeaderTabs({
+  className,
+  ...props
+}: ComponentProps<typeof TabsList>) {
+  return (
+    <TabsList className={cn("mt-3 w-full border-b", className)} {...props} />
   )
 }
 

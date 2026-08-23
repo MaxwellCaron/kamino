@@ -1,4 +1,4 @@
-import { useRef } from "react"
+import { useLayoutEffect, useRef, useState } from "react"
 import { Alert01Icon, InformationCircleIcon } from "@hugeicons/core-free-icons"
 import {
   AlertDialog,
@@ -66,13 +66,15 @@ export function ConfirmDialog({
   config: ConfirmConfig | null
   onClose: () => void
 }) {
-  const prevConfigRef = useRef<ConfirmConfig | null>(null)
-  const sessionKeyRef = useRef(0)
+  const prevConfigRef = useRef(config)
+  const [sessionKey, setSessionKey] = useState(config === null ? 0 : 1)
 
-  if (config !== prevConfigRef.current && config !== null) {
-    sessionKeyRef.current += 1
-  }
-  prevConfigRef.current = config
+  useLayoutEffect(() => {
+    if (config !== prevConfigRef.current && config !== null) {
+      setSessionKey((current) => current + 1)
+    }
+    prevConfigRef.current = config
+  }, [config])
 
   return (
     <AlertDialog
@@ -83,7 +85,7 @@ export function ConfirmDialog({
     >
       {config ? (
         <ConfirmDialogSession
-          key={sessionKeyRef.current}
+          key={sessionKey}
           config={config}
           onClose={onClose}
         />

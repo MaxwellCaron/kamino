@@ -11,10 +11,13 @@ import (
 
 func RegisterRoutes(
 	r *gin.Engine,
+	health *handlers.HealthHandler,
 	authHandler *handlers.AuthHandler,
 	authService *auth.Service,
+	sessionManager *auth.SessionManager,
 	inventory *handlers.InventoryHandler,
 	vnc *handlers.VNCHandler,
+	console *handlers.ConsoleHandler,
 	vm *handlers.VMHandler,
 	vmCreate *handlers.VMCreateHandler,
 	pods *handlers.PodsHandler,
@@ -29,23 +32,31 @@ func RegisterRoutes(
 	v1 := r.Group("/api/v1")
 	protected := v1
 
-	// Health check endpoint for container orchestration
-	v1.GET("/health", func(c *gin.Context) {
-		c.JSON(200, gin.H{"status": "ok"})
-	})
+	// Health endpoints for container orchestration (public, before auth middleware)
+	v1.GET("/health", health.Liveness)
+	v1.GET("/ready", health.Readiness)
 
 	// Public auth endpoints
 	if authHandler != nil {
 		authGroup := v1.Group("/auth")
-		authGroup.POST("/login", middleware.LoginRateLimit(10, time.Minute), authHandler.Login)
-		authGroup.POST("/refresh", authHandler.Refresh)
-		authGroup.POST("/logout", authHandler.Logout)
+		authGroup.POST(
+			"/login",
+			middleware.IPRateLimit(10, time.Minute, "too many login attempts, try again later"),
+			authHandler.Login,
+		)
+		authGroup.POST(
+			"/refresh",
+			middleware.RequireCSRFHeader(),
+			middleware.IPRateLimit(30, time.Minute, "too many refresh attempts, try again later"),
+			authHandler.Refresh,
+		)
+		authGroup.POST("/logout", middleware.RequireCSRFHeader(), authHandler.Logout)
 	}
 
 	// Apply auth middleware to all remaining routes when auth is configured
 	if authService != nil {
 		protected = v1.Group("")
-		protected.Use(middleware.Auth(authService))
+		protected.Use(middleware.RequireCSRFHeader(), middleware.Auth(authService, sessionManager))
 	}
 
 	// Authenticated: current user info
@@ -67,6 +78,7 @@ func RegisterRoutes(
 	protected.POST("/inventory/folders", inventory.CreateFolder)
 	protected.POST("/inventory/folders/:id/rename", inventory.RenameFolder)
 	protected.PUT("/inventory/folders/:id/vm-limit", inventory.UpdateFolderVMLimit)
+	protected.POST("/inventory/folders/:id/ensure-proxmox-pool", inventory.EnsureFolderProxmoxPool)
 	protected.DELETE("/inventory/folders/:id", inventory.DeleteFolder)
 
 	// VM endpoints
@@ -76,7 +88,7 @@ func RegisterRoutes(
 	protected.DELETE("/inventory/vms", vm.DeleteVM)
 	protected.GET("/inventory/items/:id/vm/resources", vm.GetResources)
 	protected.GET("/inventory/items/:id/vm/hardware", vm.GetHardware)
-	protected.GET("/inventory/items/:id/vm/networking", vm.GetNetworking)
+	protected.GET("/inventory/items/:id/vm/overview", vm.GetOverview)
 	protected.POST("/inventory/items/:id/vm/rename", vm.RenameVM)
 	protected.POST("/inventory/items/:id/vm/clone", vm.CloneVM)
 	protected.PUT("/inventory/items/:id/vm/hardware", vm.UpdateHardware)
@@ -120,6 +132,7 @@ func RegisterRoutes(
 		protected.DELETE("/pods/published/:id/clones/:cloneID", pods.DeletePublishedPodClone)
 		protected.POST("/pods/published/:id/clone-actions", pods.BulkActionPublishedPodClones)
 		protected.GET("/pods/clones/progress/:id", pods.GetCloneProgress)
+		protected.GET("/pods/clones/progress-batches/:id", pods.GetCloneProgressBatch)
 		protected.POST("/pods/clones/:id/reclone", pods.RecloneClonedPod)
 		protected.POST("/pods/clones/:id/power", pods.PowerClonedPod)
 		protected.DELETE("/pods/clones/:id", pods.DeleteClonedPod)
@@ -130,12 +143,20 @@ func RegisterRoutes(
 		protected.GET("/pods/catalog/:slug/clone", pods.GetCatalogPodClone)
 		protected.POST("/pods/catalog/:slug/clone", pods.CloneCatalogPod)
 		protected.GET("/pods/catalog/clones/summary", pods.ListCatalogCloneSummaries)
+		protected.GET("/pods/router-clone/options", pods.GetRouterCloneOptions)
+		protected.POST("/pods/router-clone", pods.CloneRouter)
+		protected.GET("/pods/clone-targets", pods.ListPodCloneTargets)
+		protected.POST("/pods/clone-targets", pods.CreatePodCloneTarget)
+		protected.PUT("/pods/clone-targets/:key", pods.UpdatePodCloneTarget)
+		protected.DELETE("/pods/clone-targets/:key", pods.DeletePodCloneTarget)
 		protected.POST("/pods", pods.Create)
 	}
 
 	// SDN endpoints
+	protected.POST("/sdn/apply", sdn.ApplySDN)
 	protected.GET("/sdn/vnets", sdn.GetVNets)
 	protected.POST("/sdn/vnets", sdn.CreateVNet)
+	protected.POST("/sdn/vnets/bulk", sdn.CreateVNets)
 	protected.DELETE("/sdn/vnets", sdn.DeleteVNets)
 	protected.PUT("/sdn/vnets/:vnet", sdn.UpdateVNet)
 	protected.GET("/sdn/zones", sdn.GetSDNZones)
@@ -148,6 +169,7 @@ func RegisterRoutes(
 
 	if requests != nil {
 		protected.GET("/requests", requests.List)
+		protected.GET("/requests/counts", requests.Counts)
 		protected.GET("/requests/mine", requests.ListMine)
 		protected.POST("/requests/personal-pod", requests.SubmitPersonalPod)
 		protected.POST("/requests/inventory/items/:id/vm/power", requests.SubmitInventoryPower)
@@ -172,6 +194,7 @@ func RegisterRoutes(
 
 	// Principals endpoints (AD users & groups)
 	if principals != nil {
+		protected.GET("/principals/provider", principals.GetProvider)
 		protected.GET("/principals/users", principals.ListUsers)
 		protected.POST("/principals/users", principals.CreateUser)
 		protected.DELETE("/principals/users", principals.DeleteUsers)
@@ -181,6 +204,7 @@ func RegisterRoutes(
 		protected.POST("/principals/users/:id/enable", principals.EnableUser)
 		protected.POST("/principals/users/:id/disable", principals.DisableUser)
 		protected.GET("/principals/users/:id/groups", principals.GetUserGroups)
+		protected.PUT("/principals/users/:id/groups", principals.SetUserGroups)
 
 		protected.GET("/principals/groups", principals.ListGroups)
 		protected.POST("/principals/groups", principals.CreateGroup)
@@ -196,4 +220,7 @@ func RegisterRoutes(
 	// VNC proxy endpoints
 	protected.POST("/inventory/items/:id/vm/vnc/proxy", vnc.PostProxy)
 	protected.GET("/vnc/ws", vnc.WebSocket)
+
+	// Console endpoints
+	protected.POST("/inventory/items/:id/vm/console/spice-config", console.DownloadSPICEConfig)
 }

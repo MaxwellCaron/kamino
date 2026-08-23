@@ -1,18 +1,17 @@
 import { getRouteApi, notFound } from "@tanstack/react-router"
 import { useQuery } from "@tanstack/react-query"
-import { VmDashboardSkeleton } from "./vm-dashboard-skeleton"
-import { VncConsole } from "@/features/vms/components/dashboard/vnc-console"
 import {
   inventoryItemQueryOptions,
   inventoryTreeQueryOptions,
 } from "@/features/inventory/api/inventory-api"
 import { findInventoryTreeNode as findTreeNode } from "@/features/inventory/utils/inventory-tree"
 import {
-  vmNetworksQueryOptions,
-  vmResourcesQueryOptions,
+  vmOverviewQueryOptions,
   vmStatusQueryOptions,
 } from "@/features/vms/api/vm-api"
+import { useVmDashboardResources } from "@/features/vms/hooks/use-vm-dashboard-resources"
 import { getVmCapabilities } from "@/features/inventory/utils/inventory-capabilities"
+import { useIsVncSessionPinned } from "@/features/vms/components/dashboard/vnc-session-visibility-context"
 import { SnapshotsTable } from "@/features/vms/components/dashboard/snapshot-table"
 import { VmHeader } from "@/features/vms/components/dashboard/vm-header"
 import { VmNotes } from "@/features/vms/components/dashboard/vm-notes"
@@ -54,84 +53,87 @@ export function VmDashboardPage() {
   const isVmRunning = powerStatus === "running"
   const isLoading = isTreeLoading || (!treeNode && isItemLoading)
   const shouldFetchResources = !!vm && !isTemplate && isVmRunning
-  const { data: resources } = useQuery({
-    ...vmResourcesQueryOptions(itemId),
-    enabled: shouldFetchResources,
-  })
-  const shouldFetchNetworks = !!vm
+  const isConsolePinned = useIsVncSessionPinned(itemId)
+  const shouldFetchOverview = !!vm
   const {
-    data: networks,
-    isError: isNetworksError,
-    isLoading: isNetworksLoading,
+    data: overview,
+    isError: isOverviewError,
+    isPending: isOverviewPending,
   } = useQuery({
-    ...vmNetworksQueryOptions(itemId),
-    enabled: shouldFetchNetworks,
+    ...vmOverviewQueryOptions(itemId),
+    enabled: shouldFetchOverview,
   })
-  const capabilities = getVmCapabilities(node?.permissions, { isTemplate })
+  const { data: resources } = useVmDashboardResources({
+    itemId,
+    enabled: shouldFetchResources && !isConsolePinned,
+    overviewSettled: shouldFetchOverview && !isOverviewPending,
+    initialResources: overview?.resources,
+  })
+  const capabilities = getVmCapabilities(node?.permissions, {
+    isTemplate,
+    guestType: vm?.guest_type,
+  })
   const canManageSnapshots = capabilities.snapshot.mode === "direct"
   const canViewSnapshots = capabilities.viewSnapshots.enabled
   const canRequestSnapshots = capabilities.snapshot.mode === "request"
-  const canUseConsole = capabilities.console.enabled
+  if (!isLoading) {
+    if (!node && isItemError) {
+      if (isApiErrorStatus(itemError, 404)) {
+        throw notFound()
+      }
 
-  if (isLoading) {
-    return <VmDashboardSkeleton />
-  }
-
-  if (!node && isItemError) {
-    if (isApiErrorStatus(itemError, 404)) {
-      throw notFound()
+      throw itemError
     }
 
-    throw itemError
-  }
-
-  if (!node || !vm) {
-    throw notFound()
+    if (!node || !vm) {
+      throw notFound()
+    }
   }
 
   return (
-    <div className="@container/main flex flex-1 flex-col gap-2">
-      <div className="flex flex-col gap-4 px-4 py-4 md:gap-6 md:py-6 lg:px-6">
-        <VmHeader
-          node={node}
-          itemId={itemId}
-          vm={vm}
-          powerStatus={powerStatus}
-          resources={shouldFetchResources ? resources : undefined}
-          networks={networks?.networks}
-          isNetworksLoading={isNetworksLoading}
-          isNetworksError={isNetworksError}
-          isTemplate={isTemplate}
-        />
-        <div className="grid grid-cols-1 gap-4 md:gap-6 lg:grid-cols-3">
-          <VmPowerControls
+    <div className="@container/main relative flex flex-1 flex-col gap-2">
+      {node && vm && (
+        <div className="flex flex-col gap-4 px-4 py-4 md:gap-6 md:py-6 lg:px-6">
+          <VmHeader
             node={node}
             itemId={itemId}
             vm={vm}
             powerStatus={powerStatus}
+            resources={shouldFetchResources ? resources : undefined}
+            networks={overview?.networks}
+            addresses={vm.addresses}
+            isNetworksLoading={isOverviewPending}
+            isNetworksError={isOverviewError}
             isTemplate={isTemplate}
           />
-          <div className={isTemplate ? "lg:col-span-3" : "lg:col-span-2"}>
-            <VmNotes node={node} itemId={itemId} vm={vm} />
+          <div className="grid grid-cols-1 gap-4 md:gap-6 lg:grid-cols-3">
+            <VmPowerControls
+              node={node}
+              itemId={itemId}
+              vm={vm}
+              powerStatus={powerStatus}
+              isTemplate={isTemplate}
+            />
+            <div className={isTemplate ? "lg:col-span-3" : "lg:col-span-2"}>
+              <VmNotes node={node} itemId={itemId} vm={vm} />
+            </div>
           </div>
+          {capabilities.viewSnapshots.enabled && (
+            <SnapshotsTable
+              itemId={itemId}
+              vmid={vm.vmid}
+              vmName={node.name}
+              guestType={vm.guest_type}
+              isTemplate={isTemplate}
+              permissions={{
+                canView: canViewSnapshots,
+                canManage: canManageSnapshots,
+                canRequest: canRequestSnapshots,
+              }}
+            />
+          )}
         </div>
-        {capabilities.viewSnapshots.enabled && (
-          <SnapshotsTable
-            itemId={itemId}
-            vmid={vm.vmid}
-            vmName={node.name}
-            isTemplate={isTemplate}
-            permissions={{
-              canView: canViewSnapshots,
-              canManage: canManageSnapshots,
-              canRequest: canRequestSnapshots,
-            }}
-          />
-        )}
-        {!isTemplate && canUseConsole && (
-          <VncConsole key={itemId} itemId={itemId} powerStatus={powerStatus} />
-        )}
-      </div>
+      )}
     </div>
   )
 }

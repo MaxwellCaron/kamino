@@ -1,8 +1,17 @@
 import * as React from "react"
 import { useForm } from "@tanstack/react-form"
 import { useMutation, useQueryClient } from "@tanstack/react-query"
-import { Add01Icon, PencilEdit01Icon } from "@hugeicons/core-free-icons"
+import {
+  Add01Icon,
+  NotebookIcon,
+  PencilEdit01Icon,
+  RegexIcon,
+  UserGroupIcon,
+} from "@hugeicons/core-free-icons"
+import { HugeiconsIcon } from "@hugeicons/react"
 import { DialogFooter } from "@workspace/ui/components/dialog"
+import { FieldError } from "@workspace/ui/components/field"
+import { Tabs, TabsTrigger } from "@workspace/ui/components/tabs"
 import type {
   ApiBulkCreateResponse,
   ApiPrincipal,
@@ -11,12 +20,14 @@ import type {
 import type { CreateMode } from "@/features/principals/components/groups/group-dialog-utils"
 import {
   AppDialog,
+  AppDialogHeaderTabs,
   AppDialogPrimaryButton,
+  AppDialogScrollBody,
   nestedDialogAnimationClassName,
 } from "@/components/dialogs/app-dialog"
 import {
-  showMutationToast,
   showSingleMutationToast,
+  showUnitMutationToast,
 } from "@/components/feedback/mutation-progress-toast"
 import { BulkCreateResultsSummary } from "@/features/principals/components/create-results-summary"
 import {
@@ -74,7 +85,7 @@ export function GroupDialog({
 
       await invalidatePrincipals
       if (result.failures.length > 0) {
-        setResultSummary(result)
+        setResultSummary(() => result)
       }
     },
   })
@@ -108,44 +119,24 @@ export function GroupDialog({
         input,
       }))
 
-      showMutationToast({
+      showUnitMutationToast({
         title: "Creating groups",
-        items: groupItems.map(({ id, input }) => ({
-          id,
-          name: input.name,
-          successDescription: "Created",
-          retry: async () => {
+        units: groupItems.map(({ id, input }) => ({
+          items: [
+            {
+              id,
+              name: input.name,
+              successDescription: "Created",
+            },
+          ],
+          run: async () => {
             const result = await createGroups([input])
             const failure = result.failures.at(0)
-            if (failure !== undefined) throw new Error(failure.error)
+            if (failure) {
+              return { failed: [{ id, error: failure.error }] }
+            }
           },
         })),
-        runMutation: async () => {
-          const result = await createGroups(payload)
-          const errorsByName = new Map<string, Array<string>>()
-
-          for (const failure of result.failures) {
-            const errors = errorsByName.get(failure.name) ?? []
-            errors.push(failure.error)
-            errorsByName.set(failure.name, errors)
-          }
-
-          const succeeded: Array<string> = []
-          const failed: Array<{ id: string; error: string }> = []
-
-          for (const { id, input } of groupItems) {
-            const errors = errorsByName.get(input.name)
-            const error = errors?.shift()
-
-            if (error) {
-              failed.push({ id, error })
-            } else {
-              succeeded.push(id)
-            }
-          }
-
-          return { succeeded, failed }
-        },
       })
     },
   })
@@ -160,58 +151,104 @@ export function GroupDialog({
     setResultSummary(null)
   }, [resetFields])
 
-  return (
-    <AppDialog
-      open={open}
-      onOpenChange={onOpenChange}
-      onClosed={resetDialog}
-      initialFocus={false}
-      className={nestedDialogAnimationClassName}
-      icon={isEdit ? PencilEdit01Icon : Add01Icon}
-      title={isEdit ? "Edit Group" : "Create Groups"}
-      description={
-        isEdit
-          ? `Update the group account details for ${group.name ?? group.external_id}.`
-          : "Create one or more groups in Kamino."
-      }
+  const dialogProps = {
+    open,
+    onOpenChange,
+    onClosed: resetDialog,
+    className: nestedDialogAnimationClassName,
+    icon: isEdit ? PencilEdit01Icon : Add01Icon,
+    title: isEdit ? "Edit Group" : "Create Groups",
+    description: isEdit
+      ? `Update the group account details for ${group.name ?? group.external_id}.`
+      : "Create one or more groups in Kamino.",
+  }
+
+  const formContent = (
+    <form
+      action={() => {
+        void form.handleSubmit()
+      }}
     >
-      <form
-        action={() => {
-          void form.handleSubmit()
-        }}
+      {isEdit ? (
+        <GroupDialogEditForm form={form} />
+      ) : (
+        <AppDialogScrollBody>
+          <GroupDialogCreateForm form={form} />
+        </AppDialogScrollBody>
+      )}
+
+      <form.Subscribe selector={(state) => state.canSubmit}>
+        {(canSubmit) =>
+          canSubmit ? null : (
+            <FieldError>Correct the highlighted fields to continue.</FieldError>
+          )
+        }
+      </form.Subscribe>
+
+      <DialogFooter>
+        <form.Subscribe selector={(state) => state.isSubmitting}>
+          {(isSubmitting) => (
+            <AppDialogPrimaryButton pending={isSubmitting}>
+              {isEdit ? "Save" : "Create"}
+            </AppDialogPrimaryButton>
+          )}
+        </form.Subscribe>
+      </DialogFooter>
+    </form>
+  )
+
+  const resultSummaryDialog = resultSummary ? (
+    <BulkCreateResultsSummary
+      entityLabel="group"
+      open={true}
+      onOpenChange={(nextOpen) => {
+        if (!nextOpen) {
+          setResultSummary(null)
+        }
+      }}
+      result={resultSummary}
+    />
+  ) : null
+
+  if (isEdit) {
+    return (
+      <>
+        <AppDialog {...dialogProps}>{formContent}</AppDialog>
+        {resultSummaryDialog}
+      </>
+    )
+  }
+
+  return (
+    <>
+      <Tabs
+        value={mode}
+        onValueChange={(value) => setMode(value as CreateMode)}
+        className="gap-0"
       >
-        {isEdit ? (
-          <GroupDialogEditForm form={form} />
-        ) : (
-          <GroupDialogCreateForm form={form} mode={mode} setMode={setMode} />
-        )}
-
-        <DialogFooter className="mt-6">
-          <form.Subscribe selector={(state) => state.isSubmitting}>
-            {(isSubmitting) => (
-              <AppDialogPrimaryButton
-                pending={isSubmitting}
-                pendingLabel={isEdit ? "Saving..." : "Creating..."}
-              >
-                {isEdit ? "Save" : "Create"}
-              </AppDialogPrimaryButton>
-            )}
-          </form.Subscribe>
-        </DialogFooter>
-      </form>
-
-      {resultSummary ? (
-        <BulkCreateResultsSummary
-          entityLabel="group"
-          open={true}
-          onOpenChange={(nextOpen) => {
-            if (!nextOpen) {
-              setResultSummary(null)
-            }
-          }}
-          result={resultSummary}
-        />
-      ) : null}
-    </AppDialog>
+        <AppDialog
+          {...dialogProps}
+          headerAfter={
+            <AppDialogHeaderTabs>
+              <TabsTrigger value="single">
+                <HugeiconsIcon icon={UserGroupIcon} />
+                Single
+              </TabsTrigger>
+              <TabsTrigger value="list">
+                <HugeiconsIcon icon={NotebookIcon} />
+                List
+              </TabsTrigger>
+              <TabsTrigger value="prefix">
+                <HugeiconsIcon icon={RegexIcon} />
+                Prefix
+              </TabsTrigger>
+            </AppDialogHeaderTabs>
+          }
+        >
+          {formContent}
+        </AppDialog>
+      </Tabs>
+      {resultSummaryDialog}
+    </>
   )
 }

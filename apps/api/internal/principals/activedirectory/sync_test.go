@@ -1,10 +1,40 @@
 package activedirectory
 
 import (
+	"context"
 	"testing"
 
 	"github.com/google/uuid"
 )
+
+type readOnlyDirectorySyncClient struct {
+	groups []Group
+	users  []User
+}
+
+func (c *readOnlyDirectorySyncClient) FetchGroups(context.Context) ([]Group, error) {
+	return c.groups, nil
+}
+
+func (c *readOnlyDirectorySyncClient) FetchUsers(context.Context) ([]User, error) {
+	return c.users, nil
+}
+
+func TestSyncClientRequiresOnlyProviderReads(t *testing.T) {
+	client := &readOnlyDirectorySyncClient{
+		groups: []Group{{SID: "S-1-GROUP"}},
+		users:  []User{{SID: "S-1-USER"}},
+	}
+	sync := NewSync(nil, client)
+
+	groups, err := sync.client.FetchGroups(context.Background())
+	if err != nil {
+		t.Fatalf("FetchGroups() error = %v", err)
+	}
+	if len(groups) != 1 || groups[0].SID != "S-1-GROUP" {
+		t.Fatalf("groups = %#v", groups)
+	}
+}
 
 func TestCreatesCycle(t *testing.T) {
 	a := uuid.New()

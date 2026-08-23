@@ -1,4 +1,10 @@
-import { useCallback, useLayoutEffect, useRef, useState } from "react"
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from "react"
 import {
   dragAndDropFeature,
   expandAllFeature,
@@ -20,6 +26,9 @@ interface UseInventoryHeadlessTreeOptions {
   children: Map<string, Array<string>>
   items: Map<string, ApiTreeNode>
   folderIds: Array<string>
+  isReadOnly?: boolean
+  isSearchActive?: boolean
+  searchExpandedItemIds?: Array<string>
   parentIds: Map<string, string>
   onMove: (itemIds: Array<string>, parentId: string) => void
   onPrimaryAction: (itemId: string, data: ApiTreeNode) => void
@@ -33,10 +42,21 @@ interface SelectionDataRef {
   selectUpToAnchorId?: string | null
 }
 
-const STORAGE_KEY = "kamino-inventory-expanded"
+const STORAGE_KEY = "kamino-inventory-expanded:v1"
+const NO_SEARCH_EXPANDED_ITEMS: Array<string> = []
 
 function folderIdsKey(folderIds: Array<string>) {
   return folderIds.join("\0")
+}
+
+function expandedItemsEqual(
+  left: Array<string>,
+  right: Array<string>
+): boolean {
+  return (
+    left.length === right.length &&
+    left.every((itemId, index) => itemId === right[index])
+  )
 }
 
 function updateExpandedItems(
@@ -95,17 +115,16 @@ export function useInventoryHeadlessTree({
   children,
   items,
   folderIds,
+  isReadOnly = false,
+  isSearchActive = false,
+  searchExpandedItemIds = NO_SEARCH_EXPANDED_ITEMS,
   parentIds,
   onMove,
   onPrimaryAction,
   selectedItemIds,
   setSelectedItemIds,
 }: UseInventoryHeadlessTreeOptions) {
-  const itemsRef = useRef(items)
-  const childrenRef = useRef(children)
   const scrollToItemHandlerRef = useRef<((itemId: string) => void) | null>(null)
-  itemsRef.current = items
-  childrenRef.current = children
 
   const [expandedItems, setExpandedItems] = useState<Array<string>>(() => {
     if (typeof window === "undefined") return []
@@ -120,16 +139,55 @@ export function useInventoryHeadlessTree({
     return folderIds
   })
 
+  const preSearchExpandedRef = useRef<Array<string> | null>(null)
+  const effectiveExpandedItems = isSearchActive
+    ? searchExpandedItemIds
+    : expandedItems
+
   const handleExpandedChange = useCallback(
     (updater: Array<string> | ((prev: Array<string>) => Array<string>)) => {
+      if (isSearchActive) {
+        return
+      }
+
       setExpandedItems((prev) => {
         const next = typeof updater === "function" ? updater(prev) : updater
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(next))
+
+        if (expandedItemsEqual(next, prev)) {
+          return prev
+        }
+
         return next
       })
     },
-    []
+    [isSearchActive]
   )
+
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(expandedItems))
+  }, [expandedItems])
+
+  useLayoutEffect(() => {
+    if (isSearchActive) {
+      if (preSearchExpandedRef.current === null) {
+        preSearchExpandedRef.current = expandedItems
+      }
+      return
+    }
+
+    if (preSearchExpandedRef.current === null) {
+      return
+    }
+
+    const snapshot = preSearchExpandedRef.current
+    preSearchExpandedRef.current = null
+
+    if (expandedItemsEqual(snapshot, expandedItems)) {
+      return
+    }
+
+    setExpandedItems(snapshot)
+  }, [expandedItems, isSearchActive])
 
   const handleDrop = useCallback(
     (
@@ -155,8 +213,8 @@ export function useInventoryHeadlessTree({
     getItemName: (item) => item.getItemData().name,
     isItemFolder: (item) => item.getItemData().kind === "folder",
     dataLoader: {
-      getItem: (itemId) => itemsRef.current.get(itemId) ?? VIRTUAL_ROOT,
-      getChildren: (itemId) => childrenRef.current.get(itemId) ?? [],
+      getItem: (itemId) => items.get(itemId) ?? VIRTUAL_ROOT,
+      getChildren: (itemId) => children.get(itemId) ?? [],
     },
     features: [
       syncDataLoaderFeature,
@@ -166,7 +224,7 @@ export function useInventoryHeadlessTree({
     ],
     indent: TREE_INDENT,
     canReorder: false,
-    canDrag: (draggedItems) => draggedItems.length > 0,
+    canDrag: (draggedItems) => !isReadOnly && draggedItems.length > 0,
     canDrop: (_items, target) => {
       const data = target.item.getItemData()
       return data.kind === "folder"
@@ -186,12 +244,10 @@ export function useInventoryHeadlessTree({
       scrollToItemHandlerRef.current?.(item.getId())
     },
     state: {
-      expandedItems,
+      expandedItems: effectiveExpandedItems,
       selectedItems: selectedItemIds,
     },
-    setExpandedItems: (updater) => {
-      handleExpandedChange(updater)
-    },
+    setExpandedItems: handleExpandedChange,
     setSelectedItems: (updater) => {
       setSelectedItemIds((prev) =>
         typeof updater === "function" ? updater(prev) : updater
@@ -228,27 +284,37 @@ export function useInventoryHeadlessTree({
   }, [folderIds, tree])
 
   const selectionDataRef = tree.getDataRef<SelectionDataRef>()
-  const anchorId = selectionDataRef.current.selectUpToAnchorId
+  useLayoutEffect(() => {
+    const anchorId = selectionDataRef.current.selectUpToAnchorId
 
-  if (anchorId && !items.has(anchorId)) {
-    selectionDataRef.current.selectUpToAnchorId = null
-  } else if (selectedItemIds.length === 0) {
-    selectionDataRef.current.selectUpToAnchorId = null
-  } else if (
-    selectedItemIds.length === 1 &&
-    items.has(selectedItemIds[0]) &&
-    anchorId !== selectedItemIds[0]
-  ) {
-    selectionDataRef.current.selectUpToAnchorId = selectedItemIds[0]
-  }
+    if (anchorId && !items.has(anchorId)) {
+      selectionDataRef.current.selectUpToAnchorId = null
+    } else if (selectedItemIds.length === 0) {
+      selectionDataRef.current.selectUpToAnchorId = null
+    } else if (
+      selectedItemIds.length === 1 &&
+      items.has(selectedItemIds[0]) &&
+      anchorId !== selectedItemIds[0]
+    ) {
+      selectionDataRef.current.selectUpToAnchorId = selectedItemIds[0]
+    }
+  }, [items, selectedItemIds, selectionDataRef])
 
   const expandAll = useCallback(() => {
-    updateExpandedItems(tree, folderIds)
-  }, [folderIds, tree])
+    if (isSearchActive) {
+      return
+    }
+
+    handleExpandedChange(folderIds)
+  }, [folderIds, handleExpandedChange, isSearchActive])
 
   const collapseAll = useCallback(() => {
-    updateExpandedItems(tree, [])
-  }, [tree])
+    if (isSearchActive) {
+      return
+    }
+
+    handleExpandedChange([])
+  }, [handleExpandedChange, isSearchActive])
 
   const revealItem = useCallback(
     async (itemId: string) => {

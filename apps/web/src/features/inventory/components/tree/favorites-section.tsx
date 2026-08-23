@@ -16,9 +16,12 @@ import { useCallback, useMemo, useSyncExternalStore } from "react"
 import { HugeiconsIcon } from "@hugeicons/react"
 import { ViewIcon, ViewOffSlashIcon } from "@hugeicons/core-free-icons"
 import { buttonVariants } from "@workspace/ui/components/button"
-import { InventoryNodeMenu } from "../inventory-actions"
+import { InventoryNodeMenu } from "../inventory-actions/inventory-node-menu"
 import { InventoryNodeIcon } from "../inventory-node-icon"
-import { useInventoryTreeContext } from "./inventory-tree-context"
+import {
+  useInventoryTreeDataContext,
+  useInventoryTreeViewContext,
+} from "./inventory-tree-context"
 import type { ApiTreeNode } from "../../types/inventory-types"
 import { animateContainer, animateTableRow } from "@/components/animate"
 
@@ -120,7 +123,8 @@ function FavoriteItemCard({
 }
 
 export function InventoryFavoritesSection() {
-  const { favoriteIds, getStatus, getItemData } = useInventoryTreeContext()
+  const { favoriteIds } = useInventoryTreeViewContext()
+  const { getStatus, getItemData } = useInventoryTreeDataContext()
   const { favoritesOpen, setFavoritesOpen } = useFavoritesSectionState()
 
   const favoriteItems = useMemo(() => {

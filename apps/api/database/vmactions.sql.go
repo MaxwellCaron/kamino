@@ -9,6 +9,7 @@ import (
 	"context"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 const claimVMAction = `-- name: ClaimVMAction :one
@@ -48,23 +49,17 @@ func (q *Queries) ClaimVMAction(ctx context.Context, arg ClaimVMActionParams) (V
 	return i, err
 }
 
-const getVMActionClaim = `-- name: GetVMActionClaim :one
-SELECT inventory_item_id, action, actor_principal_id, claimed_at, detail
-FROM vm_action_claims
-WHERE inventory_item_id = $1
+const deleteStaleVMActionClaims = `-- name: DeleteStaleVMActionClaims :execrows
+DELETE FROM vm_action_claims
+WHERE claimed_at < $1
 `
 
-func (q *Queries) GetVMActionClaim(ctx context.Context, inventoryItemID uuid.UUID) (VmActionClaims, error) {
-	row := q.db.QueryRow(ctx, getVMActionClaim, inventoryItemID)
-	var i VmActionClaims
-	err := row.Scan(
-		&i.InventoryItemID,
-		&i.Action,
-		&i.ActorPrincipalID,
-		&i.ClaimedAt,
-		&i.Detail,
-	)
-	return i, err
+func (q *Queries) DeleteStaleVMActionClaims(ctx context.Context, claimedAt pgtype.Timestamptz) (int64, error) {
+	result, err := q.db.Exec(ctx, deleteStaleVMActionClaims, claimedAt)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
 }
 
 const releaseVMAction = `-- name: ReleaseVMAction :exec

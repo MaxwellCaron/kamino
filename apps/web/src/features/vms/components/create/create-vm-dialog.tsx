@@ -1,4 +1,4 @@
-import { useRef, useState } from "react"
+import { useEffect, useLayoutEffect, useRef, useState } from "react"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { useNavigate } from "@tanstack/react-router"
 import { useSelector } from "@tanstack/react-store"
@@ -10,11 +10,7 @@ import {
 } from "@hugeicons/core-free-icons"
 import { toast } from "sonner"
 import { Button } from "@workspace/ui/components/button"
-import {
-  Dialog,
-  DialogContent,
-  DialogFooter,
-} from "@workspace/ui/components/dialog"
+import { Dialog, DialogFooter } from "@workspace/ui/components/dialog"
 import {
   Stepper,
   StepperContent,
@@ -31,7 +27,14 @@ import {
   CreateVmMethodStep,
   CreateVmSummaryStep,
 } from "./create-vm-steps"
-import type { CreateVmFormValues } from "@/features/vms/components/create/create-vm-form"
+import type { ComponentProps } from "react"
+import type {
+  CreateVmFormValues,
+  VmTemplateOption,
+} from "@/features/vms/components/create/create-vm-form"
+import type { InventoryFolderOption } from "@/features/inventory/utils/inventory-tree"
+import type { NetworkData } from "@/features/vms/components/create/create-vm-step-utils"
+import type { ApiISO, ApiNode, ApiStorage } from "@/features/vms/types/vm-types"
 import {
   createVmFormOptions,
   createVmFormSchema,
@@ -41,16 +44,17 @@ import {
   useCreateVmForm,
 } from "@/features/vms/components/create/create-vm-form"
 import {
-  AppDialogHeader,
+  AppDialogContent,
   AppDialogPrimaryButton,
   AppDialogScrollBody,
 } from "@/components/dialogs/app-dialog"
 import { InlineErrorAlert } from "@/components/feedback/inline-error-alert"
-import { DialogBodySkeleton } from "@/components/loading-skeletons"
+import { PreloadOverlay } from "@/components/loading-overlay"
 import {
   getInventoryFolderOptions,
   getSelectedFolder,
 } from "@/features/inventory/utils/inventory-tree"
+import { InventoryPermissionKeys } from "@/features/inventory/utils/inventory-permissions"
 import { toastCreateVm } from "@/features/vms/utils/vm-toasts"
 import {
   inventoryTreeQueryOptions,
@@ -69,12 +73,151 @@ const steps = [
 ] as const
 
 type StepValue = (typeof steps)[number]["value"]
+type CreateVmDialogFormApi = ComponentProps<typeof CreateVmMethodStep>["form"]
 
 function getTemplateCloneName(
   values: CreateVmFormValues,
   templateName: string | undefined
 ) {
   return values.name.trim() || templateName || `vm-${values.vmid}`
+}
+
+function CreateVmStepperList() {
+  return (
+    <StepperList className="px-4">
+      {steps.map((entry) => (
+        <StepperItem key={entry.value} value={entry.value}>
+          <StepperTrigger aria-label={entry.title}>
+            <StepperIndicator />
+          </StepperTrigger>
+          <StepperSeparator />
+        </StepperItem>
+      ))}
+    </StepperList>
+  )
+}
+
+function CreateVmStepPanels({
+  form,
+  templateOptions,
+  folderOptions,
+  nodes,
+  diskStorages,
+  isoStorages,
+  isos,
+  networks,
+  isLoading,
+  error,
+}: {
+  form: CreateVmDialogFormApi
+  templateOptions: Array<VmTemplateOption>
+  folderOptions: Array<InventoryFolderOption>
+  nodes: Array<ApiNode>
+  diskStorages: Array<ApiStorage>
+  isoStorages: Array<ApiStorage>
+  isos: Array<ApiISO>
+  networks: NetworkData | undefined
+  isLoading: boolean
+  error: unknown
+}) {
+  return (
+    <AppDialogScrollBody className="relative h-[40vh]">
+      <PreloadOverlay active={isLoading} label="Loading VM creation options" />
+      {error ? (
+        <InlineErrorAlert
+          error={error}
+          fallback="Failed to load VM creation options."
+        />
+      ) : !isLoading ? (
+        <>
+          <StepperContent value="method">
+            <CreateVmMethodStep form={form} />
+          </StepperContent>
+
+          <StepperContent value="configuration">
+            <CreateVmConfigurationStep
+              form={form}
+              templateOptions={templateOptions}
+              nodes={nodes}
+              diskStorages={diskStorages}
+              isoStorages={isoStorages}
+              isos={isos}
+              networks={networks}
+            />
+          </StepperContent>
+
+          <StepperContent value="confirmation">
+            <CreateVmSummaryStep
+              form={form}
+              folderOptions={folderOptions}
+              templateOptions={templateOptions}
+            />
+          </StepperContent>
+        </>
+      ) : null}
+    </AppDialogScrollBody>
+  )
+}
+
+function CreateVmDialogFooter({
+  step,
+  navigationDisabled,
+  createDisabled,
+  createPending,
+  onCreate,
+}: {
+  step: StepValue
+  navigationDisabled: boolean
+  createDisabled: boolean
+  createPending: boolean
+  onCreate: () => void
+}) {
+  return (
+    <DialogFooter className="grid grid-cols-3 items-center">
+      <StepperPrev
+        render={
+          <Button
+            type="button"
+            size="icon"
+            variant="outline"
+            disabled={navigationDisabled}
+            aria-label="Previous step"
+          >
+            <HugeiconsIcon icon={ArrowLeft01Icon} />
+          </Button>
+        }
+      />
+
+      <div className="flex justify-center">
+        {step === "confirmation" ? (
+          <AppDialogPrimaryButton
+            type="button"
+            pending={createPending}
+            disabled={createDisabled}
+            onClick={onCreate}
+          >
+            Create
+          </AppDialogPrimaryButton>
+        ) : null}
+      </div>
+
+      <div className="flex justify-end">
+        <StepperNext
+          render={
+            <Button
+              type="button"
+              size="icon"
+              variant="outline"
+              disabled={navigationDisabled}
+              aria-label="Next step"
+            >
+              <HugeiconsIcon icon={ArrowRight01Icon} />
+            </Button>
+          }
+        />
+      </div>
+    </DialogFooter>
+  )
 }
 
 export function CreateVmDialog({
@@ -100,17 +243,16 @@ export function CreateVmDialog({
         parsed.template_id ?? ""
       )
 
+      if (parsed.method === "template" && !selectedTemplate) {
+        toast.error("Select a template before cloning.")
+        return
+      }
+
       onOpenChange(false)
 
       const promise =
         parsed.method === "template"
-          ? (() => {
-              if (!selectedTemplate) {
-                throw new Error("Select a template before cloning.")
-              }
-
-              return mutation.mutateAsync(parsed)
-            })()
+          ? mutation.mutateAsync(parsed)
           : parsed.method === "iso"
             ? mutation.mutateAsync(parsed)
             : Promise.reject(
@@ -130,6 +272,10 @@ export function CreateVmDialog({
     form.store,
     (state) => state.values.target_folder_id
   )
+  const selectedTemplateId = useSelector(
+    form.store,
+    (state) => state.values.template_id
+  )
 
   function resetDialog() {
     form.reset()
@@ -145,16 +291,16 @@ export function CreateVmDialog({
     enabled: open,
   })
   const inventoryTree = inventoryTreeData ?? []
-  const templateOptions = getVmTemplateOptions(inventoryTree)
-  const folderOptions = getInventoryFolderOptions(inventoryTree)
+  const folderOptions = getInventoryFolderOptions(
+    inventoryTree,
+    InventoryPermissionKeys.createVm
+  )
   const {
     data: createOptions,
     error: createOptionsError,
     isLoading: isCreateOptionsLoading,
-  } = useQuery({
-    ...createVmOptionsQueryOptions(selectedTargetFolderId || undefined),
-    enabled: open,
-  })
+  } = useQuery(createVmOptionsQueryOptions(selectedTargetFolderId, open))
+  const templateOptions = getVmTemplateOptions(createOptions?.templates)
   const { data: isos } = useQuery({
     ...createVmIsosQueryOptions(selectedIsoStorage),
     enabled: open && !!selectedIsoStorage,
@@ -166,7 +312,11 @@ export function CreateVmDialog({
   const diskStorages = createOptions?.disk_storages ?? []
   const isoStorages = createOptions?.iso_storages ?? []
   const networks = createOptions
-    ? { bridges: createOptions.bridges, vnets: createOptions.vnets }
+    ? {
+        bridges: createOptions.bridges,
+        vnets: createOptions.vnets,
+        scoped_network: createOptions.scoped_network,
+      }
     : undefined
 
   const mutation = useMutation({
@@ -210,13 +360,21 @@ export function CreateVmDialog({
     },
   })
 
-  if (open && folderOptions.length > 0 && !didPrefillTargetFolder.current) {
-    didPrefillTargetFolder.current = true
-    form.setFieldValue(
-      "target_folder_id",
-      getSelectedFolder(folderOptions, initialFolderId)?.id ?? ""
-    )
-  }
+  useLayoutEffect(() => {
+    if (open && folderOptions.length > 0 && !didPrefillTargetFolder.current) {
+      didPrefillTargetFolder.current = true
+      form.setFieldValue(
+        "target_folder_id",
+        getSelectedFolder(folderOptions, initialFolderId)?.id ?? ""
+      )
+    }
+  }, [folderOptions, form, initialFolderId, open])
+
+  useEffect(() => {
+    if (isLoadingInitialOptions || !selectedTemplateId) return
+    if (getSelectedTemplate(templateOptions, selectedTemplateId)) return
+    form.setFieldValue("template_id", "")
+  }, [form, isLoadingInitialOptions, selectedTemplateId, templateOptions])
 
   function handleCreate() {
     if (method === "upload") {
@@ -238,12 +396,12 @@ export function CreateVmDialog({
         }
       }}
     >
-      <DialogContent className="sm:max-w-xl" initialFocus={false}>
-        <AppDialogHeader
-          icon={ComputerIcon}
-          title="Create Virtual Machine"
-          description="Select a provisioning path, configure the VM, and review the final payload before Kamino submits it to Proxmox."
-        />
+      <AppDialogContent
+        open={open}
+        icon={ComputerIcon}
+        title="Create Virtual Machine"
+        description="Select a provisioning path, configure the VM, and review the final payload before Kamino submits it to Proxmox."
+      >
         <Stepper
           value={step}
           onValueChange={(value) => setStep(value as StepValue)}
@@ -256,109 +414,37 @@ export function CreateVmDialog({
             return Object.keys(errors).length === 0
           }}
         >
-          <StepperList className="px-4">
-            {steps.map((entry) => (
-              <StepperItem key={entry.value} value={entry.value}>
-                <StepperTrigger aria-label={entry.title}>
-                  <StepperIndicator />
-                </StepperTrigger>
-                <StepperSeparator />
-              </StepperItem>
-            ))}
-          </StepperList>
+          <CreateVmStepperList />
 
           <form action={() => {}}>
-            <AppDialogScrollBody className="h-[40vh]">
-              {initialOptionsError ? (
-                <InlineErrorAlert
-                  error={initialOptionsError}
-                  fallback="Failed to load VM creation options."
-                />
-              ) : isLoadingInitialOptions ? (
-                <DialogBodySkeleton rows={4} />
-              ) : (
-                <>
-                  <StepperContent value="method">
-                    <CreateVmMethodStep form={form} />
-                  </StepperContent>
-
-                  <StepperContent value="configuration">
-                    <CreateVmConfigurationStep
-                      form={form}
-                      templateOptions={templateOptions}
-                      nodes={nodes}
-                      diskStorages={diskStorages}
-                      isoStorages={isoStorages}
-                      isos={isos ?? []}
-                      networks={networks}
-                    />
-                  </StepperContent>
-
-                  <StepperContent value="confirmation">
-                    <CreateVmSummaryStep
-                      form={form}
-                      folderOptions={folderOptions}
-                      templateOptions={templateOptions}
-                    />
-                  </StepperContent>
-                </>
-              )}
-            </AppDialogScrollBody>
-
-            <DialogFooter className="grid grid-cols-3 items-center">
-              <StepperPrev
-                render={
-                  <Button
-                    type="button"
-                    size="icon"
-                    variant="outline"
-                    disabled={
-                      isLoadingInitialOptions || initialOptionsError !== null
-                    }
-                  >
-                    <HugeiconsIcon icon={ArrowLeft01Icon} />
-                  </Button>
-                }
-              />
-
-              <div className="flex justify-center">
-                {step === "confirmation" ? (
-                  <AppDialogPrimaryButton
-                    type="button"
-                    pending={mutation.isPending}
-                    pendingLabel="Creating..."
-                    disabled={
-                      isLoadingInitialOptions ||
-                      initialOptionsError !== null ||
-                      method === "upload"
-                    }
-                    onClick={handleCreate}
-                  >
-                    Create
-                  </AppDialogPrimaryButton>
-                ) : null}
-              </div>
-
-              <div className="flex justify-end">
-                <StepperNext
-                  render={
-                    <Button
-                      type="button"
-                      size="icon"
-                      variant="outline"
-                      disabled={
-                        isLoadingInitialOptions || initialOptionsError !== null
-                      }
-                    >
-                      <HugeiconsIcon icon={ArrowRight01Icon} />
-                    </Button>
-                  }
-                />
-              </div>
-            </DialogFooter>
+            <CreateVmStepPanels
+              form={form}
+              templateOptions={templateOptions}
+              folderOptions={folderOptions}
+              nodes={nodes}
+              diskStorages={diskStorages}
+              isoStorages={isoStorages}
+              isos={isos ?? []}
+              networks={networks}
+              isLoading={isLoadingInitialOptions}
+              error={initialOptionsError}
+            />
+            <CreateVmDialogFooter
+              step={step}
+              navigationDisabled={
+                isLoadingInitialOptions || initialOptionsError !== null
+              }
+              createDisabled={
+                isLoadingInitialOptions ||
+                initialOptionsError !== null ||
+                method === "upload"
+              }
+              createPending={mutation.isPending}
+              onCreate={handleCreate}
+            />
           </form>
         </Stepper>
-      </DialogContent>
+      </AppDialogContent>
     </Dialog>
   )
 }

@@ -60,6 +60,7 @@ export function createInventoryDeleteItems({
         <VmIcon
           status={getVmStatus(node.id)}
           isTemplate={node.vm.is_template}
+          guestType={node.vm.guest_type}
         />
       ),
       successDescription: "Deleted",

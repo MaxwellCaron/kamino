@@ -1,4 +1,4 @@
-import { useRef } from "react"
+import { useLayoutEffect, useRef, useState } from "react"
 import { useForm } from "@tanstack/react-form"
 import { Camera01Icon } from "@hugeicons/core-free-icons"
 import { z } from "zod"
@@ -16,6 +16,7 @@ import { Checkbox } from "@workspace/ui/components/checkbox"
 import {
   AppDialog,
   AppDialogPrimaryButton,
+  AppDialogScrollBody,
 } from "@/components/dialogs/app-dialog"
 import { CountedTextareaField } from "@/components/forms/counted-textarea-field"
 import {
@@ -60,25 +61,35 @@ type SnapshotDialogProps = {
   itemId: string
   vmid?: number
   vmName?: string
+  guestType?: "qemu" | "lxc"
   mode?: SnapshotDialogMode
   open: boolean
   onOpenChange: (open: boolean) => void
+}
+
+function useDialogSessionKey({ open }: { open: boolean }) {
+  const [sessionKey, setSessionKey] = useState(0)
+  const prevOpenRef = useRef(open)
+
+  useLayoutEffect(() => {
+    if (open && !prevOpenRef.current) {
+      setSessionKey((current) => current + 1)
+    }
+    prevOpenRef.current = open
+  }, [open])
+
+  return sessionKey
 }
 
 function DirectSnapshotDialog({
   itemId,
   vmid,
   vmName,
+  guestType,
   open,
   onOpenChange,
 }: SnapshotDialogProps) {
-  const sessionKeyRef = useRef(0)
-  const prevOpenRef = useRef(open)
-
-  if (open && !prevOpenRef.current) {
-    sessionKeyRef.current += 1
-  }
-  prevOpenRef.current = open
+  const sessionKey = useDialogSessionKey({ open })
 
   return (
     <AppDialog
@@ -92,8 +103,9 @@ function DirectSnapshotDialog({
       )}.`}
     >
       <DirectSnapshotForm
-        key={sessionKeyRef.current}
+        key={sessionKey}
         itemId={itemId}
+        guestType={guestType}
         onOpenChange={onOpenChange}
       />
     </AppDialog>
@@ -102,9 +114,11 @@ function DirectSnapshotDialog({
 
 function DirectSnapshotForm({
   itemId,
+  guestType,
   onOpenChange,
-}: Pick<SnapshotDialogProps, "itemId" | "onOpenChange">) {
+}: Pick<SnapshotDialogProps, "itemId" | "guestType" | "onOpenChange">) {
   const create = useCreateSnapshot(itemId)
+  const isLxc = guestType === "lxc"
 
   const form = useForm({
     defaultValues: {
@@ -124,7 +138,7 @@ function DirectSnapshotForm({
           itemId,
           snapname: parsed.snapname,
           description: parsed.description || undefined,
-          vmstate: parsed.vmstate,
+          vmstate: isLxc ? false : parsed.vmstate,
         }),
         parsed.snapname
       )
@@ -137,75 +151,84 @@ function DirectSnapshotForm({
         void form.handleSubmit()
       }}
     >
-      <FieldGroup>
-        <form.Field name="snapname">
-          {(field) => {
-            const isInvalid =
-              field.state.meta.isTouched && !field.state.meta.isValid
+      <AppDialogScrollBody>
+        <FieldGroup>
+          <form.Field name="snapname">
+            {(field) => {
+              const isInvalid =
+                field.state.meta.isTouched && !field.state.meta.isValid
 
-            return (
-              <Field data-invalid={isInvalid}>
-                <FieldLabel htmlFor="snapname">Name</FieldLabel>
-                <Input
-                  id="snapname"
-                  placeholder="my-snapshot"
-                  aria-invalid={isInvalid}
+              return (
+                <Field data-invalid={isInvalid}>
+                  <FieldLabel htmlFor="snapname">Name</FieldLabel>
+                  <Input
+                    id="snapname"
+                    placeholder="my-snapshot"
+                    aria-invalid={isInvalid}
+                    aria-errormessage={
+                      isInvalid ? "snapshot-name-error" : undefined
+                    }
+                    value={field.state.value}
+                    onChange={(event) => field.handleChange(event.target.value)}
+                    onBlur={field.handleBlur}
+                  />
+                  {isInvalid && (
+                    <FieldError
+                      id="snapshot-name-error"
+                      errors={field.state.meta.errors}
+                    />
+                  )}
+                </Field>
+              )
+            }}
+          </form.Field>
+          <form.Field name="description">
+            {(field) => {
+              const isInvalid =
+                field.state.meta.isTouched && !field.state.meta.isValid
+
+              return (
+                <CountedTextareaField
+                  id="description"
+                  label="Description"
+                  placeholder="Optional description..."
+                  isInvalid={isInvalid}
                   value={field.state.value}
-                  onChange={(event) => field.handleChange(event.target.value)}
+                  onValueChange={field.handleChange}
                   onBlur={field.handleBlur}
+                  maxLength={256}
+                  className="max-h-100"
+                  errors={isInvalid ? field.state.meta.errors : []}
                 />
-                {isInvalid && <FieldError errors={field.state.meta.errors} />}
-              </Field>
-            )
-          }}
-        </form.Field>
-        <form.Field name="description">
-          {(field) => {
-            const isInvalid =
-              field.state.meta.isTouched && !field.state.meta.isValid
-
-            return (
-              <CountedTextareaField
-                id="description"
-                label="Description"
-                placeholder="Optional description..."
-                isInvalid={isInvalid}
-                value={field.state.value}
-                onValueChange={field.handleChange}
-                onBlur={field.handleBlur}
-                maxLength={256}
-                className="max-h-100"
-                errors={isInvalid ? field.state.meta.errors : []}
-              />
-            )
-          }}
-        </form.Field>
-        <form.Field name="vmstate">
-          {(field) => (
-            <Field orientation="horizontal">
-              <Checkbox
-                id="vmstate"
-                checked={field.state.value}
-                onCheckedChange={(checked) => field.handleChange(!!checked)}
-              />
-              <FieldContent>
-                <FieldLabel htmlFor="vmstate">Include VM state</FieldLabel>
-                <FieldDescription>
-                  Save the RAM contents along with the snapshot. Uses more
-                  storage.
-                </FieldDescription>
-              </FieldContent>
-            </Field>
+              )
+            }}
+          </form.Field>
+          {!isLxc && (
+            <form.Field name="vmstate">
+              {(field) => (
+                <Field orientation="horizontal">
+                  <Checkbox
+                    id="vmstate"
+                    checked={field.state.value}
+                    onCheckedChange={(checked) => field.handleChange(!!checked)}
+                  />
+                  <FieldContent>
+                    <FieldLabel htmlFor="vmstate">Include VM state</FieldLabel>
+                    <FieldDescription>
+                      Save the RAM contents along with the snapshot. Uses more
+                      storage.
+                    </FieldDescription>
+                  </FieldContent>
+                </Field>
+              )}
+            </form.Field>
           )}
-        </form.Field>
-      </FieldGroup>
-      <DialogFooter className="mt-6">
+        </FieldGroup>
+      </AppDialogScrollBody>
+      <DialogFooter>
         <form.Subscribe selector={(state) => state.isSubmitting}>
           {(isSubmitting) => (
-            <AppDialogPrimaryButton
-              pending={isSubmitting}
-              pendingLabel="Creating..."
-            >
+            <AppDialogPrimaryButton pending={isSubmitting}>
               Create
             </AppDialogPrimaryButton>
           )}
@@ -222,13 +245,7 @@ function RequestSnapshotDialog({
   open,
   onOpenChange,
 }: SnapshotDialogProps) {
-  const sessionKeyRef = useRef(0)
-  const prevOpenRef = useRef(open)
-
-  if (open && !prevOpenRef.current) {
-    sessionKeyRef.current += 1
-  }
-  prevOpenRef.current = open
+  const sessionKey = useDialogSessionKey({ open })
 
   const vmReference = formatVmReference(vmid, vmName)
 
@@ -241,7 +258,7 @@ function RequestSnapshotDialog({
       description={`Approval required. Taking a snapshot for ${vmReference} will be added to the queue for review.`}
     >
       <RequestSnapshotForm
-        key={sessionKeyRef.current}
+        key={sessionKey}
         itemId={itemId}
         onOpenChange={onOpenChange}
       />
@@ -282,35 +299,45 @@ function RequestSnapshotForm({
         void form.handleSubmit()
       }}
     >
-      <FieldGroup>
-        <form.Field name="snapname">
-          {(field) => {
-            const isInvalid =
-              field.state.meta.isTouched && !field.state.meta.isValid
+      <AppDialogScrollBody>
+        <FieldGroup>
+          <form.Field name="snapname">
+            {(field) => {
+              const isInvalid =
+                field.state.meta.isTouched && !field.state.meta.isValid
 
-            return (
-              <Field data-invalid={isInvalid}>
-                <Input
-                  id="request-snapname"
-                  placeholder="snapshot-2026-04-22T15-04-05Z"
-                  aria-invalid={isInvalid}
-                  value={field.state.value}
-                  onChange={(event) => field.handleChange(event.target.value)}
-                  onBlur={field.handleBlur}
-                />
-                {isInvalid && <FieldError errors={field.state.meta.errors} />}
-              </Field>
-            )
-          }}
-        </form.Field>
-      </FieldGroup>
-      <DialogFooter className="mt-6">
+              return (
+                <Field data-invalid={isInvalid}>
+                  <FieldLabel htmlFor="request-snapname">
+                    Snapshot name
+                  </FieldLabel>
+                  <Input
+                    id="request-snapname"
+                    placeholder="snapshot-2026-04-22T15-04-05Z"
+                    aria-invalid={isInvalid}
+                    aria-errormessage={
+                      isInvalid ? "request-snapshot-name-error" : undefined
+                    }
+                    value={field.state.value}
+                    onChange={(event) => field.handleChange(event.target.value)}
+                    onBlur={field.handleBlur}
+                  />
+                  {isInvalid && (
+                    <FieldError
+                      id="request-snapshot-name-error"
+                      errors={field.state.meta.errors}
+                    />
+                  )}
+                </Field>
+              )
+            }}
+          </form.Field>
+        </FieldGroup>
+      </AppDialogScrollBody>
+      <DialogFooter>
         <form.Subscribe selector={(state) => state.isSubmitting}>
           {(isSubmitting) => (
-            <AppDialogPrimaryButton
-              pending={isSubmitting}
-              pendingLabel="Submitting..."
-            >
+            <AppDialogPrimaryButton pending={isSubmitting}>
               Submit
             </AppDialogPrimaryButton>
           )}

@@ -1,22 +1,24 @@
 import React from "react"
 import { useForm } from "@tanstack/react-form"
-import { useQuery, useQueryClient } from "@tanstack/react-query"
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { useSelector } from "@tanstack/react-store"
-import { toast } from "sonner"
 import { HugeiconsIcon } from "@hugeicons/react"
 import {
   Alert01Icon,
   LockPasswordIcon,
+  ReloadIcon,
   ShieldKeyIcon,
   UserSettings01Icon,
 } from "@hugeicons/core-free-icons"
 import {
   Alert,
+  AlertAction,
   AlertDescription,
   AlertTitle,
 } from "@workspace/ui/components/alert"
 import { Badge } from "@workspace/ui/components/badge"
-import { Dialog, DialogFooter } from "@workspace/ui/components/dialog"
+import { Button } from "@workspace/ui/components/button"
+import { DialogFooter } from "@workspace/ui/components/dialog"
 import {
   Empty,
   EmptyDescription,
@@ -46,7 +48,7 @@ import type {
 } from "@/features/auth/utils/management-permissions"
 import { ManagementPermissionKeys } from "@/features/auth/utils/management-permissions"
 import {
-  AppDialogContent,
+  AppDialog,
   AppDialogPrimaryButton,
   AppDialogScrollBody,
 } from "@/components/dialogs/app-dialog"
@@ -54,8 +56,8 @@ import {
   groupManagementAclQueryOptions,
   updateGroupManagementAcl,
 } from "@/features/principals/api/principals-api"
-import { DialogBodySkeleton } from "@/components/loading-skeletons"
-import { formatToastError } from "@/features/shared/utils/format"
+import { PreloadOverlay } from "@/components/loading-overlay"
+import { showSingleMutationToast } from "@/components/feedback/mutation-progress-toast"
 
 function getGroupLabel(group: ApiPrincipal) {
   return group.name ?? group.external_id
@@ -133,32 +135,41 @@ function GroupPermissionsForm({
   const queryClient = useQueryClient()
   const baselineRoleRef = React.useRef(initialRole)
 
+  const updateRole = useMutation({
+    mutationFn: (role: ManagementPermissionKey | "") =>
+      updateGroupManagementAcl(group.id, role ? [role] : []),
+    onSuccess: () =>
+      queryClient.invalidateQueries({
+        queryKey: ["principals", "groups", group.id, "management-access"],
+      }),
+  })
+
   const form = useForm({
     defaultValues: {
       role: initialRole,
     } satisfies RoleFormValues,
-    onSubmit: async ({ value }) => {
-      try {
-        await updateGroupManagementAcl(group.id, value.role ? [value.role] : [])
-        toast.success("Management role updated")
-        await queryClient.invalidateQueries({
-          queryKey: ["principals", "groups", group.id, "management-access"],
-        })
-        onOpenChange(false)
-      } catch (error) {
-        toast.error(formatToastError(error))
-      }
+    onSubmit: ({ value }) => {
+      onOpenChange(false)
+      showSingleMutationToast({
+        title: "Updating management role",
+        name: getGroupLabel(group),
+        promise: () => updateRole.mutateAsync(value.role),
+        successDescription: "Role updated",
+      })
     },
   })
 
-  React.useEffect(() => {
-    baselineRoleRef.current = initialRole
+  const [, forceRerender] = React.useReducer((tick: number) => tick + 1, 0)
+  const serverChanged = initialRole !== baselineRoleRef.current
+
+  const handleReload = () => {
     form.reset({ role: initialRole })
-  }, [form, initialRole])
+    baselineRoleRef.current = initialRole
+    forceRerender()
+  }
 
   const selectedRole = useSelector(form.store, (state) => state.values.role)
   const hasChanges = selectedRole !== baselineRoleRef.current
-  const isSubmitting = useSelector(form.store, (state) => state.isSubmitting)
 
   return (
     <form
@@ -168,6 +179,27 @@ function GroupPermissionsForm({
     >
       <AppDialogScrollBody>
         <div className="flex flex-col">
+          {serverChanged && (
+            <Alert className="mb-3">
+              <HugeiconsIcon icon={Alert01Icon} />
+              <AlertTitle>Management role changed</AlertTitle>
+              <AlertDescription>
+                The management role changed on the server while you were
+                editing.
+              </AlertDescription>
+              <AlertAction>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={handleReload}
+                >
+                  <HugeiconsIcon icon={ReloadIcon} data-icon="inline-start" />
+                  Reload
+                </Button>
+              </AlertAction>
+            </Alert>
+          )}
           {immutable ? (
             <Alert className="mb-3">
               <HugeiconsIcon icon={ShieldKeyIcon} />
@@ -195,6 +227,7 @@ function GroupPermissionsForm({
                 return (
                   <FieldSet>
                     <RadioGroup
+                      aria-label="Management role"
                       name={field.name}
                       value={field.state.value}
                       onValueChange={(value) =>
@@ -276,8 +309,7 @@ function GroupPermissionsForm({
       <DialogFooter>
         <AppDialogPrimaryButton
           disabled={controlsDisabled || immutable || !hasChanges}
-          pending={isSubmitting}
-          pendingLabel="Saving..."
+          pending={updateRole.isPending}
         >
           Save
         </AppDialogPrimaryButton>
@@ -295,6 +327,7 @@ export function GroupPermissionsDialog({
   open: boolean
   onOpenChange: (open: boolean) => void
 }) {
+  const [editorVersion, setEditorVersion] = React.useState(0)
   const {
     data: access,
     error: accessError,
@@ -318,18 +351,20 @@ export function GroupPermissionsDialog({
   )
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <AppDialogContent
-        open={open}
-        icon={LockPasswordIcon}
-        title="Management Roles"
-        description={`Choose the management role for ${getGroupLabel(group)}.`}
-      >
-        {isAccessLoading ? (
-          <AppDialogScrollBody>
-            <DialogBodySkeleton rows={3} />
-          </AppDialogScrollBody>
-        ) : isAccessError ? (
+    <AppDialog
+      open={open}
+      onOpenChange={onOpenChange}
+      onClosed={() => setEditorVersion((version) => version + 1)}
+      icon={LockPasswordIcon}
+      title="Management Roles"
+      description={`Choose the management role for ${getGroupLabel(group)}.`}
+    >
+      <div className="relative min-h-66">
+        <PreloadOverlay
+          active={isAccessLoading}
+          label="Loading management roles"
+        />
+        {isAccessError ? (
           <AppDialogScrollBody>
             <Empty className="border border-dashed">
               <EmptyHeader>
@@ -344,9 +379,9 @@ export function GroupPermissionsDialog({
               </EmptyHeader>
             </Empty>
           </AppDialogScrollBody>
-        ) : (
+        ) : !isAccessLoading ? (
           <GroupPermissionsForm
-            key={`${group.id}:${initialRole}`}
+            key={`${group.id}:${editorVersion}`}
             group={group}
             initialRole={initialRole}
             roleDefinitions={roleDefinitions}
@@ -355,8 +390,8 @@ export function GroupPermissionsDialog({
             controlsDisabled={controlsDisabled}
             onOpenChange={onOpenChange}
           />
-        )}
-      </AppDialogContent>
-    </Dialog>
+        ) : null}
+      </div>
+    </AppDialog>
   )
 }

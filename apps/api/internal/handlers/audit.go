@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"context"
 	"net/http"
 	"strconv"
 	"strings"
@@ -9,6 +10,7 @@ import (
 	"github.com/MaxwellCaron/kamino/internal/audit"
 	"github.com/MaxwellCaron/kamino/internal/authorization"
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 )
 
 // allowedTableRowCounts are the row-per-page options exposed by the shared
@@ -49,19 +51,25 @@ func parseRowsParam(raw string) (int32, bool) {
 	return int32(parsed), true
 }
 
+// auditAuthz is the narrow slice of authorization.Service that AuditHandler
+// needs, so tests can fake the management-permission decision.
+type auditAuthz interface {
+	RequireManagement(ctx context.Context, principalID uuid.UUID, required authorization.ManagementPermission) error
+}
+
 // AuditHandler serves admin audit ledger endpoints.
 type AuditHandler struct {
 	Audit *audit.Service
-	Authz *authorization.Service
+	Authz auditAuthz
 }
 
-func (h *AuditHandler) requireManager(c *gin.Context) bool {
+func (h *AuditHandler) requireAdministrator(c *gin.Context) bool {
 	principalID, ok := currentPrincipalID(c)
 	if !ok {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "authentication required"})
+		writeUnauthorized(c)
 		return false
 	}
-	return requireManagementPermission(c, h.Authz, principalID, authorization.ManagementPermissionManager)
+	return requireManagementPermission(c, h.Authz, principalID, authorization.ManagementPermissionAdministrator)
 }
 
 type actionEventResponse struct {
@@ -103,19 +111,16 @@ func buildActionEventResponse(row database.ListActionEventsPaginatedRow) actionE
 		ActorUsername: row.ActorUsername,
 	}
 	if row.ActorPrincipalID != nil {
-		s := row.ActorPrincipalID.String()
-		item.ActorPrincipalID = &s
+		item.ActorPrincipalID = new(row.ActorPrincipalID.String())
 	}
 	if row.InventoryItemID != nil {
-		s := row.InventoryItemID.String()
-		item.InventoryItemID = &s
+		item.InventoryItemID = new(row.InventoryItemID.String())
 	}
 	if row.InventoryItemName != "" {
 		item.InventoryItemName = &row.InventoryItemName
 	}
 	if row.InventoryItemParentID != nil {
-		s := row.InventoryItemParentID.String()
-		item.InventoryItemParentID = &s
+		item.InventoryItemParentID = new(row.InventoryItemParentID.String())
 	}
 	if row.InventoryItemParentName != "" {
 		item.InventoryItemParentName = &row.InventoryItemParentName
@@ -131,8 +136,7 @@ func buildActionEventResponse(row database.ListActionEventsPaginatedRow) actionE
 		item.InventoryVmVmid = &vmid
 	}
 	if row.PodID != nil {
-		s := row.PodID.String()
-		item.PodID = &s
+		item.PodID = new(row.PodID.String())
 	}
 	if row.PodTitle != "" {
 		item.PodTitle = &row.PodTitle
@@ -155,19 +159,19 @@ func buildActionEventResponse(row database.ListActionEventsPaginatedRow) actionE
 // List returns paginated action events.
 // GET /api/v1/admin/audit/actions
 func (h *AuditHandler) List(c *gin.Context) {
-	if !h.requireManager(c) {
+	if !h.requireAdministrator(c) {
 		return
 	}
 
 	page, ok := parsePageParam(c.Query("page"))
 	if !ok {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid page"})
+		writeInvalidRequest(c, "invalid page")
 		return
 	}
 
 	rows, ok := parseRowsParam(c.Query("rows"))
 	if !ok {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid rows"})
+		writeInvalidRequest(c, "invalid rows")
 		return
 	}
 

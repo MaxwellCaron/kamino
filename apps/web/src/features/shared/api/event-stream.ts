@@ -7,12 +7,30 @@ type JsonEventHandlers<TEvents extends object> = {
   ) => void
 }
 
+export type JsonEventStreamOpenInfo = {
+  reconnected: boolean
+}
+
+export type JsonEventStreamOptions = {
+  onOpen?: (info: JsonEventStreamOpenInfo) => void
+}
+
 export function subscribeToJsonEventStream<TEvents extends object>(
   path: string,
-  handlers: JsonEventHandlers<TEvents>
+  handlers: JsonEventHandlers<TEvents>,
+  options?: JsonEventStreamOptions
 ) {
+  let closed = false
+  let hasOpened = false
+
   const source = new EventSource(apiUrl(path), {
     withCredentials: true,
+  })
+
+  source.addEventListener("open", () => {
+    if (closed) return
+    options?.onOpen?.({ reconnected: hasOpened })
+    hasOpened = true
   })
 
   for (const eventType of Object.keys(handlers) as Array<
@@ -22,6 +40,8 @@ export function subscribeToJsonEventStream<TEvents extends object>(
     if (!handler) continue
 
     source.addEventListener(eventType, (event) => {
+      if (closed) return
+
       const message = event as MessageEvent<string>
 
       try {
@@ -33,6 +53,7 @@ export function subscribeToJsonEventStream<TEvents extends object>(
   }
 
   return () => {
+    closed = true
     source.close()
   }
 }

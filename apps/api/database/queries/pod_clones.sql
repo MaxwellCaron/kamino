@@ -1,0 +1,353 @@
+-- name: ListPublishedPodVMsForClone :many
+SELECT
+    id,
+    pod_id,
+    source_inventory_item_id,
+    name,
+    cpu_count,
+    memory_mb,
+    disk_gb,
+    allow_mask,
+    deny_mask,
+    is_router,
+    segment_key,
+    host_octet,
+    sort_order
+FROM published_pod_vms
+WHERE pod_id = $1
+ORDER BY sort_order ASC;
+
+-- name: GetClonedPodForPrincipalByPodID :one
+SELECT
+    id,
+    pod_id,
+    user_principal_id,
+    folder_id,
+    network_number,
+    network_profile_key,
+    clone_target_key,
+    created_at,
+    updated_at
+FROM cloned_pods
+WHERE pod_id = $1
+  AND user_principal_id = $2;
+
+-- name: GetAccessibleClonedPodByPodID :one
+SELECT
+    cp.id,
+    cp.pod_id,
+    cp.user_principal_id,
+    cp.folder_id,
+    cp.network_number,
+    cp.network_profile_key,
+    cp.clone_target_key,
+    cp.created_at,
+    cp.updated_at
+FROM cloned_pods cp
+WHERE cp.pod_id = sqlc.arg(pod_id)
+  AND cp.user_principal_id IN (
+      SELECT ep.principal_id::UUID
+      FROM get_user_effective_principals(sqlc.arg(principal_id)) AS ep(principal_id)
+  )
+ORDER BY
+    CASE WHEN cp.user_principal_id = sqlc.arg(principal_id) THEN 0 ELSE 1 END,
+    cp.created_at DESC
+LIMIT 1;
+
+-- name: ListAccessibleClonedPodSummariesByPodIDs :many
+SELECT DISTINCT ON (cp.pod_id)
+    cp.id,
+    cp.pod_id,
+    cp.user_principal_id,
+    cp.created_at,
+    COUNT(DISTINCT question.id)::int AS question_total,
+    COUNT(DISTINCT answer.question_id)
+        FILTER (WHERE answer.is_correct)::int AS question_answered
+FROM cloned_pods cp
+LEFT JOIN published_pod_tasks task
+  ON task.pod_id = cp.pod_id
+LEFT JOIN published_pod_task_questions question
+  ON question.task_id = task.id
+LEFT JOIN cloned_pod_question_answers answer
+  ON answer.cloned_pod_id = cp.id
+ AND answer.question_id = question.id
+WHERE cp.pod_id = ANY(sqlc.arg(column_1)::UUID[])
+  AND cp.user_principal_id IN (
+      SELECT ep.principal_id::UUID
+      FROM get_user_effective_principals(sqlc.arg(principal_id)) AS ep(principal_id)
+  )
+GROUP BY
+    cp.id,
+    cp.pod_id,
+    cp.user_principal_id,
+    cp.created_at
+ORDER BY
+    cp.pod_id,
+    CASE WHEN cp.user_principal_id = sqlc.arg(principal_id) THEN 0 ELSE 1 END,
+    cp.created_at DESC;
+
+-- name: ListClonedPodSummariesByPodID :many
+SELECT
+    cp.id,
+    cp.pod_id,
+    cp.user_principal_id,
+    p.principal_type,
+    (
+    CASE
+        WHEN p.full_name IS NULL OR lower(trim(p.full_name)) = lower(COALESCE(NULLIF(trim(p.name), ''), p.external_id))
+            THEN COALESCE(NULLIF(trim(p.name), ''), p.external_id)
+        ELSE COALESCE(NULLIF(trim(p.name), ''), p.external_id) || ' (' || trim(p.full_name) || ')'
+    END
+    )::TEXT AS user_label,
+    COALESCE(p.description, '') AS user_description,
+    cp.folder_id,
+    cp.network_number,
+    cp.network_profile_key,
+    cp.clone_target_key,
+    cp.created_at,
+    cp.updated_at,
+    COUNT(DISTINCT cpv.inventory_item_id)::int AS vm_count,
+    COUNT(DISTINCT question.id)::int AS question_total,
+    COUNT(DISTINCT answer.question_id)
+        FILTER (WHERE answer.is_correct)::int AS question_answered
+FROM cloned_pods cp
+JOIN principals p
+  ON p.id = cp.user_principal_id
+LEFT JOIN cloned_pod_vms cpv
+  ON cpv.cloned_pod_id = cp.id
+LEFT JOIN published_pod_tasks task
+  ON task.pod_id = cp.pod_id
+LEFT JOIN published_pod_task_questions question
+  ON question.task_id = task.id
+LEFT JOIN cloned_pod_question_answers answer
+  ON answer.cloned_pod_id = cp.id
+ AND answer.question_id = question.id
+WHERE cp.pod_id = $1
+GROUP BY
+    cp.id,
+    cp.pod_id,
+    cp.user_principal_id,
+    p.principal_type,
+    p.name,
+    p.full_name,
+    p.external_id,
+    p.description,
+    cp.folder_id,
+    cp.network_number,
+    cp.clone_target_key,
+    cp.created_at,
+    cp.updated_at
+ORDER BY cp.created_at DESC;
+
+-- name: ListClonedPodsByPodID :many
+SELECT
+    id,
+    pod_id,
+    user_principal_id,
+    folder_id,
+    network_number,
+    network_profile_key,
+    clone_target_key,
+    created_at,
+    updated_at
+FROM cloned_pods
+WHERE pod_id = $1
+ORDER BY created_at DESC;
+
+-- name: GetClonedPodByID :one
+SELECT
+    id,
+    pod_id,
+    user_principal_id,
+    folder_id,
+    network_number,
+    network_profile_key,
+    clone_target_key,
+    created_at,
+    updated_at
+FROM cloned_pods
+WHERE id = $1;
+
+-- name: ListClonedPodRuntimeVMsByCloneIDs :many
+SELECT
+    cpv.cloned_pod_id,
+    cpv.inventory_item_id,
+    ii.name,
+    pv.node,
+    pv.vmid,
+    cpv.sort_order
+FROM cloned_pod_vms cpv
+JOIN inventory_items ii
+  ON ii.id = cpv.inventory_item_id
+LEFT JOIN proxmox_vms pv
+  ON pv.inventory_item_id = cpv.inventory_item_id
+WHERE cpv.cloned_pod_id = ANY(sqlc.arg(clone_ids)::UUID[])
+ORDER BY cpv.cloned_pod_id, cpv.sort_order ASC;
+
+-- name: GetAccessibleClonedPodByID :one
+SELECT
+    cp.id,
+    cp.pod_id,
+    cp.user_principal_id,
+    cp.folder_id,
+    cp.network_number,
+    cp.network_profile_key,
+    cp.clone_target_key,
+    cp.created_at,
+    cp.updated_at
+FROM cloned_pods cp
+WHERE cp.id = sqlc.arg(id)
+  AND cp.user_principal_id IN (
+      SELECT ep.principal_id::UUID
+      FROM get_user_effective_principals(sqlc.arg(principal_id)) AS ep(principal_id)
+  );
+
+-- name: InsertClonedPod :one
+WITH existing_batch AS (
+    SELECT pna.allocation_batch_start
+    FROM pod_network_allocations pna
+    WHERE pna.allocation_batch_id = sqlc.narg(allocation_batch_id)::UUID
+    ORDER BY pna.allocation_batch_start ASC NULLS LAST
+    LIMIT 1
+),
+contiguous_start AS (
+    SELECT n::INTEGER AS network_start
+    FROM generate_series(
+        sqlc.arg(min_network_number)::INTEGER,
+        sqlc.arg(max_network_number)::INTEGER - sqlc.arg(allocation_batch_size)::INTEGER + 1
+    ) AS n
+    WHERE sqlc.narg(allocation_batch_id)::UUID IS NOT NULL
+      AND NOT EXISTS (
+          SELECT 1
+          FROM pod_network_allocations pna
+          WHERE pna.network_number BETWEEN n AND n + sqlc.arg(allocation_batch_size)::INTEGER - 1
+      )
+    ORDER BY n
+    LIMIT 1
+),
+batch_choice AS (
+    SELECT existing_batch.allocation_batch_start AS network_start
+    FROM existing_batch
+
+    UNION ALL
+
+    SELECT contiguous_start.network_start
+    FROM contiguous_start
+    WHERE NOT EXISTS (SELECT 1 FROM existing_batch)
+
+    UNION ALL
+
+    SELECT NULL::INTEGER
+    WHERE sqlc.narg(allocation_batch_id)::UUID IS NOT NULL
+      AND NOT EXISTS (SELECT 1 FROM existing_batch)
+      AND NOT EXISTS (SELECT 1 FROM contiguous_start)
+
+    LIMIT 1
+),
+preferred_candidate AS (
+    SELECT
+        batch_choice.network_start + sqlc.arg(allocation_batch_index)::INTEGER AS network_number,
+        batch_choice.network_start
+    FROM batch_choice
+    WHERE batch_choice.network_start IS NOT NULL
+      AND batch_choice.network_start + sqlc.arg(allocation_batch_index)::INTEGER
+          BETWEEN sqlc.arg(min_network_number)::INTEGER AND sqlc.arg(max_network_number)::INTEGER
+      AND NOT EXISTS (
+          SELECT 1
+          FROM pod_network_allocations pna
+          WHERE pna.network_number = batch_choice.network_start + sqlc.arg(allocation_batch_index)::INTEGER
+      )
+),
+candidate AS (
+    SELECT choices.network_number, choices.network_start
+    FROM (
+        SELECT
+            preferred_candidate.network_number,
+            preferred_candidate.network_start,
+            0 AS priority
+        FROM preferred_candidate
+
+        UNION ALL
+
+        SELECT
+            n::INTEGER AS network_number,
+            NULL::INTEGER AS network_start,
+            1 AS priority
+        FROM generate_series(sqlc.arg(min_network_number)::INTEGER, sqlc.arg(max_network_number)::INTEGER) AS n
+        WHERE NOT EXISTS (
+            SELECT 1
+            FROM pod_network_allocations pna
+            WHERE pna.network_number = n
+        )
+    ) AS choices
+    ORDER BY choices.priority, choices.network_number
+    LIMIT 1
+),
+allocation AS (
+    INSERT INTO pod_network_allocations (
+        network_number,
+        kind,
+        network_profile_key,
+        clone_target_key,
+        allocation_batch_id,
+        allocation_batch_start,
+        folder_id
+    )
+    SELECT
+        candidate.network_number,
+        'published_clone',
+        sqlc.arg(network_profile_key),
+        sqlc.arg(clone_target_key),
+        sqlc.narg(allocation_batch_id),
+        candidate.network_start,
+        sqlc.arg(folder_id)
+    FROM candidate
+    RETURNING id, network_number
+),
+inserted AS (
+    INSERT INTO cloned_pods (
+        id,
+        pod_id,
+        user_principal_id,
+        folder_id,
+        network_number,
+        network_profile_key,
+        clone_target_key
+    )
+    SELECT
+        sqlc.arg(id),
+        sqlc.arg(pod_id),
+        sqlc.arg(user_principal_id),
+        sqlc.arg(folder_id),
+        allocation.network_number,
+        sqlc.arg(network_profile_key),
+        sqlc.arg(clone_target_key)
+    FROM allocation
+    RETURNING
+        id,
+        pod_id,
+        user_principal_id,
+        folder_id,
+        network_number,
+        network_profile_key,
+        clone_target_key,
+        created_at,
+        updated_at
+),
+_link AS (
+    UPDATE pod_network_allocations AS pna
+    SET cloned_pod_id = inserted.id
+    FROM inserted, allocation
+    WHERE pna.id = allocation.id
+)
+SELECT
+    id,
+    pod_id,
+    user_principal_id,
+    folder_id,
+    network_number,
+    network_profile_key,
+    clone_target_key,
+    created_at,
+    updated_at
+FROM inserted;

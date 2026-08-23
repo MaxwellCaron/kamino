@@ -1,4 +1,3 @@
-import { m } from "motion/react"
 import { HugeiconsIcon } from "@hugeicons/react"
 import {
   Card,
@@ -8,7 +7,6 @@ import {
 } from "@workspace/ui/components/card"
 import { cn } from "@workspace/ui/lib/utils"
 import type { DashboardStat } from "../utils/dashboard-types"
-import { animateChild, animateContainer } from "@/components/animate"
 
 export function DashboardStatsGrid({
   className,
@@ -18,16 +16,11 @@ export function DashboardStatsGrid({
   stats: Array<DashboardStat>
 }) {
   return (
-    <m.div
-      className={cn("grid grid-cols-2 gap-4 lg:grid-cols-4", className)}
-      initial="hidden"
-      animate="show"
-      variants={animateContainer}
-    >
+    <div className={cn("grid grid-cols-2 gap-4 lg:grid-cols-4", className)}>
       {stats.map((stat) => {
         return (
-          <m.div key={stat.label} variants={animateChild}>
-            <Card key={stat.label} className="min-h-36">
+          <div key={stat.label}>
+            <Card className="h-full min-h-36">
               <CardHeader className="pb-2">
                 <HugeiconsIcon
                   icon={stat.icon}
@@ -39,9 +32,9 @@ export function DashboardStatsGrid({
                 </CardTitle>
               </CardHeader>
             </Card>
-          </m.div>
+          </div>
         )
       })}
-    </m.div>
+    </div>
   )
 }

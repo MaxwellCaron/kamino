@@ -17,10 +17,15 @@ import {
   ComboboxList,
 } from "@workspace/ui/components/combobox"
 import {
+  ItemContent,
+  ItemDescription,
+  ItemMedia,
+  ItemTitle,
+} from "@workspace/ui/components/item"
+import {
   CloneFullCloneField,
   CloneNameField,
   CloneNodeField,
-  CloneVmidField,
 } from "./clone-form-fields"
 import {
   createVmFormOptions,
@@ -30,6 +35,8 @@ import {
 import { formatFieldError } from "./create-vm-step-utils"
 import type { VmTemplateOption } from "./create-vm-form"
 import type { ApiNode } from "@/features/vms/types/vm-types"
+import { VMIDField } from "@/components/vms/vmid-field"
+import { VmIcon } from "@/components/status/vm-icon"
 
 export const TemplateConfigurationFields = withCreateVmForm({
   ...createVmFormOptions,
@@ -60,11 +67,11 @@ export const TemplateConfigurationFields = withCreateVmForm({
                     value={
                       getSelectedTemplate(
                         templateOptions,
-                        field.state.value as string
+                        field.state.value
                       ) ?? null
                     }
                     onValueChange={(template: VmTemplateOption | null) =>
-                      field.handleChange(template?.name ?? "")
+                      field.handleChange(template?.id ?? "")
                     }
                     autoHighlight
                   >
@@ -80,7 +87,15 @@ export const TemplateConfigurationFields = withCreateVmForm({
                       <ComboboxList>
                         {(template: VmTemplateOption) => (
                           <ComboboxItem key={template.id} value={template}>
-                            {template.label}
+                            <ItemMedia variant="icon">
+                              <VmIcon isTemplate status={undefined} />
+                            </ItemMedia>
+                            <ItemContent>
+                              <ItemTitle>{template.name}</ItemTitle>
+                              <ItemDescription>
+                                {template.node}/{template.vmid}
+                              </ItemDescription>
+                            </ItemContent>
                           </ComboboxItem>
                         )}
                       </ComboboxList>
@@ -107,7 +122,7 @@ export const TemplateConfigurationFields = withCreateVmForm({
                 inputId="template-node"
                 nodes={nodes}
               />
-              <CloneVmidField
+              <VMIDField
                 FieldComponent={form.AppField}
                 fieldName="vmid"
                 inputId="template-vmid"

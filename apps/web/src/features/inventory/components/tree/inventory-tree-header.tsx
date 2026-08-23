@@ -8,11 +8,22 @@ import {
   TooltipTrigger,
 } from "@workspace/ui/components/tooltip"
 import { Separator } from "@workspace/ui/components/separator"
-import { useInventoryTreeContext } from "./inventory-tree-context"
+import {
+  useInventoryTreeDataContext,
+  useInventoryTreeViewContext,
+} from "./inventory-tree-context"
 import { InventoryFavoritesSection } from "./favorites-section"
+import { SearchInputGroup } from "@/components/forms/search-input-group"
 
 export function InventoryTreeHeader() {
-  const { expandAll, collapseAll, isLoading } = useInventoryTreeContext()
+  const { error, isLoading } = useInventoryTreeDataContext()
+  const {
+    expandAll,
+    collapseAll,
+    searchQuery,
+    searchResultCount,
+    setSearchQuery,
+  } = useInventoryTreeViewContext()
 
   return (
     <div>
@@ -27,6 +38,7 @@ export function InventoryTreeHeader() {
                 <Button
                   variant="ghost"
                   size="icon"
+                  aria-label="Expand all inventory folders"
                   onClick={expandAll}
                   disabled={isLoading}
                 >
@@ -44,6 +56,7 @@ export function InventoryTreeHeader() {
                 <Button
                   variant="ghost"
                   size="icon"
+                  aria-label="Collapse all inventory folders"
                   onClick={collapseAll}
                   disabled={isLoading}
                 >
@@ -56,6 +69,15 @@ export function InventoryTreeHeader() {
             </TooltipContent>
           </Tooltip>
         </div>
+      </div>
+      <div className="mx-2 py-2">
+        <SearchInputGroup
+          value={searchQuery}
+          onValueChange={setSearchQuery}
+          placeholder="Search..."
+          aria-label="Search inventory"
+          resultCount={!isLoading && !error ? searchResultCount : null}
+        />
       </div>
       <Separator className="my-2" />
       <InventoryFavoritesSection />

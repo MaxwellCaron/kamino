@@ -30,11 +30,15 @@ func (q *Queries) CreateChildFolder(ctx context.Context, arg CreateChildFolderPa
 }
 
 const createRootFolder = `-- name: CreateRootFolder :one
+
 INSERT INTO inventory_items (parent_id, kind, name)
 VALUES (NULL, 'folder', $1)
 RETURNING id
 `
 
+// ---------------------------------------------------------------------------
+// Sync queries
+// ---------------------------------------------------------------------------
 func (q *Queries) CreateRootFolder(ctx context.Context, name string) (uuid.UUID, error) {
 	row := q.db.QueryRow(ctx, createRootFolder, name)
 	var id uuid.UUID
@@ -70,8 +74,7 @@ func (q *Queries) DeleteInventoryItem(ctx context.Context, id uuid.UUID) error {
 }
 
 const getAllInventoryItems = `-- name: GetAllInventoryItems :many
-
-SELECT ii.id, ii.parent_id, ii.kind, ii.name,
+SELECT ii.id, ii.parent_id, ii.kind, ii.name, ii.description,
        ii.vm_limit AS direct_vm_limit,
        (CASE
          WHEN ii.kind = 'folder' THEN COALESCE(inventory_folder_effective_vm_limit(ii.id), 0)
@@ -81,7 +84,7 @@ SELECT ii.id, ii.parent_id, ii.kind, ii.name,
          WHEN ii.kind = 'folder' THEN inventory_folder_vm_count(ii.id, NULL)
          ELSE 0
        END)::INTEGER AS vm_count,
-       pv.node, pv.vmid, pv.is_template, pv.notes, pv.cpu_count, pv.memory_mb, pv.disk_gb
+       pv.node, pv.vmid, pv.guest_type, pv.is_template, pv.notes, pv.cpu_count, pv.memory_mb, pv.disk_gb
 FROM inventory_items ii
 LEFT JOIN proxmox_vms pv ON pv.inventory_item_id = ii.id
 ORDER BY
@@ -95,11 +98,13 @@ type GetAllInventoryItemsRow struct {
 	ParentID         *uuid.UUID        `json:"parent_id"`
 	Kind             InventoryItemKind `json:"kind"`
 	Name             string            `json:"name"`
+	Description      *string           `json:"description"`
 	DirectVmLimit    *int32            `json:"direct_vm_limit"`
 	EffectiveVmLimit int32             `json:"effective_vm_limit"`
 	VmCount          int32             `json:"vm_count"`
 	Node             *string           `json:"node"`
 	Vmid             *int32            `json:"vmid"`
+	GuestType        *string           `json:"guest_type"`
 	IsTemplate       *bool             `json:"is_template"`
 	Notes            *string           `json:"notes"`
 	CpuCount         *int32            `json:"cpu_count"`
@@ -107,9 +112,6 @@ type GetAllInventoryItemsRow struct {
 	DiskGb           *float64          `json:"disk_gb"`
 }
 
-// ---------------------------------------------------------------------------
-// Read queries for API endpoints
-// ---------------------------------------------------------------------------
 func (q *Queries) GetAllInventoryItems(ctx context.Context) ([]GetAllInventoryItemsRow, error) {
 	rows, err := q.db.Query(ctx, getAllInventoryItems)
 	if err != nil {
@@ -124,48 +126,19 @@ func (q *Queries) GetAllInventoryItems(ctx context.Context) ([]GetAllInventoryIt
 			&i.ParentID,
 			&i.Kind,
 			&i.Name,
+			&i.Description,
 			&i.DirectVmLimit,
 			&i.EffectiveVmLimit,
 			&i.VmCount,
 			&i.Node,
 			&i.Vmid,
+			&i.GuestType,
 			&i.IsTemplate,
 			&i.Notes,
 			&i.CpuCount,
 			&i.MemoryMb,
 			&i.DiskGb,
 		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const getAllProxmoxVMNodeVMIDs = `-- name: GetAllProxmoxVMNodeVMIDs :many
-SELECT pv.inventory_item_id, pv.node, pv.vmid
-FROM proxmox_vms pv
-`
-
-type GetAllProxmoxVMNodeVMIDsRow struct {
-	InventoryItemID uuid.UUID `json:"inventory_item_id"`
-	Node            string    `json:"node"`
-	Vmid            int32     `json:"vmid"`
-}
-
-func (q *Queries) GetAllProxmoxVMNodeVMIDs(ctx context.Context) ([]GetAllProxmoxVMNodeVMIDsRow, error) {
-	rows, err := q.db.Query(ctx, getAllProxmoxVMNodeVMIDs)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []GetAllProxmoxVMNodeVMIDsRow
-	for rows.Next() {
-		var i GetAllProxmoxVMNodeVMIDsRow
-		if err := rows.Scan(&i.InventoryItemID, &i.Node, &i.Vmid); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
@@ -196,40 +169,8 @@ func (q *Queries) GetChildFolderByName(ctx context.Context, arg GetChildFolderBy
 	return id, err
 }
 
-const getChildFolderIDs = `-- name: GetChildFolderIDs :many
-SELECT id, name
-FROM inventory_items
-WHERE parent_id = $1
-  AND kind = 'folder'
-`
-
-type GetChildFolderIDsRow struct {
-	ID   uuid.UUID `json:"id"`
-	Name string    `json:"name"`
-}
-
-func (q *Queries) GetChildFolderIDs(ctx context.Context, parentID *uuid.UUID) ([]GetChildFolderIDsRow, error) {
-	rows, err := q.db.Query(ctx, getChildFolderIDs, parentID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []GetChildFolderIDsRow
-	for rows.Next() {
-		var i GetChildFolderIDsRow
-		if err := rows.Scan(&i.ID, &i.Name); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
 const getInventoryItemByID = `-- name: GetInventoryItemByID :one
-SELECT ii.id, ii.parent_id, ii.kind, ii.name, ii.inherit_permissions,
+SELECT ii.id, ii.parent_id, ii.kind, ii.name, ii.description, ii.inherit_permissions,
        ii.vm_limit AS direct_vm_limit,
        (CASE
          WHEN ii.kind = 'folder' THEN COALESCE(inventory_folder_effective_vm_limit(ii.id), 0)
@@ -239,7 +180,7 @@ SELECT ii.id, ii.parent_id, ii.kind, ii.name, ii.inherit_permissions,
          WHEN ii.kind = 'folder' THEN inventory_folder_vm_count(ii.id, NULL)
          ELSE 0
        END)::INTEGER AS vm_count,
-       pv.node, pv.vmid, pv.is_template, pv.notes, pv.cpu_count, pv.memory_mb, pv.disk_gb
+       pv.node, pv.vmid, pv.guest_type, pv.is_template, pv.notes, pv.cpu_count, pv.memory_mb, pv.disk_gb
 FROM inventory_items ii
 LEFT JOIN proxmox_vms pv ON pv.inventory_item_id = ii.id
 WHERE ii.id = $1
@@ -250,12 +191,14 @@ type GetInventoryItemByIDRow struct {
 	ParentID           *uuid.UUID        `json:"parent_id"`
 	Kind               InventoryItemKind `json:"kind"`
 	Name               string            `json:"name"`
+	Description        *string           `json:"description"`
 	InheritPermissions bool              `json:"inherit_permissions"`
 	DirectVmLimit      *int32            `json:"direct_vm_limit"`
 	EffectiveVmLimit   int32             `json:"effective_vm_limit"`
 	VmCount            int32             `json:"vm_count"`
 	Node               *string           `json:"node"`
 	Vmid               *int32            `json:"vmid"`
+	GuestType          *string           `json:"guest_type"`
 	IsTemplate         *bool             `json:"is_template"`
 	Notes              *string           `json:"notes"`
 	CpuCount           *int32            `json:"cpu_count"`
@@ -271,12 +214,14 @@ func (q *Queries) GetInventoryItemByID(ctx context.Context, id uuid.UUID) (GetIn
 		&i.ParentID,
 		&i.Kind,
 		&i.Name,
+		&i.Description,
 		&i.InheritPermissions,
 		&i.DirectVmLimit,
 		&i.EffectiveVmLimit,
 		&i.VmCount,
 		&i.Node,
 		&i.Vmid,
+		&i.GuestType,
 		&i.IsTemplate,
 		&i.Notes,
 		&i.CpuCount,
@@ -320,6 +265,7 @@ const getProxmoxVMByInventoryItemID = `-- name: GetProxmoxVMByInventoryItemID :o
 SELECT inventory_item_id,
        node,
        vmid,
+       guest_type,
        upstream_uuid,
        is_template,
        notes,
@@ -334,6 +280,7 @@ type GetProxmoxVMByInventoryItemIDRow struct {
 	InventoryItemID uuid.UUID `json:"inventory_item_id"`
 	Node            string    `json:"node"`
 	Vmid            int32     `json:"vmid"`
+	GuestType       string    `json:"guest_type"`
 	UpstreamUuid    uuid.UUID `json:"upstream_uuid"`
 	IsTemplate      bool      `json:"is_template"`
 	Notes           *string   `json:"notes"`
@@ -349,6 +296,7 @@ func (q *Queries) GetProxmoxVMByInventoryItemID(ctx context.Context, inventoryIt
 		&i.InventoryItemID,
 		&i.Node,
 		&i.Vmid,
+		&i.GuestType,
 		&i.UpstreamUuid,
 		&i.IsTemplate,
 		&i.Notes,
@@ -363,6 +311,7 @@ const getProxmoxVMByInventoryItemIDForUpdate = `-- name: GetProxmoxVMByInventory
 SELECT inventory_item_id,
        node,
        vmid,
+       guest_type,
        upstream_uuid,
        is_template,
        notes,
@@ -378,6 +327,7 @@ type GetProxmoxVMByInventoryItemIDForUpdateRow struct {
 	InventoryItemID uuid.UUID `json:"inventory_item_id"`
 	Node            string    `json:"node"`
 	Vmid            int32     `json:"vmid"`
+	GuestType       string    `json:"guest_type"`
 	UpstreamUuid    uuid.UUID `json:"upstream_uuid"`
 	IsTemplate      bool      `json:"is_template"`
 	Notes           *string   `json:"notes"`
@@ -393,6 +343,7 @@ func (q *Queries) GetProxmoxVMByInventoryItemIDForUpdate(ctx context.Context, in
 		&i.InventoryItemID,
 		&i.Node,
 		&i.Vmid,
+		&i.GuestType,
 		&i.UpstreamUuid,
 		&i.IsTemplate,
 		&i.Notes,
@@ -407,6 +358,7 @@ const getProxmoxVMByNodeVMID = `-- name: GetProxmoxVMByNodeVMID :one
 SELECT pv.inventory_item_id,
        pv.node,
        pv.vmid,
+       pv.guest_type,
        pv.upstream_uuid,
        pv.cpu_count,
        pv.memory_mb,
@@ -427,6 +379,7 @@ type GetProxmoxVMByNodeVMIDRow struct {
 	InventoryItemID uuid.UUID  `json:"inventory_item_id"`
 	Node            string     `json:"node"`
 	Vmid            int32      `json:"vmid"`
+	GuestType       string     `json:"guest_type"`
 	UpstreamUuid    uuid.UUID  `json:"upstream_uuid"`
 	CpuCount        *int32     `json:"cpu_count"`
 	MemoryMb        *int32     `json:"memory_mb"`
@@ -442,6 +395,7 @@ func (q *Queries) GetProxmoxVMByNodeVMID(ctx context.Context, arg GetProxmoxVMBy
 		&i.InventoryItemID,
 		&i.Node,
 		&i.Vmid,
+		&i.GuestType,
 		&i.UpstreamUuid,
 		&i.CpuCount,
 		&i.MemoryMb,
@@ -456,6 +410,7 @@ const getProxmoxVMByUpstreamUUID = `-- name: GetProxmoxVMByUpstreamUUID :one
 SELECT pv.inventory_item_id,
        pv.node,
        pv.vmid,
+       pv.guest_type,
        pv.upstream_uuid,
        pv.cpu_count,
        pv.memory_mb,
@@ -471,6 +426,7 @@ type GetProxmoxVMByUpstreamUUIDRow struct {
 	InventoryItemID uuid.UUID  `json:"inventory_item_id"`
 	Node            string     `json:"node"`
 	Vmid            int32      `json:"vmid"`
+	GuestType       string     `json:"guest_type"`
 	UpstreamUuid    uuid.UUID  `json:"upstream_uuid"`
 	CpuCount        *int32     `json:"cpu_count"`
 	MemoryMb        *int32     `json:"memory_mb"`
@@ -486,6 +442,7 @@ func (q *Queries) GetProxmoxVMByUpstreamUUID(ctx context.Context, upstreamUuid u
 		&i.InventoryItemID,
 		&i.Node,
 		&i.Vmid,
+		&i.GuestType,
 		&i.UpstreamUuid,
 		&i.CpuCount,
 		&i.MemoryMb,
@@ -496,34 +453,16 @@ func (q *Queries) GetProxmoxVMByUpstreamUUID(ctx context.Context, upstreamUuid u
 	return i, err
 }
 
-const getRootFolderByName = `-- name: GetRootFolderByName :one
-
-SELECT id
-FROM inventory_items
-WHERE parent_id IS NULL
-  AND kind = 'folder'
-  AND name = $1
-`
-
-// ---------------------------------------------------------------------------
-// Sync queries
-// ---------------------------------------------------------------------------
-func (q *Queries) GetRootFolderByName(ctx context.Context, name string) (uuid.UUID, error) {
-	row := q.db.QueryRow(ctx, getRootFolderByName, name)
-	var id uuid.UUID
-	err := row.Scan(&id)
-	return id, err
-}
-
 const insertProxmoxVM = `-- name: InsertProxmoxVM :exec
-INSERT INTO proxmox_vms (inventory_item_id, node, vmid, upstream_uuid, is_template, cpu_count, memory_mb, disk_gb)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+INSERT INTO proxmox_vms (inventory_item_id, node, vmid, guest_type, upstream_uuid, is_template, cpu_count, memory_mb, disk_gb)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
 `
 
 type InsertProxmoxVMParams struct {
 	InventoryItemID uuid.UUID `json:"inventory_item_id"`
 	Node            string    `json:"node"`
 	Vmid            int32     `json:"vmid"`
+	GuestType       string    `json:"guest_type"`
 	UpstreamUuid    uuid.UUID `json:"upstream_uuid"`
 	IsTemplate      bool      `json:"is_template"`
 	CpuCount        *int32    `json:"cpu_count"`
@@ -536,6 +475,7 @@ func (q *Queries) InsertProxmoxVM(ctx context.Context, arg InsertProxmoxVMParams
 		arg.InventoryItemID,
 		arg.Node,
 		arg.Vmid,
+		arg.GuestType,
 		arg.UpstreamUuid,
 		arg.IsTemplate,
 		arg.CpuCount,
@@ -609,6 +549,77 @@ func (q *Queries) ListInventoryDeletionBlockersInSubtree(ctx context.Context, id
 	return items, nil
 }
 
+const listInventoryDeletionBlockersInSubtreeExceptPublishedPod = `-- name: ListInventoryDeletionBlockersInSubtreeExceptPublishedPod :many
+WITH RECURSIVE subtree AS (
+    SELECT inventory_items.id
+    FROM inventory_items
+    WHERE inventory_items.id = $1
+
+    UNION ALL
+
+    SELECT child.id
+    FROM inventory_items child
+    JOIN subtree parent ON child.parent_id = parent.id
+)
+SELECT pp.source_folder_id AS inventory_item_id,
+       'published pod source folder' AS blocker_type,
+       pp.title AS blocker_name
+FROM published_pods pp
+WHERE pp.source_folder_id IN (SELECT id FROM subtree)
+  AND pp.id <> $2
+
+UNION ALL
+
+SELECT ppv.source_inventory_item_id AS inventory_item_id,
+       'published pod VM' AS blocker_type,
+       pp.title || ' / ' || ppv.name AS blocker_name
+FROM published_pod_vms ppv
+JOIN published_pods pp ON pp.id = ppv.pod_id
+WHERE ppv.source_inventory_item_id IN (SELECT id FROM subtree)
+  AND pp.id <> $2
+
+UNION ALL
+
+SELECT ir.inventory_item_id AS inventory_item_id,
+       'inventory request' AS blocker_type,
+       r.kind AS blocker_name
+FROM inventory_requests ir
+JOIN requests r ON r.id = ir.request_id
+WHERE ir.inventory_item_id IN (SELECT id FROM subtree)
+ORDER BY blocker_type, blocker_name
+`
+
+type ListInventoryDeletionBlockersInSubtreeExceptPublishedPodParams struct {
+	ID            uuid.UUID `json:"id"`
+	ExcludedPodID uuid.UUID `json:"excluded_pod_id"`
+}
+
+type ListInventoryDeletionBlockersInSubtreeExceptPublishedPodRow struct {
+	InventoryItemID uuid.UUID `json:"inventory_item_id"`
+	BlockerType     string    `json:"blocker_type"`
+	BlockerName     string    `json:"blocker_name"`
+}
+
+func (q *Queries) ListInventoryDeletionBlockersInSubtreeExceptPublishedPod(ctx context.Context, arg ListInventoryDeletionBlockersInSubtreeExceptPublishedPodParams) ([]ListInventoryDeletionBlockersInSubtreeExceptPublishedPodRow, error) {
+	rows, err := q.db.Query(ctx, listInventoryDeletionBlockersInSubtreeExceptPublishedPod, arg.ID, arg.ExcludedPodID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListInventoryDeletionBlockersInSubtreeExceptPublishedPodRow
+	for rows.Next() {
+		var i ListInventoryDeletionBlockersInSubtreeExceptPublishedPodRow
+		if err := rows.Scan(&i.InventoryItemID, &i.BlockerType, &i.BlockerName); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const normalizeInventoryItemInheritance = `-- name: NormalizeInventoryItemInheritance :execrows
 UPDATE inventory_items
 SET inherit_permissions = true
@@ -621,6 +632,46 @@ func (q *Queries) NormalizeInventoryItemInheritance(ctx context.Context) (int64,
 		return 0, err
 	}
 	return result.RowsAffected(), nil
+}
+
+const updateInventoryFolderDescription = `-- name: UpdateInventoryFolderDescription :exec
+UPDATE inventory_items
+SET description = $1
+WHERE id = $2
+  AND kind = 'folder'
+`
+
+type UpdateInventoryFolderDescriptionParams struct {
+	Description *string   `json:"description"`
+	ID          uuid.UUID `json:"id"`
+}
+
+func (q *Queries) UpdateInventoryFolderDescription(ctx context.Context, arg UpdateInventoryFolderDescriptionParams) error {
+	_, err := q.db.Exec(ctx, updateInventoryFolderDescription, arg.Description, arg.ID)
+	return err
+}
+
+const updateInventoryFolderDetails = `-- name: UpdateInventoryFolderDetails :exec
+
+UPDATE inventory_items
+SET name = $1,
+    description = $2
+WHERE id = $3
+  AND kind = 'folder'
+`
+
+type UpdateInventoryFolderDetailsParams struct {
+	Name        string    `json:"name"`
+	Description *string   `json:"description"`
+	ID          uuid.UUID `json:"id"`
+}
+
+// ---------------------------------------------------------------------------
+// Read queries for API endpoints
+// ---------------------------------------------------------------------------
+func (q *Queries) UpdateInventoryFolderDetails(ctx context.Context, arg UpdateInventoryFolderDetailsParams) error {
+	_, err := q.db.Exec(ctx, updateInventoryFolderDetails, arg.Name, arg.Description, arg.ID)
+	return err
 }
 
 const updateInventoryFolderVMLimit = `-- name: UpdateInventoryFolderVMLimit :exec
@@ -692,11 +743,12 @@ const updateProxmoxVM = `-- name: UpdateProxmoxVM :exec
 UPDATE proxmox_vms
 SET node = $2,
     vmid = $3,
-    upstream_uuid = $4,
-    is_template = $5,
-    cpu_count = $6,
-    memory_mb = $7,
-    disk_gb = $8
+    guest_type = $4,
+    upstream_uuid = $5,
+    is_template = $6,
+    cpu_count = $7,
+    memory_mb = $8,
+    disk_gb = $9
 WHERE inventory_item_id = $1
 `
 
@@ -704,6 +756,7 @@ type UpdateProxmoxVMParams struct {
 	InventoryItemID uuid.UUID `json:"inventory_item_id"`
 	Node            string    `json:"node"`
 	Vmid            int32     `json:"vmid"`
+	GuestType       string    `json:"guest_type"`
 	UpstreamUuid    uuid.UUID `json:"upstream_uuid"`
 	IsTemplate      bool      `json:"is_template"`
 	CpuCount        *int32    `json:"cpu_count"`
@@ -716,6 +769,7 @@ func (q *Queries) UpdateProxmoxVM(ctx context.Context, arg UpdateProxmoxVMParams
 		arg.InventoryItemID,
 		arg.Node,
 		arg.Vmid,
+		arg.GuestType,
 		arg.UpstreamUuid,
 		arg.IsTemplate,
 		arg.CpuCount,

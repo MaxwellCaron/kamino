@@ -122,6 +122,19 @@ export function toastUpdateNotes(promise: Promise<unknown>) {
   })
 }
 
+export function toastDownloadSpiceConfig(
+  promise: Promise<unknown>,
+  vmid?: number | null,
+  vmName?: string | null
+) {
+  showSingleMutationToast({
+    title: "Downloading SPICE config",
+    name: formatVmReference(vmid, vmName),
+    promise,
+    successDescription: "Downloaded",
+  })
+}
+
 export function toastDeleteVm(
   promise: Promise<unknown>,
   vmid?: number | null,

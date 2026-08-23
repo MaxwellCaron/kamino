@@ -42,9 +42,15 @@ export function GroupDialogEditForm({ form }: GroupDialogEditFormProps) {
                   onBlur={field.handleBlur}
                   placeholder="Admins"
                   aria-invalid={isInvalid}
+                  aria-errormessage={isInvalid ? "group-name-error" : undefined}
                 />
               </FieldContent>
-              {isInvalid && <FieldError errors={field.state.meta.errors} />}
+              {isInvalid && (
+                <FieldError
+                  id="group-name-error"
+                  errors={field.state.meta.errors}
+                />
+              )}
             </Field>
           )
         }}

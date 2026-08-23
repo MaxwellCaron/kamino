@@ -1,82 +1,40 @@
-import { Suspense, lazy, useCallback, useMemo, useState } from "react"
+import { useCallback, useState } from "react"
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import {
-  useMutation,
-  useQueries,
-  useQuery,
-  useQueryClient,
-} from "@tanstack/react-query"
-import { UserGroupIcon, UserIcon } from "@hugeicons/core-free-icons"
-import {
-  buildStorageByNode,
-  countInventoryStats,
-  getRecentPrincipals,
-  getRecentRequests,
-} from "../utils/admin-dashboard"
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyTitle,
+} from "@workspace/ui/components/empty"
 import { AdminClusterCard } from "./admin-cluster-card"
 import { AdminDashboardHeader } from "./admin-dashboard-header"
-import { getPrincipalColumns } from "./admin-principal-columns"
 import { AdminDashboardActionButtons } from "./admin-dashboard-action-buttons"
-import { AdminDashboardSkeleton } from "./admin-dashboard-skeleton"
 import { AdminDashboardPendingRequestsCard } from "./admin-dashboard-pending-requests-card"
 import { AdminDashboardPrincipalsCards } from "./admin-dashboard-principals-cards"
-import type { AdminStats } from "../utils/admin-dashboard"
 import type { AuthUser } from "@/features/auth/types/auth-types"
+import { InlineErrorAlert } from "@/components/feedback/inline-error-alert"
 import { showSingleMutationToast } from "@/components/feedback/mutation-progress-toast"
+import { useAdminDashboardData } from "@/features/admin/hooks/use-admin-dashboard-data"
 import {
   ManagementPermissionKeys,
   hasManagementPermission,
 } from "@/features/auth/utils/management-permissions"
-import { inventoryTreeQueryOptions } from "@/features/inventory/api/inventory-api"
-import {
-  groupsQueryOptions,
-  usersQueryOptions,
-} from "@/features/principals/api/principals-api"
 import {
   approveRequest,
   denyRequest,
   requestDetailQueryOptions,
-  requestSummariesQueryOptions,
 } from "@/features/requests/api/requests-api"
-import { getRequestColumns } from "@/features/requests/components/requests-columns"
-import {
-  nodesQueryOptions,
-  storagesQueryOptions,
-} from "@/features/vms/api/proxmox-options-api"
-
-const RequestDetailDialog = lazy(() =>
-  import("@/features/requests/components/request-detail-dialog").then(
-    (module) => ({
-      default: module.RequestDetailDialog,
-    })
-  )
-)
+import { RequestDetailDialog } from "@/features/requests/components/request-detail-dialog"
 
 export function AdminDashboardPage({ user }: { user: AuthUser }) {
   const [selectedRequestId, setSelectedRequestId] = useState<string | null>(
     null
   )
   const queryClient = useQueryClient()
-  const {
-    data: users,
-    error: usersError,
-    isLoading: isUsersLoading,
-  } = useQuery(usersQueryOptions)
-  const {
-    data: groups,
-    error: groupsError,
-    isLoading: isGroupsLoading,
-  } = useQuery(groupsQueryOptions)
-  const { data: inventoryTree, isLoading: isInventoryLoading } = useQuery(
-    inventoryTreeQueryOptions
-  )
-  const {
-    data: pendingRequestsData,
-    error: pendingRequestsError,
-    isLoading: isPendingRequestsLoading,
-  } = useQuery(requestSummariesQueryOptions("pending"))
-  const { data: completedRequestsData, isLoading: isCompletedRequestsLoading } =
-    useQuery(requestSummariesQueryOptions("completed"))
-  const { data: nodesData } = useQuery(nodesQueryOptions)
+  const handleOpenRequest = useCallback((requestId: string) => {
+    setSelectedRequestId(requestId)
+  }, [])
+  const dashboard = useAdminDashboardData(handleOpenRequest)
   const {
     data: requestDetail,
     error: requestDetailError,
@@ -88,29 +46,6 @@ export function AdminDashboardPage({ user }: { user: AuthUser }) {
   const canReview = hasManagementPermission(
     user.management_permissions,
     ManagementPermissionKeys.manager
-  )
-
-  const storageQueries = useQueries({
-    queries: (nodesData ?? []).map((node) => storagesQueryOptions(node.node)),
-  })
-
-  const requestColumns = useMemo(
-    () =>
-      getRequestColumns({
-        onOpen: (request) => setSelectedRequestId(request.id),
-        selectable: false,
-        tree: inventoryTree,
-        excludeColumns: ["status", "reviewer_username", "updated_at"],
-      }),
-    [inventoryTree]
-  )
-  const userColumns = useMemo(
-    () => getPrincipalColumns({ icon: UserIcon, label: "User" }),
-    []
-  )
-  const groupColumns = useMemo(
-    () => getPrincipalColumns({ icon: UserGroupIcon, label: "Group" }),
-    []
   )
 
   const approveMutation = useMutation({
@@ -127,56 +62,20 @@ export function AdminDashboardPage({ user }: { user: AuthUser }) {
     },
   })
 
-  const pendingRequests = useMemo(
-    () => getRecentRequests(pendingRequestsData ?? []),
-    [pendingRequestsData]
-  )
-
-  const recentUsers = useMemo(() => getRecentPrincipals(users ?? []), [users])
-
-  const recentGroups = useMemo(
-    () => getRecentPrincipals(groups ?? []),
-    [groups]
-  )
-
-  const adminStats = useMemo<AdminStats | null>(() => {
-    if (
-      !users ||
-      !groups ||
-      !inventoryTree ||
-      !pendingRequestsData ||
-      !completedRequestsData
-    ) {
-      return null
-    }
-    const { folders, vms, templates } = countInventoryStats(inventoryTree)
-    return {
-      users: users.length,
-      groups: groups.length,
-      folders,
-      vms,
-      templates,
-      requests: pendingRequestsData.length + completedRequestsData.length,
-    }
-  }, [users, groups, inventoryTree, pendingRequestsData, completedRequestsData])
-
-  const storageByNode = useMemo(() => {
-    return buildStorageByNode(
-      nodesData ?? [],
-      storageQueries.map((query) => query.data)
-    )
-  }, [nodesData, storageQueries])
   const handleRequestDetailOpenChange = useCallback((open: boolean) => {
     if (!open) {
       setSelectedRequestId(null)
     }
   }, [])
   const handleApproveRequest = useCallback(() => {
-    if (!selectedRequestId) {
+    if (
+      !selectedRequestId ||
+      approveMutation.isPending ||
+      denyMutation.isPending
+    ) {
       return
     }
     const id = selectedRequestId
-    setSelectedRequestId(null)
     showSingleMutationToast({
       title: "Approving request",
       name: "Request",
@@ -184,17 +83,21 @@ export function AdminDashboardPage({ user }: { user: AuthUser }) {
         if (result.failed.length > 0) {
           throw new Error(result.failed[0].error)
         }
+        setSelectedRequestId(null)
         return result
       }),
       successDescription: "Approved",
     })
-  }, [approveMutation, selectedRequestId])
+  }, [approveMutation, denyMutation.isPending, selectedRequestId])
   const handleDenyRequest = useCallback(() => {
-    if (!selectedRequestId) {
+    if (
+      !selectedRequestId ||
+      approveMutation.isPending ||
+      denyMutation.isPending
+    ) {
       return
     }
     const id = selectedRequestId
-    setSelectedRequestId(null)
     showSingleMutationToast({
       title: "Denying request",
       name: "Request",
@@ -202,60 +105,67 @@ export function AdminDashboardPage({ user }: { user: AuthUser }) {
         if (result.failed.length > 0) {
           throw new Error(result.failed[0].error)
         }
+        setSelectedRequestId(null)
         return result
       }),
       successDescription: "Denied",
     })
-  }, [denyMutation, selectedRequestId])
+  }, [approveMutation.isPending, denyMutation, selectedRequestId])
 
-  const nodes = nodesData ?? []
-  const isDashboardLoading =
-    isUsersLoading ||
-    isGroupsLoading ||
-    isInventoryLoading ||
-    isPendingRequestsLoading ||
-    isCompletedRequestsLoading
-
-  if (isDashboardLoading) {
-    return <AdminDashboardSkeleton />
-  }
+  const isPending = approveMutation.isPending || denyMutation.isPending
 
   return (
-    <div className="@container/main flex flex-1 flex-col gap-2">
+    <div className="@container/main relative flex flex-1 flex-col gap-2">
       <div className="flex flex-col gap-4 px-4 py-4 md:gap-6 md:py-6 lg:px-6 xl:grid xl:grid-cols-12">
+        {dashboard.state.error ? (
+          <div className="xl:col-span-12">
+            <InlineErrorAlert
+              error={dashboard.state.error}
+              fallback="Failed to load admin dashboard statistics."
+              title="Statistics unavailable"
+            />
+          </div>
+        ) : null}
+
+        {dashboard.state.isEmpty ? (
+          <Empty className="min-h-48 border xl:col-span-12">
+            <EmptyHeader>
+              <EmptyTitle>No managed resources yet</EmptyTitle>
+              <EmptyDescription>
+                Use the administrative actions below to start configuring
+                Kamino.
+              </EmptyDescription>
+            </EmptyHeader>
+          </Empty>
+        ) : null}
+
         <div className="xl:col-span-12">
-          <AdminDashboardHeader stats={adminStats} />
+          <AdminDashboardHeader {...dashboard.header} />
         </div>
 
-        <AdminDashboardPendingRequestsCard
-          columns={requestColumns}
-          data={pendingRequests}
-          error={pendingRequestsError}
-          isLoading={isPendingRequestsLoading}
-        />
+        <AdminDashboardPendingRequestsCard {...dashboard.pendingRequests} />
 
         <div className="xl:col-span-5">
           <AdminDashboardActionButtons />
         </div>
 
-        <AdminClusterCard nodes={nodes} storageByNode={storageByNode} />
+        <AdminClusterCard {...dashboard.cluster} />
 
-        <AdminDashboardPrincipalsCards
-          groupColumns={groupColumns}
-          recentGroups={recentGroups}
-          groupsError={groupsError}
-          isGroupsLoading={isGroupsLoading}
-          userColumns={userColumns}
-          recentUsers={recentUsers}
-          usersError={usersError}
-          isUsersLoading={isUsersLoading}
-        />
+        <AdminDashboardPrincipalsCards {...dashboard.principals} />
       </div>
 
-      <Suspense fallback={null}>
+      <>
+        {isPending ? (
+          <span className="sr-only" role="status" aria-live="polite">
+            Updating request...
+          </span>
+        ) : null}
         {selectedRequestId !== null && (
           <RequestDetailDialog
+            approvePending={approveMutation.isPending}
             canReview={canReview}
+            denyPending={denyMutation.isPending}
+            disabled={isPending}
             error={requestDetailError}
             isLoading={isRequestDetailLoading}
             onApprove={handleApproveRequest}
@@ -263,10 +173,10 @@ export function AdminDashboardPage({ user }: { user: AuthUser }) {
             onOpenChange={handleRequestDetailOpenChange}
             open={true}
             request={requestDetail ?? null}
-            tree={inventoryTree}
+            tree={dashboard.inventoryTree}
           />
         )}
-      </Suspense>
+      </>
     </div>
   )
 }

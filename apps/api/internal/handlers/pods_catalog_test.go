@@ -1,0 +1,262 @@
+package handlers
+
+import (
+	"encoding/json"
+	"math"
+	"strings"
+	"testing"
+
+	"github.com/MaxwellCaron/kamino/database"
+	"github.com/google/uuid"
+)
+
+func TestNewPodQuestionSummaryResponse(t *testing.T) {
+	tests := []struct {
+		name     string
+		total    int32
+		answered int32
+		want     podQuestionSummaryResponse
+	}{
+		{
+			name:     "zero questions",
+			total:    0,
+			answered: 0,
+			want:     podQuestionSummaryResponse{Total: 0, Answered: 0, Progress: 0},
+		},
+		{
+			name:     "partial progress",
+			total:    5,
+			answered: 2,
+			want:     podQuestionSummaryResponse{Total: 5, Answered: 2, Progress: 40},
+		},
+		{
+			name:     "complete",
+			total:    5,
+			answered: 5,
+			want:     podQuestionSummaryResponse{Total: 5, Answered: 5, Progress: 100},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := newPodQuestionSummaryResponse(tt.total, tt.answered)
+			if got != tt.want {
+				t.Errorf("newPodQuestionSummaryResponse() = %+v, want %+v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestNonNilPrincipals(t *testing.T) {
+	t.Run("nil returns empty slice", func(t *testing.T) {
+		got := nonNilPrincipals(nil)
+		if got == nil || len(got) != 0 {
+			t.Errorf("expected empty non-nil slice, got %v", got)
+		}
+	})
+	t.Run("non-nil passes through", func(t *testing.T) {
+		input := []publishedPodPrincipalResponse{{ID: uuid.New()}}
+		got := nonNilPrincipals(input)
+		if len(got) != 1 {
+			t.Errorf("len = %d, want 1", len(got))
+		}
+	})
+}
+
+func TestNonNilVMs(t *testing.T) {
+	t.Run("nil returns empty slice", func(t *testing.T) {
+		got := nonNilVMs(nil)
+		if got == nil || len(got) != 0 {
+			t.Errorf("expected empty non-nil slice, got %v", got)
+		}
+	})
+	t.Run("non-nil passes through", func(t *testing.T) {
+		input := []publishedPodVMResponse{{Name: "vm1"}}
+		got := nonNilVMs(input)
+		if len(got) != 1 {
+			t.Errorf("len = %d, want 1", len(got))
+		}
+	})
+}
+
+func TestMaskAnswerOutline(t *testing.T) {
+	tests := []struct {
+		name    string
+		outline string
+		want    string
+	}{
+		{name: "ascii words and digits", outline: "Ubuntu 22.04", want: "****** **.**"},
+		{name: "spaces and punctuation preserved", outline: "a-b, c: d!", want: "*-*, *: *!"},
+		{name: "non-ascii letters and numbers masked", outline: "café ②", want: "**** *"},
+		{name: "empty outline returns empty mask", outline: "", want: ""},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := maskAnswerOutline(tt.outline)
+			if got != tt.want {
+				t.Errorf("maskAnswerOutline(%q) = %q, want %q", tt.outline, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestCatalogPodDetailResponseHidesAnswer(t *testing.T) {
+	secret := "Correct-Answer-42"
+	detail := catalogPodDetailResponse{
+		ID:    uuid.New(),
+		Title: "Test Pod",
+		Tasks: []catalogPodTaskResponse{
+			{
+				ID:    uuid.New(),
+				Title: "Task",
+				Questions: []catalogPodQuestionResponse{
+					catalogQuestionFromRow(database.ListPublishedPodQuestionsByTaskIDsRow{
+						ID:            uuid.New(),
+						Title:         "What is the answer?",
+						AnswerOutline: secret,
+					}),
+				},
+			},
+		},
+	}
+
+	body, err := json.Marshal(detail)
+	if err != nil {
+		t.Fatalf("marshal detail: %v", err)
+	}
+
+	if strings.Contains(string(body), secret) {
+		t.Errorf("marshaled detail contains the stored answer: %s", body)
+	}
+	if strings.Contains(string(body), "answerOutline") {
+		t.Errorf("marshaled detail contains answerOutline key: %s", body)
+	}
+	if !strings.Contains(string(body), `"answerMask":"*******-******-**"`) {
+		t.Errorf("marshaled detail missing expected answerMask: %s", body)
+	}
+}
+
+func TestPublishedVMFromRow(t *testing.T) {
+	t.Run("set value copied", func(t *testing.T) {
+		row := database.ListPublishedPodVMsByPodIDsRow{
+			Name:      "web-1",
+			HostOctet: int32Ptr(50),
+		}
+		got := publishedVMFromRow(row)
+		if got.HostOctet == nil || *got.HostOctet != 50 {
+			t.Errorf("HostOctet = %v, want 50", got.HostOctet)
+		}
+	})
+	t.Run("unset value left nil", func(t *testing.T) {
+		row := database.ListPublishedPodVMsByPodIDsRow{
+			Name: "web-1",
+		}
+		got := publishedVMFromRow(row)
+		if got.HostOctet != nil {
+			t.Errorf("HostOctet = %v, want nil", got.HostOctet)
+		}
+	})
+}
+
+func TestInventoryPath(t *testing.T) {
+	rootID := uuid.New()
+	childID := uuid.New()
+	grandchildID := uuid.New()
+
+	rows := map[uuid.UUID]database.GetVisibleInventoryItemsForPrincipalRow{
+		rootID:       {Name: "Root"},
+		childID:      {Name: "Child", ParentID: &rootID},
+		grandchildID: {Name: "Grandchild", ParentID: &childID},
+	}
+
+	t.Run("single level", func(t *testing.T) {
+		got := inventoryPath(rootID, rows)
+		if got != "Root" {
+			t.Errorf("got %q, want %q", got, "Root")
+		}
+	})
+	t.Run("multi level", func(t *testing.T) {
+		got := inventoryPath(grandchildID, rows)
+		if got != "Root / Child / Grandchild" {
+			t.Errorf("got %q, want %q", got, "Root / Child / Grandchild")
+		}
+	})
+	t.Run("missing ID returns empty", func(t *testing.T) {
+		got := inventoryPath(uuid.New(), rows)
+		if got != "" {
+			t.Errorf("got %q, want empty", got)
+		}
+	})
+}
+
+func TestPublishedPrincipal(t *testing.T) {
+	id := uuid.New()
+
+	t.Run("uses name over external ID for label", func(t *testing.T) {
+		name := "Alice"
+		got := publishedPrincipal(id, database.PrincipalTypeUser, "alice@ad", &name, nil, nil)
+		if got.Label != "Alice" {
+			t.Errorf("Label = %q, want %q", got.Label, "Alice")
+		}
+	})
+	t.Run("falls back to external ID for label", func(t *testing.T) {
+		got := publishedPrincipal(id, database.PrincipalTypeUser, "alice@ad", nil, nil, nil)
+		if got.Label != "alice@ad" {
+			t.Errorf("Label = %q, want %q", got.Label, "alice@ad")
+		}
+	})
+	t.Run("empty name falls back to external ID", func(t *testing.T) {
+		empty := "  "
+		got := publishedPrincipal(id, database.PrincipalTypeUser, "alice@ad", &empty, nil, nil)
+		if got.Label != "alice@ad" {
+			t.Errorf("Label = %q, want %q", got.Label, "alice@ad")
+		}
+	})
+	t.Run("formats combined full name label", func(t *testing.T) {
+		name := "mcaron"
+		fullName := "Maxwell Caron"
+		got := publishedPrincipal(id, database.PrincipalTypeUser, "mcaron@ad", &name, &fullName, nil)
+		if got.Label != "mcaron (Maxwell Caron)" {
+			t.Errorf("Label = %q, want %q", got.Label, "mcaron (Maxwell Caron)")
+		}
+	})
+	t.Run("suppresses duplicate full name label", func(t *testing.T) {
+		name := "mcaron"
+		fullName := "MCARON"
+		got := publishedPrincipal(id, database.PrincipalTypeUser, "mcaron@ad", &name, &fullName, nil)
+		if got.Label != "mcaron" {
+			t.Errorf("Label = %q, want %q", got.Label, "mcaron")
+		}
+	})
+	t.Run("uses description over external ID", func(t *testing.T) {
+		desc := "Lab admin"
+		got := publishedPrincipal(id, database.PrincipalTypeGroup, "grp-001", nil, nil, &desc)
+		if got.Description != "Lab admin" {
+			t.Errorf("Description = %q, want %q", got.Description, "Lab admin")
+		}
+	})
+	t.Run("falls back to external ID for description", func(t *testing.T) {
+		got := publishedPrincipal(id, database.PrincipalTypeGroup, "grp-001", nil, nil, nil)
+		if got.Description != "grp-001" {
+			t.Errorf("Description = %q, want %q", got.Description, "grp-001")
+		}
+	})
+}
+
+// helpers
+func contains(s, substr string) bool {
+	return len(s) >= len(substr) && (s == substr || len(s) > 0 && containsSubstr(s, substr))
+}
+
+func containsSubstr(s, substr string) bool {
+	for i := 0; i <= len(s)-len(substr); i++ {
+		if s[i:i+len(substr)] == substr {
+			return true
+		}
+	}
+	return false
+}
+
+// Suppress unused import warnings
+var _ = math.MaxInt32

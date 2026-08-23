@@ -1,6 +1,6 @@
 import type {
+  ClonedPodQuestionSummary,
   ClonedPodTaskState,
-  ClonedPodTaskSummary,
   PodTask,
   PodTaskQuestionAnswer,
   UUID,
@@ -18,21 +18,31 @@ export function createTaskStateMap(taskStates: Array<ClonedPodTaskState>) {
   )
 }
 
-export function createTaskSummary(
+export function createQuestionSummary(
   tasks: Array<PodTask>,
-  taskStates: Array<ClonedPodTaskState> | null
-): ClonedPodTaskSummary {
-  const taskStatesByTaskId = taskStates ? createTaskStateMap(taskStates) : null
-  const total = tasks.length
-  const completed = tasks.reduce(
-    (count, task) =>
-      count + (taskStatesByTaskId?.get(task.id)?.completed ? 1 : 0),
-    0
-  )
+  answers: Array<PodTaskQuestionAnswer> | null
+): ClonedPodQuestionSummary {
+  const answersByQuestionId = answers ? createQuestionAnswerMap(answers) : null
+  const questionIds = new Set<UUID>()
+
+  for (const task of tasks) {
+    for (const question of task.questions ?? []) {
+      questionIds.add(question.id)
+    }
+  }
+
+  let answered = 0
+  for (const questionId of questionIds) {
+    if (answersByQuestionId?.get(questionId)?.is_correct === true) {
+      answered++
+    }
+  }
+
+  const total = questionIds.size
 
   return {
     total,
-    completed,
-    progress: total > 0 ? (completed / total) * 100 : 0,
+    answered,
+    progress: total > 0 ? (answered / total) * 100 : 0,
   }
 }

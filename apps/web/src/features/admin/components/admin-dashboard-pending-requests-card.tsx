@@ -11,11 +11,12 @@ import {
 } from "@workspace/ui/components/card"
 import { buttonVariants } from "@workspace/ui/components/button"
 import type { ColumnDef } from "@tanstack/react-table"
+import type { AppTableFeatures } from "@/components/data-table/data-table-types"
 import type { ApiRequestSummary } from "@/features/requests/types/request-types"
 import { SimpleDataTable } from "@/components/data-table/simple-data-table"
 
 type AdminDashboardPendingRequestsCardProps = {
-  columns: Array<ColumnDef<ApiRequestSummary>>
+  columns: Array<ColumnDef<AppTableFeatures, ApiRequestSummary>>
   data: Array<ApiRequestSummary>
   error: Error | null
   isLoading: boolean

@@ -1,5 +1,5 @@
 import { HugeiconsIcon } from "@hugeicons/react"
-import { Invoice01Icon } from "@hugeicons/core-free-icons"
+import { GitPullRequestIcon } from "@hugeicons/core-free-icons"
 import {
   Card,
   CardContent,
@@ -45,7 +45,7 @@ export function RequestsPageOverviewCard({
           <div className="flex max-w-2xl flex-col gap-3">
             <CardTitle className="flex items-center gap-2 text-4xl font-black tracking-tight">
               <HugeiconsIcon
-                icon={Invoice01Icon}
+                icon={GitPullRequestIcon}
                 className="size-7 text-muted-foreground"
               />
               Requests

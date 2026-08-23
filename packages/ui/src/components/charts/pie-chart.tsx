@@ -13,7 +13,7 @@ import { cn } from "@workspace/ui/lib/utils"
 import { PieProvider, defaultPieColors } from "./pie-context"
 import type { PieArcDatum } from "d3-shape"
 import type { ReactElement, ReactNode } from "react"
-import type { PieArcData, PieContextValue, PieData } from "./pie-context"
+import type { PieContextValue, PieData } from "./pie-context"
 
 /** Default hover offset in pixels */
 export const DEFAULT_HOVER_OFFSET = 10
@@ -183,7 +183,7 @@ function PieChartInner({
       endAngle: arc.endAngle,
       padAngle: arc.padAngle,
       value: arc.value,
-    })) as Array<PieArcData>
+    }))
   }, [data, startAngle, endAngle, padAngle])
 
   // Mark as loaded after initial render

@@ -14,9 +14,7 @@ export function InventoryFolderContents({ folder }: { folder: ApiTreeNode }) {
   const children = sortInventoryTree(folder.children ?? [])
 
   if (children.length === 0) {
-    return (
-      <p className="text-sm text-muted-foreground">This folder is empty.</p>
-    )
+    return <p className="text-sm text-muted-foreground">Nothing here yet.</p>
   }
 
   return (

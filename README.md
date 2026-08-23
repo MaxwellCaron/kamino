@@ -1,6 +1,6 @@
 # Kamino
 
-Kamino is a small internal VM-management application for ~100 users that wraps Proxmox with an inventory model, Discord-like ACLs/roles, request workflows, pod publishing/cloning, VNC console access, and Active Directory–backed principals. Postgres is the source of truth; Proxmox is mirrored and reconciled against it on startup and during operation.
+Kamino is a small internal VM-management application for ~100 users that wraps Proxmox with an inventory model, Discord-like ACLs/roles, request workflows, pod publishing/cloning, VNC console access, and a configurable principal provider (Active Directory or Proxmox). Postgres is the source of truth; Proxmox is mirrored and reconciled against it on startup and during operation.
 
 ## Stack
 
@@ -10,6 +10,7 @@ Kamino is a small internal VM-management application for ~100 users that wraps P
 | Frontend | TanStack Start · Vite · TanStack Query/Router |
 | UI primitives | Shared shadcn-style package (`@workspace/ui`) |
 | Tooling | Bun 1.3.11 · Turbo monorepo |
+| TypeScript | TS 7 (`@typescript/native`) gates CI via `bun run typecheck`; TS 6 runs as a non-blocking secondary check via `bun run typecheck:stable` |
 
 ## Repository layout
 
@@ -36,7 +37,7 @@ packages/ui/       Shared UI primitives exported as @workspace/ui
 - **Air** (Go live-reload; `go install github.com/air-verse/air@latest`) — required for `bun run dev` API watch mode
 - **Postgres** instance reachable from the API
 - **Proxmox** cluster with an API token (`kamino@pve!<token-name>`)
-- **AD/LDAP** — optional; required only if AD auth/sync is enabled
+- **Principal provider** — required; `active_directory` or `proxmox`
 
 ## Quick start (local dev)
 
@@ -138,31 +139,30 @@ All configuration is loaded from environment variables (or `apps/api/.env`). Cop
 | `PROXMOX_TOKEN_ID` | yes | — | Proxmox API token ID |
 | `PROXMOX_TOKEN_SECRET` | yes | — | Proxmox API token secret |
 | `PROXMOX_NODES` | yes | — | Comma-separated Proxmox node names |
+| `PROXMOX_SPICE_PROXY_HOST` | no | `PROXMOX_URL` hostname | Client-reachable Proxmox SPICE proxy hostname or IP literal (no scheme or port; native clients use TCP 3128) |
 | `PROXMOX_INSECURE` | no | `false` | Skip TLS verification (lab only) |
 | `PROXMOX_INITIAL_SYNC_ENABLED` | no | `true` | Run the startup Proxmox-to-database inventory import |
+| `PRINCIPAL_PROVIDER` | yes | — | `active_directory` or `proxmox` |
+| `PRINCIPAL_INITIAL_SYNC_ENABLED` | no | `true` | Run the startup principal sync for the selected provider |
+| `PRINCIPAL_BOOTSTRAP_ADMIN_GROUP` | no | — | Initial admin group seed: AD DN in AD mode, Proxmox group ID in Proxmox mode |
+| `PROXMOX_AUTH_REALM` | no | `pve` | Default Proxmox realm for login and managed users when `PRINCIPAL_PROVIDER=proxmox` |
+| `PROXMOX_MANAGED_USER_REALM` | no | `PROXMOX_AUTH_REALM` | Realm appended to bare usernames created through Kamino in Proxmox mode |
 | `PORT` | no | `:8080` | API listen address |
 | `FRONTEND_URL` | no | `http://localhost:3000` | Allowed CORS origin |
-| `LDAP_URL` | no | — | LDAP server URL (enables AD auth/sync) |
-| `LDAP_BIND_DN` | no | — | Service account DN |
-| `LDAP_BIND_PASSWORD` | no | — | Service account password |
-| `LDAP_SEARCH_BASE_DN` | no | — | LDAP search base |
-| `LDAP_USER_OU` | no | — | OU containing user accounts |
-| `LDAP_GROUP_OU` | no | — | OU containing groups |
-| `LDAP_ADMIN_GROUP_DN` | no | — | DN of the Kamino admins group |
+| `TRUSTED_PROXY_CIDRS` | no | — | Comma-separated CIDRs of reverse proxies allowed to set `X-Forwarded-For`; unset trusts none |
+| `LDAP_URL` | when AD | — | LDAP server URL (required when `PRINCIPAL_PROVIDER=active_directory`) |
+| `LDAP_BIND_DN` | when AD | — | Service account DN |
+| `LDAP_BIND_PASSWORD` | when AD | — | Service account password |
+| `LDAP_SEARCH_BASE_DN` | when AD | — | LDAP search base |
+| `LDAP_USER_OU` | when AD | — | Full DN of the OU subtree searched for users during principal sync (required when `PRINCIPAL_PROVIDER=active_directory`) |
+| `LDAP_GROUP_OU` | when AD | — | Full DN of the OU subtree searched for groups during principal sync (required when `PRINCIPAL_PROVIDER=active_directory`) |
 | `LDAP_INSECURE` | no | `false` | Skip TLS verification (lab only) |
-| `AD_INITIAL_SYNC_ENABLED` | no | `true` | Run the startup AD-to-database principal sync |
+| `TEMPLATES_FOLDER_ITEM_ID` | no | root-level `Templates` folder | Inventory folder ID pinning the Templates library used for pod creation; library templates are listed and cloned without source-folder ACL access |
+| `VM_TEMPLATES_FOLDER_ITEM_ID` | no | `TEMPLATES_FOLDER_ITEM_ID` | Optional template-library override for Create VM; configured library templates are available as clone sources without source-folder ACL access |
 | `POD_ROUTER_TEMPLATE_ITEM_ID` | no | — | Proxmox item ID of router template for pod cloning |
-| `POD_CLONE_VNET_PREFIX` | no | `pod` | Prefix for pre-created clone VNets |
-| `POD_CLONE_NETWORK_MIN` | no | `1` | First published-clone network number |
-| `POD_CLONE_NETWORK_MAX` | no | `244` | Last published-clone network number |
-| `POD_DEV_NETWORK_MIN` | no | `245` | First create-pod developer network number |
-| `POD_DEV_NETWORK_MAX` | no | `254` | Last create-pod developer network number |
 | `POD_ROUTER_WAIT_TIMEOUT` | no | `5m` | Timeout for clone-time router readiness checks |
-| `POD_ROUTER_WAN_IP_BASE` | no | `172.16.` | External NAT subnet prefix used in clone metadata |
-| `POD_ROUTER_INTERNAL_SUBNET` | no | `192.168.1.0/24` | Fixed internal LAN every pod router uses; must match the `INTERNAL_SUBNET` used to generate router snippets (see below) |
-| `POD_ROUTER_CLOUD_INIT_STORAGE` | no | `local` | Proxmox storage name that exposes the pre-created router cloud-init snippets |
-| `POD_ROUTER_CLOUD_INIT_USER_FILE_PATTERN` | no | `kamino-router-{network}-user-data.yaml` | User-data snippet filename pattern for the allocated network number |
-| `POD_ROUTER_CLOUD_INIT_NETWORK_FILE` | no | `kamino-router-network-config.yaml` | Shared Proxmox network-config snippet filename attached to every cloned router |
+| `PERSONAL_PODS_ENABLED` | no | `false` | Enables personal pod status, requests, and provisioning; when enabled, a standard or personal router template must be configured |
+| `PERSONAL_POD_ROUTER_TEMPLATE_ITEM_ID` | no | `POD_ROUTER_TEMPLATE_ITEM_ID` | Optional router template override for personal pods |
 | `POD_PUBLISH_VMID_MIN` | no | `1000` | First VMID available for publish/template-preparation clones (inclusive) |
 | `POD_PUBLISH_VMID_MAX` | no | `1999` | Last VMID available for publish/template-preparation clones (inclusive) |
 | `POD_CLONE_VMID_MIN` | no | `2000` | First VMID available for catalog clone/reclone operations (inclusive) |
@@ -171,6 +171,20 @@ All configuration is loaded from environment variables (or `apps/api/.env`). Cop
 | `POD_DEV_VMID_MAX` | no | `19999` | Last VMID available for development pod creation (inclusive) |
 | `PERSONAL_POD_VMID_MIN` | no | `20000` | First VMID available for personal pod router clones (inclusive) |
 | `PERSONAL_POD_VMID_MAX` | no | `20999` | Last VMID available for personal pod router clones (inclusive) |
+| `VM_OPERATION_CONCURRENCY` | no | `2` | Maximum concurrent heavyweight VM clone, template-conversion, and delete/cleanup operations per API process across pod and ordinary VM workflows (accepted range `1`–`8`). Use `1` to roll back to fully serial work. Effective cluster-wide maximum is this value times API replicas; Kamino's VMID allocator and current deployment assume one API replica. Raise above `2` only after observing Proxmox task duration, storage latency/IOPS, and failure/cleanup logs under representative workloads. VM power remains independently controlled by `VM_POWER_CONCURRENCY`. Manager clone, delete, and reclone bulk actions each admit up to five complete workflows in the browser; these API operation and power settings remain the authoritative per-process Proxmox limits. |
+| `VM_POWER_CONCURRENCY` | no | `6` | Maximum concurrent Proxmox power tasks per API process (accepted range `1`–`20`), including automatic pod-router starts during provisioning as well as user-initiated VM power actions. Use `1` to roll back to fully serial power actions. Effective cluster-wide maximum is this value times API replicas; the current deployment assumes one API replica. Raise to `10` only after observing task duration, node CPU/memory, storage latency/IOPS, and failures under representative workloads. |
+| `VM_POWER_TASK_TIMEOUT` | no | `5m` | Positive duration bounding how long the API drains an accepted Proxmox power task after the HTTP client disconnects, including automatic pod-router power tasks started during provisioning. |
+
+Clone target networking, allocation ranges, WAN subnets, cloud-init storage,
+and default/personal assignments are stored in Postgres and managed from
+**Admin → SDN → Pod Clone Targets**. A new installation starts without clone
+targets; create and assign them before enabling the corresponding workflows.
+
+On startup, Kamino clears persisted pod clone/reclone/delete claims left by the
+previous API process so interrupted pods can be retried or deleted immediately.
+This recovery relies on the documented single-API-replica deployment model and
+does not cancel Proxmox tasks that survived the process restart; allow those
+tasks to settle before retrying if Proxmox still reports them as running.
 
 ### VMID allocation ranges
 
@@ -193,31 +207,77 @@ ranges must be pairwise non-overlapping and within the Proxmox VMID bounds
 - Inventory current VMIDs before adopting custom ranges to avoid accidental
   overlap with existing machines.
 
-By default, published pod clones reserve network numbers `1-244` and create-pod
-developer environments reserve `245-254`. These ranges must not overlap.
-Generated VNet IDs must also fit Proxmox's 8-character VNet limit; with the
-default prefix and ranges, the longest generated ID is `pod254`.
+Each clone target defines its own inclusive network-number range in the admin
+dashboard. Managers choose a compatible target when creating a development pod;
+the target marked **Default** is preselected. Personal pods use the target marked
+**Personal**. A newly published pod inherits its development target unless the
+manager selects another one, and later target changes apply only to future
+clones. Every active network number remains globally unique across published,
+development, and personal allocations (enforced by the database), even when
+configured target ranges overlap.
+
+Network identity settings on a clone target cannot be changed while the target
+is referenced. Create a new target and assign it to the published pod to move
+future clones to different VNets; development pods and existing clones remain on
+their original targets.
 
 Development and published pod routers clone directly from
 `POD_ROUTER_TEMPLATE_ITEM_ID`; publishing snapshots only non-router VMs.
 
 ### Pod router networking
 
-Every pod VNet is isolated at Layer 2, so every pod router can safely reuse
-the same internal LAN (`POD_ROUTER_INTERNAL_SUBNET`, default `192.168.1.0/24`)
-— only the external (WAN) `/24` differs per allocated network number. The
-router NATs between the two, preserving the workload's host octet:
+Kamino uses the shared, pre-created, VLAN-aware Proxmox VNets configured on each
+clone target instead of generating one VNet per pod. The allocated
+`network_number` becomes the inner
+(access/802.1Q) VLAN tag Kamino applies to every internal NIC — for example,
+pod network `24` uses `bridge=pod,tag=24` on every LAN-facing NIC. Pods stay
+isolated from each other because every VM sharing one pod's tag is the only
+traffic Proxmox forwards within that tag on the shared VNet; a LAN+DMZ router
+uses `bridge=pod,tag=24` on its LAN NIC and `bridge=dmz,tag=24` on its DMZ
+NIC, and the two segments remain isolated because they sit on different
+outer VNets. Every pod router can safely reuse the profile's fixed internal LAN
+(`192.168.1.0/24`) — only the external (WAN) `/24`, derived from the clone
+target's `/16`, differs per allocated network number. The router NATs between
+the two, preserving the workload's host octet:
 
-| | Development (network `245`) | Published clone (network `24`) |
+| | Development (network `199`) | Published clone (network `24`) |
 |---|---|---|
-| WAN subnet | `172.16.245.0/24` | `172.16.24.0/24` |
+| WAN subnet | `172.16.199.0/24` | `172.16.24.0/24` |
 | LAN subnet (both) | `192.168.1.0/24` | `192.168.1.0/24` |
-| Workload at `192.168.1.50` | reachable at `172.16.245.50` | reachable at `172.16.24.50` |
+| LAN VNet + inner VLAN tag (both) | `pod`, tag `199` | `pod`, tag `24` |
+| Workload at `192.168.1.50` | reachable at `172.16.199.50` | reachable at `172.16.24.50` |
 
 Configure workload guests once, as `192.168.1.<host>/24` with gateway
 `192.168.1.1` — Kamino does not rewrite addressing inside guests, so existing
 VMs must be readdressed to this LAN (then republished/recloned) before this
-networking model takes effect for them.
+networking model takes effect for them. Guests see ordinary untagged
+Ethernet: Kamino sets the VLAN tag on the Proxmox NIC (access mode), not
+inside the guest, so no guest-side VLAN interface or trunk is required.
+
+Supported automated profiles:
+
+| Profile | Key | Router NICs | Workload segments | Notes |
+|---|---|---|---|---|
+| LAN Router | `lan-router-v1` (default) | WAN `net0` (untagged, preserved), LAN `net1` (target LAN VNet, tag `N`), `net2` link-down | one LAN on the target LAN VNet, tag `N` | target WAN `/24` ↔ `192.168.1.0/24` 1:1 prefix NAT |
+| LAN + DMZ Router | `lan-dmz-router-v1` | WAN `net0` (untagged, preserved), LAN `net1` (target LAN VNet, tag `N`), DMZ `net2` (target DMZ VNet, tag `N`) | explicit LAN or DMZ per workload | target WAN `/24` ↔ `10.0.50.0/24` 1:1 prefix NAT |
+
+The router template must expose `net0`, `net1`, and `net2` for the DMZ profile.
+DMZ workloads must use static `10.0.50.<host>/24` addresses with gateway
+`10.0.50.1`; each host is reachable at `172.16.<N>.<host>`. Kamino validates
+segment assignment and Proxmox NIC attachment, not guest OS addressing.
+
+Generic ISO-created and template-cloned workload VMs placed inside a
+personal, development, or published-clone pod folder always inherit that
+pod's allocation tag; the server derives the tag and allowed bridges from
+the destination folder and ignores any VLAN tag the client submits. LAN+DMZ
+pods let ISO creation choose only the pod's LAN or DMZ VNet, and the tag
+stays locked either way. This creation default applies to every caller,
+including managers and administrators — there is no override at creation
+time. Only a manager or administrator may change an existing VM's tag
+afterward, through the hardware editor. An ordinary hardware save from
+anyone else preserves each existing NIC's current server-side tag exactly,
+including a prior manager-set override or untagged value, and assigns the
+pod's allocation tag only to a newly added NIC.
 
 ## Security notes
 
@@ -237,26 +297,66 @@ On startup the API performs these steps in order:
 
 1. Connect to Postgres and initialize the query layer.
 2. Connect to Proxmox and verify API access.
-3. Run an initial inventory import from Proxmox into the database, unless `PROXMOX_INITIAL_SYNC_ENABLED` is `false`.
-4. Optionally run AD/LDAP sync if `LDAP_URL` is configured, unless `AD_INITIAL_SYNC_ENABLED` is `false`.
+3. Run an initial inventory import from Proxmox into the database, unless `PROXMOX_INITIAL_SYNC_ENABLED` is `false`. This import adopts every live Proxmox resource pool as a matching inventory folder (creating nested folders as needed and importing the pool's comment as the folder description), then imports VMs and containers into the folder for their live pool. Pool structure and comments always flow Proxmox → database on import; Kamino never deletes a pool just because it has no matching folder yet.
+4. Run principal sync for the configured provider (`active_directory` or `proxmox`), unless `PRINCIPAL_INITIAL_SYNC_ENABLED` is `false`. Proxmox mode authenticates users through Proxmox `/access/ticket`, then issues Kamino JWT/session cookies. Kamino never stores user Proxmox tickets or passwords and continues using the configured Proxmox API token for inventory and VM operations.
 5. Start event notifiers (inventory, VM status, requests).
 6. Reconcile Proxmox mirror state against the database. This step is not controlled by `PROXMOX_INITIAL_SYNC_ENABLED`.
-7. Bootstrap admin group ACLs from `LDAP_ADMIN_GROUP_DN` if configured.
+7. Bootstrap admin group ACLs from `PRINCIPAL_BOOTSTRAP_ADMIN_GROUP` when configured.
 8. Normalize permission inheritance across the inventory tree.
 9. Register HTTP routes and begin serving.
 
-### Mirror reconcile and managed pool deletion
+### Active Directory principal sync scope
 
-During step 6, Kamino compares its database state with Proxmox. Pools that Kamino previously managed but are no longer present in the database may be deleted from Proxmox during reconcile. This is expected behavior when inventory items are removed from Kamino. Review Proxmox mirror logs before running destructive sync operations in production.
+When `PRINCIPAL_PROVIDER=active_directory`, both startup and manual (`POST /api/v1/principals/sync`) sync search only the two configured OU subtrees: every user under `LDAP_USER_OU` and every group under `LDAP_GROUP_OU`. Kamino principals returned by a provider outside those subtrees are treated as stale: a successful sync deletes their principal rows and memberships. Verify `LDAP_USER_OU` and `LDAP_GROUP_OU` point at the intended subtrees before enabling or rolling out AD sync in production; principals previously imported from outside those OUs are removed on the next successful sync.
+
+### Mirror reconcile and pool structure
+
+During step 6, Kamino compares its database state with Proxmox. The only pool write the reconcile performs is creating a Proxmox pool for a database folder that doesn't have one yet (e.g. a newly created pod folder) — it never updates an existing pool's comment and never deletes a pool. Pool structure and comments are kept in sync in the other direction, by the startup/manual VM-and-pool import (step 3) adopting whatever currently exists in Proxmox. The only path that removes a Proxmox pool is explicitly deleting the pod/folder that owns it in Kamino, which deletes that specific pool as part of the same request.
 
 ### Pod router prerequisites
 
 Pod cloning requires the following to be configured and healthy:
 
-| Prerequisite | Env var | Check |
+| Prerequisite | Configuration | Check |
 |---|---|---|
 | Router template VM exists in inventory | `POD_ROUTER_TEMPLATE_ITEM_ID` | Must point to a valid template inventory item |
-| Cloud-init snippets exist on Proxmox storage | `POD_ROUTER_CLOUD_INIT_*` | Filenames must pass validation (no path separators, no `..`) |
-| VNets exist for all network numbers in range | `POD_CLONE_VNET_PREFIX` + `POD_CLONE_NETWORK_MIN/MAX` | Each `{prefix}{number}` VNet must be present in Proxmox SDN |
-| WAN IP prefix is a valid dotted numeric value | `POD_ROUTER_WAN_IP_BASE` | Each segment must be 0-255 |
-| Internal subnet is a valid IPv4 `/24` network | `POD_ROUTER_INTERNAL_SUBNET` | Must be a canonical `/24` network address, not a host address |
+| At least one clone target exists | Admin → SDN → Pod Clone Targets | Create targets after first boot; Kamino does not seed placeholders |
+| Default and personal workflows have targets | Clone target assignments | Mark the targets used for development/default cloning and personal pods. Either role may remain unassigned until its workflow is needed |
+| Cloud-init snippets exist on Proxmox storage | Clone target key and storage | The dialog provides the generator command. Filenames are derived as `kamino-{key}-router-*` and must exist on the selected storage |
+| Shared LAN VNet exists and is ready for tagged NICs | Clone target LAN VNet | Must exist, have `vlanaware=true`, and `isolate-ports=false`. Kamino validates and consumes this VNet; it never creates or mutates it |
+| Shared DMZ VNet exists and is ready for tagged NICs | Clone target DMZ VNet | Same checks as the LAN VNet, required only for the LAN+DMZ profile. It must differ from the target LAN VNet |
+| Configured shared VNets have distinct outer VLAN tags | All clone target VNets | Kamino rejects configured VNets that resolve to the same outer Proxmox VLAN tag on the physical bridge |
+| WAN bridge and subnet are valid | Clone target WAN bridge and `/16` | The bridge or SDN VNet is attached to cloned router `net0`; each allocated network number selects one `/24` from the `/16` |
+| Router template has three NICs for DMZ profile | `POD_ROUTER_TEMPLATE_ITEM_ID` | `net0` WAN, `net1` LAN, `net2` DMZ |
+| LAN + DMZ router cloud-init snippets exist | Clone target key and storage | `kamino-{key}-router-lan-dmz-{network}-user-data.yaml` per network |
+
+### Shared VNet maintenance cutover
+
+Moving to (or reconfiguring) the shared-VNet model in a live deployment is a
+maintenance operation, not a rolling change — Kamino only validates and
+consumes the shared VNets assigned to clone targets; it never creates, renames,
+or mutates Proxmox SDN resources, and a cutover must not silently relabel an
+active legacy allocation.
+
+1. Schedule a maintenance window and stop pod provisioning.
+2. Query `pod_network_allocations` and confirm it is empty. If any row
+   exists, stop — this is not an in-place migration for active
+   `podNNN`/`dmzNNN` legacy VM NICs; a separate migration plan is required.
+3. Verify the operator-created shared VNets exist on every node with the
+   expected zones/outer tags, `vlanaware=true`, and `isolate-ports=false`.
+4. Verify the shared VNets have unique outer VLAN tags, and that the
+   physical switch trunk allows the resulting QinQ (outer + inner tag) and
+   MTU overhead on the one physical bridge.
+5. Create or update clone targets in **Admin → SDN**, then assign the Default
+   and Personal roles needed by the deployment.
+6. Confirm each target saves successfully against the live Proxmox VNets.
+7. Provision canaries using at least two different inner tags.
+8. Inspect every Proxmox NIC created by the canaries for the expected
+   bridge/tag pair.
+9. Verify same-pod LAN reachability, different-tag isolation, LAN/DMZ
+   separation, router WAN reachability, personal-pod create/edit, cross-node
+   operation, and VM migration.
+10. Confirm no VM NIC still references a legacy generated VNet
+    (`podNNN`/`dmzNNN`).
+11. Only then delete unused legacy VNets through the operator's normal
+    Proxmox process.

@@ -2,13 +2,6 @@
 -- Sync queries
 -- ---------------------------------------------------------------------------
 
--- name: GetRootFolderByName :one
-SELECT id
-FROM inventory_items
-WHERE parent_id IS NULL
-  AND kind = 'folder'
-  AND name = $1;
-
 -- name: CreateRootFolder :one
 INSERT INTO inventory_items (parent_id, kind, name)
 VALUES (NULL, 'folder', $1)
@@ -67,6 +60,7 @@ WHERE inherit_permissions = false;
 SELECT pv.inventory_item_id,
        pv.node,
        pv.vmid,
+       pv.guest_type,
        pv.upstream_uuid,
        pv.cpu_count,
        pv.memory_mb,
@@ -81,6 +75,7 @@ WHERE pv.node = $1 AND pv.vmid = $2;
 SELECT pv.inventory_item_id,
        pv.node,
        pv.vmid,
+       pv.guest_type,
        pv.upstream_uuid,
        pv.cpu_count,
        pv.memory_mb,
@@ -95,6 +90,7 @@ WHERE pv.upstream_uuid = $1;
 SELECT inventory_item_id,
        node,
        vmid,
+       guest_type,
        upstream_uuid,
        is_template,
        notes,
@@ -108,6 +104,7 @@ WHERE inventory_item_id = $1;
 SELECT inventory_item_id,
        node,
        vmid,
+       guest_type,
        upstream_uuid,
        is_template,
        notes,
@@ -119,23 +116,20 @@ WHERE inventory_item_id = $1
 FOR UPDATE;
 
 -- name: InsertProxmoxVM :exec
-INSERT INTO proxmox_vms (inventory_item_id, node, vmid, upstream_uuid, is_template, cpu_count, memory_mb, disk_gb)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8);
+INSERT INTO proxmox_vms (inventory_item_id, node, vmid, guest_type, upstream_uuid, is_template, cpu_count, memory_mb, disk_gb)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9);
 
 -- name: UpdateProxmoxVM :exec
 UPDATE proxmox_vms
 SET node = $2,
     vmid = $3,
-    upstream_uuid = $4,
-    is_template = $5,
-    cpu_count = $6,
-    memory_mb = $7,
-    disk_gb = $8
+    guest_type = $4,
+    upstream_uuid = $5,
+    is_template = $6,
+    cpu_count = $7,
+    memory_mb = $8,
+    disk_gb = $9
 WHERE inventory_item_id = $1;
-
--- name: GetAllProxmoxVMNodeVMIDs :many
-SELECT pv.inventory_item_id, pv.node, pv.vmid
-FROM proxmox_vms pv;
 
 -- name: DeleteInventoryItem :exec
 DELETE FROM inventory_items WHERE id = $1;
@@ -177,11 +171,44 @@ JOIN requests r ON r.id = ir.request_id
 WHERE ir.inventory_item_id IN (SELECT id FROM subtree)
 ORDER BY blocker_type, blocker_name;
 
--- name: GetChildFolderIDs :many
-SELECT id, name
-FROM inventory_items
-WHERE parent_id = $1
-  AND kind = 'folder';
+-- name: ListInventoryDeletionBlockersInSubtreeExceptPublishedPod :many
+WITH RECURSIVE subtree AS (
+    SELECT inventory_items.id
+    FROM inventory_items
+    WHERE inventory_items.id = $1
+
+    UNION ALL
+
+    SELECT child.id
+    FROM inventory_items child
+    JOIN subtree parent ON child.parent_id = parent.id
+)
+SELECT pp.source_folder_id AS inventory_item_id,
+       'published pod source folder' AS blocker_type,
+       pp.title AS blocker_name
+FROM published_pods pp
+WHERE pp.source_folder_id IN (SELECT id FROM subtree)
+  AND pp.id <> sqlc.arg(excluded_pod_id)
+
+UNION ALL
+
+SELECT ppv.source_inventory_item_id AS inventory_item_id,
+       'published pod VM' AS blocker_type,
+       pp.title || ' / ' || ppv.name AS blocker_name
+FROM published_pod_vms ppv
+JOIN published_pods pp ON pp.id = ppv.pod_id
+WHERE ppv.source_inventory_item_id IN (SELECT id FROM subtree)
+  AND pp.id <> sqlc.arg(excluded_pod_id)
+
+UNION ALL
+
+SELECT ir.inventory_item_id AS inventory_item_id,
+       'inventory request' AS blocker_type,
+       r.kind AS blocker_name
+FROM inventory_requests ir
+JOIN requests r ON r.id = ir.request_id
+WHERE ir.inventory_item_id IN (SELECT id FROM subtree)
+ORDER BY blocker_type, blocker_name;
 
 -- name: UpdateProxmoxVMIsTemplateByItemID :exec
 UPDATE proxmox_vms
@@ -199,8 +226,21 @@ WHERE inventory_item_id = $4;
 -- Read queries for API endpoints
 -- ---------------------------------------------------------------------------
 
+-- name: UpdateInventoryFolderDetails :exec
+UPDATE inventory_items
+SET name = $1,
+    description = $2
+WHERE id = $3
+  AND kind = 'folder';
+
+-- name: UpdateInventoryFolderDescription :exec
+UPDATE inventory_items
+SET description = $1
+WHERE id = $2
+  AND kind = 'folder';
+
 -- name: GetAllInventoryItems :many
-SELECT ii.id, ii.parent_id, ii.kind, ii.name,
+SELECT ii.id, ii.parent_id, ii.kind, ii.name, ii.description,
        ii.vm_limit AS direct_vm_limit,
        (CASE
          WHEN ii.kind = 'folder' THEN COALESCE(inventory_folder_effective_vm_limit(ii.id), 0)
@@ -210,7 +250,7 @@ SELECT ii.id, ii.parent_id, ii.kind, ii.name,
          WHEN ii.kind = 'folder' THEN inventory_folder_vm_count(ii.id, NULL)
          ELSE 0
        END)::INTEGER AS vm_count,
-       pv.node, pv.vmid, pv.is_template, pv.notes, pv.cpu_count, pv.memory_mb, pv.disk_gb
+       pv.node, pv.vmid, pv.guest_type, pv.is_template, pv.notes, pv.cpu_count, pv.memory_mb, pv.disk_gb
 FROM inventory_items ii
 LEFT JOIN proxmox_vms pv ON pv.inventory_item_id = ii.id
 ORDER BY
@@ -219,7 +259,7 @@ ORDER BY
   ii.name ASC;
 
 -- name: GetInventoryItemByID :one
-SELECT ii.id, ii.parent_id, ii.kind, ii.name, ii.inherit_permissions,
+SELECT ii.id, ii.parent_id, ii.kind, ii.name, ii.description, ii.inherit_permissions,
        ii.vm_limit AS direct_vm_limit,
        (CASE
          WHEN ii.kind = 'folder' THEN COALESCE(inventory_folder_effective_vm_limit(ii.id), 0)
@@ -229,7 +269,7 @@ SELECT ii.id, ii.parent_id, ii.kind, ii.name, ii.inherit_permissions,
          WHEN ii.kind = 'folder' THEN inventory_folder_vm_count(ii.id, NULL)
          ELSE 0
        END)::INTEGER AS vm_count,
-       pv.node, pv.vmid, pv.is_template, pv.notes, pv.cpu_count, pv.memory_mb, pv.disk_gb
+       pv.node, pv.vmid, pv.guest_type, pv.is_template, pv.notes, pv.cpu_count, pv.memory_mb, pv.disk_gb
 FROM inventory_items ii
 LEFT JOIN proxmox_vms pv ON pv.inventory_item_id = ii.id
 WHERE ii.id = $1;

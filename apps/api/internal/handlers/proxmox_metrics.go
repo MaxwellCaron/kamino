@@ -14,10 +14,10 @@ import (
 func (h *VMCreateHandler) GetClusterUsageHistory(c *gin.Context) {
 	principalID, ok := currentPrincipalID(c)
 	if !ok {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "authentication required"})
+		writeUnauthorized(c)
 		return
 	}
-	if !requireManagementPermission(c, h.Authz, principalID, authorization.ManagementPermissionManager) {
+	if !requireManagementPermission(c, h.Authz, principalID, authorization.ManagementPermissionAdministrator) {
 		return
 	}
 

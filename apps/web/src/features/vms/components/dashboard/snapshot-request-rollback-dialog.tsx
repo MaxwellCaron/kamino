@@ -59,14 +59,11 @@ export function SnapshotRequestRollbackDialog({
         }
       >
         <AlertDialogFooter>
-          <AlertDialogCancel>
-            Close
-          </AlertDialogCancel>
+          <AlertDialogCancel>Close</AlertDialogCancel>
           <AppActionButton
             type="button"
             disabled={snapshotName === null}
             pending={submitRollbackRequest.isPending}
-            pendingLabel="Submitting..."
             onClick={async () => {
               if (snapshotName === null) return
 

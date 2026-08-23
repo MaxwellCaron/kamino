@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"context"
 	"crypto/rand"
 	"crypto/tls"
 	"encoding/hex"
@@ -21,10 +22,13 @@ import (
 	"github.com/gorilla/websocket"
 )
 
+const vncCloseWriteDeadline = 2 * time.Second
+
 // VNCHandler handles VNC proxy and WebSocket bridge requests.
 type VNCHandler struct {
 	PX       *proxmox.Client
-	Authz    *authorization.Service
+	Authz    vmAuthz
+	Sessions liveSessionValidator
 	sessions *sessionStore
 	upgrader websocket.Upgrader
 }
@@ -50,6 +54,7 @@ func NewVNCHandler(px *proxmox.Client, frontendURL string) *VNCHandler {
 // --- session store ---
 
 type vncSession struct {
+	guestType   proxmox.GuestType
 	node        string
 	vmid        int
 	port        string
@@ -57,6 +62,7 @@ type vncSession struct {
 	password    string
 	expires     time.Time
 	principalID uuid.UUID
+	itemID      uuid.UUID
 }
 
 type sessionStore struct {
@@ -118,7 +124,7 @@ func (s *sessionStore) reapLoop() {
 func (h *VNCHandler) PostProxy(c *gin.Context) {
 	principalID, ok := currentPrincipalID(c)
 	if !ok {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "authentication required"})
+		writeUnauthorized(c)
 		return
 	}
 
@@ -131,19 +137,21 @@ func (h *VNCHandler) PostProxy(c *gin.Context) {
 		return
 	}
 
-	vncResp, err := h.PX.CreateVNCProxy(c.Request.Context(), target.Node, target.VMID)
+	vncResp, err := h.PX.CreateVNCProxy(c.Request.Context(), target.GuestType, target.Node, target.VMID)
 	if err != nil {
 		writeLoggedError(c, http.StatusBadGateway, "failed to create VNC proxy", "create vnc proxy", err)
 		return
 	}
 
 	sessionID := h.sessions.store(&vncSession{
+		guestType:   target.GuestType,
 		node:        target.Node,
 		vmid:        target.VMID,
 		port:        vncResp.Port,
 		ticket:      vncResp.Ticket,
 		password:    vncResp.Password,
 		principalID: principalID,
+		itemID:      target.ItemID,
 	})
 
 	c.JSON(http.StatusOK, gin.H{
@@ -159,7 +167,16 @@ func (h *VNCHandler) PostProxy(c *gin.Context) {
 func (h *VNCHandler) WebSocket(c *gin.Context) {
 	principalID, ok := currentPrincipalID(c)
 	if !ok {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "authentication required"})
+		writeUnauthorized(c)
+		return
+	}
+	sessionID, ok := currentSessionID(c)
+	if !ok {
+		writeUnauthorized(c)
+		return
+	}
+	if h.Sessions == nil || h.Authz == nil {
+		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "vnc unavailable"})
 		return
 	}
 
@@ -172,14 +189,24 @@ func (h *VNCHandler) WebSocket(c *gin.Context) {
 
 	sess, ok := h.sessions.consume(c.Query("sessionId"))
 	if !ok {
-		clientConn.WriteMessage(websocket.CloseMessage,
-			websocket.FormatCloseMessage(websocket.ClosePolicyViolation, "invalid or expired session"))
+		denyVNCConnection(clientConn)
 		return
 	}
 
 	if sess.principalID != principalID {
-		clientConn.WriteMessage(websocket.CloseMessage,
-			websocket.FormatCloseMessage(websocket.ClosePolicyViolation, "invalid or expired session"))
+		denyVNCConnection(clientConn)
+		return
+	}
+
+	if err := h.Sessions.ValidateLiveSession(c.Request.Context(), sessionID, principalID); err != nil {
+		log.Printf("vnc session validation failed: %v", err)
+		denyVNCConnection(clientConn)
+		return
+	}
+
+	if err := h.Authz.Require(freshAuthzContext(c.Request.Context()), principalID, sess.itemID, authorization.ConsoleVM); err != nil {
+		log.Printf("vnc console authorization failed: %v", err)
+		denyVNCConnection(clientConn)
 		return
 	}
 
@@ -193,8 +220,8 @@ func (h *VNCHandler) WebSocket(c *gin.Context) {
 	if pxURL.Scheme == "http" {
 		scheme = "ws"
 	}
-	wsURL := fmt.Sprintf("%s://%s/api2/json/nodes/%s/qemu/%d/vncwebsocket?port=%s&vncticket=%s",
-		scheme, pxURL.Host, sess.node, sess.vmid, sess.port, url.QueryEscape(sess.ticket))
+	wsURL := fmt.Sprintf("%s://%s/api2/json/nodes/%s/%s/%d/vncwebsocket?port=%s&vncticket=%s",
+		scheme, pxURL.Host, sess.node, sess.guestType, sess.vmid, sess.port, url.QueryEscape(sess.ticket))
 
 	// Dial Proxmox WebSocket
 	dialer := websocket.Dialer{}
@@ -214,16 +241,98 @@ func (h *VNCHandler) WebSocket(c *gin.Context) {
 	}
 	defer pxConn.Close()
 
-	// Bridge binary frames bidirectionally
-	done := make(chan struct{})
+	watchCtx, cancelWatch := context.WithCancel(c.Request.Context())
+	defer cancelWatch()
 
+	var shutdownOnce sync.Once
+	shutdown := func() {
+		shutdownOnce.Do(func() {
+			deadline := time.Now().Add(vncCloseWriteDeadline)
+			_ = clientConn.WriteControl(websocket.CloseMessage,
+				websocket.FormatCloseMessage(websocket.ClosePolicyViolation, "session ended"), deadline)
+			clientConn.Close()
+			pxConn.Close()
+			cancelWatch()
+		})
+	}
+
+	watchdogRejected := make(chan struct{})
+	watchdogStopped := make(chan struct{})
 	go func() {
-		defer close(done)
-		bridge(pxConn, clientConn)
+		defer close(watchdogStopped)
+		ticker := time.NewTicker(liveCheckInterval)
+		defer ticker.Stop()
+		if err := h.watchAuthorization(watchCtx, sessionID, principalID, sess.itemID, ticker.C); err != nil {
+			log.Printf("vnc watchdog authorization failed: %v", err)
+			close(watchdogRejected)
+		}
 	}()
 
-	bridge(clientConn, pxConn)
-	<-done
+	bridgeBidirectional(watchCtx, clientConn, pxConn, watchdogRejected, shutdown)
+	<-watchdogStopped
+}
+
+func denyVNCConnection(conn *websocket.Conn) {
+	conn.WriteMessage(websocket.CloseMessage,
+		websocket.FormatCloseMessage(websocket.ClosePolicyViolation, "invalid or expired session"))
+}
+
+// watchAuthorization rechecks the live session and ConsoleVM access every tick, failing closed on error.
+func (h *VNCHandler) watchAuthorization(
+	ctx context.Context,
+	sessionID, principalID, itemID uuid.UUID,
+	tick <-chan time.Time,
+) error {
+	for {
+		select {
+		case <-ctx.Done():
+			return nil
+		case <-tick:
+			if err := h.Sessions.ValidateLiveSession(ctx, sessionID, principalID); err != nil {
+				return err
+			}
+			if err := h.Authz.Require(freshAuthzContext(ctx), principalID, itemID, authorization.ConsoleVM); err != nil {
+				return err
+			}
+		}
+	}
+}
+
+// bridgeBidirectional bridges both directions until a copy loop, watchdog rejection, or ctx cancellation ends it.
+func bridgeBidirectional(
+	ctx context.Context,
+	left, right *websocket.Conn,
+	watchdogRejected <-chan struct{},
+	shutdown func(),
+) {
+	copyDone := make(chan struct{}, 2)
+
+	go func() {
+		bridge(left, right)
+		copyDone <- struct{}{}
+	}()
+
+	go func() {
+		bridge(right, left)
+		copyDone <- struct{}{}
+	}()
+
+	doneCh := ctx.Done()
+	rejectedCh := watchdogRejected
+	received := 0
+	for received < 2 {
+		select {
+		case <-copyDone:
+			received++
+			shutdown()
+		case <-rejectedCh:
+			rejectedCh = nil
+			shutdown()
+		case <-doneCh:
+			doneCh = nil
+			shutdown()
+		}
+	}
 }
 
 func bridge(src, dst *websocket.Conn) {

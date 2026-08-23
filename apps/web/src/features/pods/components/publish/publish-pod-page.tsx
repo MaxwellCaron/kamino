@@ -1,10 +1,8 @@
 import { useMemo } from "react"
-import { toast } from "sonner"
 import { getRouteApi, redirect } from "@tanstack/react-router"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { PublishPodEditor } from "@/features/pods/components/publish/publish-pod-editor"
 import { createInitialPublishPodValues } from "@/features/pods/components/publish/publish-pod-form"
-import { PreloadOverlay } from "@/components/loading-overlay"
 import {
   podCatalogQueryOptions,
   publishedPodQueryOptions,
@@ -26,10 +24,10 @@ export function PublishPodPage() {
   const existingPod = existingPodData ?? null
   const initialValues = useMemo(
     () =>
-      existingPod
-        ? toPublishPodFormValues(existingPod)
+      existingPodData
+        ? toPublishPodFormValues(existingPodData)
         : createInitialPublishPodValues(),
-    [existingPod]
+    [existingPodData]
   )
 
   if (podId && isExistingPodError) {
@@ -40,7 +38,6 @@ export function PublishPodPage() {
 
   return (
     <div className="relative flex flex-1 flex-col">
-      <PreloadOverlay active={isPreloading} />
       {!isPreloading && (
         <PublishPodEditor
           key={existingPod?.id ?? initialValues.id}
@@ -64,12 +61,6 @@ export function PublishPodPage() {
                 queryKey: podCatalogQueryOptions.queryKey,
               }),
             ])
-
-            toast.success(
-              existingPod
-                ? `${savedPod.title} updated in the catalog.`
-                : `${savedPod.title} added to the catalog.`
-            )
 
             return savedPod
           }}

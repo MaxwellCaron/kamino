@@ -1,52 +1,26 @@
-import { useForm } from "@tanstack/react-form"
+import { useMemo, useState } from "react"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
-import { toast } from "sonner"
-import { z } from "zod"
 import { UserAdd01Icon, UserMinusIcon } from "@hugeicons/core-free-icons"
 import { DialogFooter } from "@workspace/ui/components/dialog"
-import {
-  Item,
-  ItemContent,
-  ItemDescription,
-  ItemGroup,
-  ItemMedia,
-  ItemTitle,
-} from "@workspace/ui/components/item"
-import {
-  Field,
-  FieldContent,
-  FieldError,
-  FieldGroup,
-} from "@workspace/ui/components/field"
-import {
-  Combobox,
-  ComboboxContent,
-  ComboboxEmpty,
-  ComboboxInput,
-  ComboboxItem,
-  ComboboxList,
-} from "@workspace/ui/components/combobox"
-import { FacehashIcon } from "@workspace/ui/components/facehash"
+import type { RowSelectionState } from "@tanstack/react-table"
 import type { ApiPrincipal } from "@/features/principals/types/principals-types"
-import {
-  formatPrincipalReference,
-  getPrincipalBaseName,
-} from "@/components/principals/principal-label"
+import type { PrincipalSelectionItem } from "@/components/principals/principal-selection-table"
+import { formatPrincipalReference } from "@/components/principals/principal-label"
+import { PrincipalSelectionTable } from "@/components/principals/principal-selection-table"
 import {
   AppDialog,
   AppDialogPrimaryButton,
   AppDialogScrollBody,
 } from "@/components/dialogs/app-dialog"
-import { DialogBodySkeleton } from "@/components/loading-skeletons"
+import { SearchInputGroup } from "@/components/forms/search-input-group"
+import { PreloadOverlay } from "@/components/loading-overlay"
+import { InlineErrorAlert } from "@/components/feedback/inline-error-alert"
+import { showUnitMutationToast } from "@/components/feedback/mutation-progress-toast"
 import {
   addGroupMember,
   groupsQueryOptions,
   removeGroupMember,
 } from "@/features/principals/api/principals-api"
-import {
-  capitalizeFirstLetter,
-  formatToastError,
-} from "@/features/shared/utils/format"
 
 type UserGroupBulkDialogProps = {
   clearSelection: () => void
@@ -56,16 +30,9 @@ type UserGroupBulkDialogProps = {
   users: Array<ApiPrincipal>
 }
 
-const userGroupBulkFormSchema = z.object({
-  group: z
-    .custom<ApiPrincipal>((value) => value !== null, {
-      message: "Select a group before continuing.",
-    })
-    .nullable()
-    .refine((value): value is ApiPrincipal => value !== null, {
-      message: "Select a group before continuing.",
-    }),
-})
+function membershipOperationId(groupId: string, userId: string): string {
+  return `${groupId}:${userId}`
+}
 
 export function UserGroupBulkDialog({
   clearSelection,
@@ -76,178 +43,158 @@ export function UserGroupBulkDialog({
 }: UserGroupBulkDialogProps) {
   const queryClient = useQueryClient()
   const { data: groups, isLoading, error } = useQuery(groupsQueryOptions)
+  const [rowSelection, setRowSelection] = useState<RowSelectionState>({})
+  const [search, setSearch] = useState("")
   const selectedUsersLabel =
     users.length === 1
       ? formatPrincipalReference(users[0])
       : `${users.length} selected users`
 
-  const form = useForm({
-    defaultValues: {
-      group: null as ApiPrincipal | null,
-    },
-    validators: {
-      onSubmit: userGroupBulkFormSchema,
-    },
-    onSubmit: async ({ value }) => {
-      const group = value.group
-      if (!group) {
-        return
-      }
+  const groupOptions = useMemo<Array<PrincipalSelectionItem>>(() => {
+    const options: Array<PrincipalSelectionItem> = []
+    for (const group of groups ?? []) {
+      options.push({
+        description: group.external_id,
+        id: group.id,
+        label: formatPrincipalReference(group),
+        type: "group",
+      })
+    }
+    return options.sort((a, b) =>
+      a.label.localeCompare(b.label, undefined, { sensitivity: "base" })
+    )
+  }, [groups])
 
-      try {
-        const userIds = users.map((user) => user.id)
-        const result =
-          mode === "add"
-            ? await addGroupMember(group.id, userIds)
-            : await removeGroupMember(group.id, userIds)
+  const visibleGroups = useMemo(() => {
+    const normalizedSearch = search.trim().toLocaleLowerCase()
+    if (normalizedSearch.length === 0) return groupOptions
 
-        const succeededCount = result.succeeded.length
-        const failedCount = result.failed.length
-        const groupLabel = formatPrincipalReference(group)
+    return groupOptions.filter((group) =>
+      [group.label, group.description].some((value) =>
+        value.toLocaleLowerCase().includes(normalizedSearch)
+      )
+    )
+  }, [groupOptions, search])
 
-        if (succeededCount > 0) {
-          toast.success(
-            mode === "add"
-              ? `Added ${succeededCount} user${succeededCount === 1 ? "" : "s"} to ${groupLabel}`
-              : `Removed ${succeededCount} user${succeededCount === 1 ? "" : "s"} from ${groupLabel}`
-          )
+  const selectedGroups = useMemo(
+    () => groupOptions.filter((group) => group.id in rowSelection),
+    [groupOptions, rowSelection]
+  )
+
+  const handleConfirm = () => {
+    if (selectedGroups.length === 0 || users.length === 0) return
+
+    const updateMembership = mode === "add" ? addGroupMember : removeGroupMember
+    const successDescription = mode === "add" ? "Added" : "Removed"
+    const userIds = users.map((user) => user.id)
+    const groupCountLabel = `${selectedGroups.length} ${selectedGroups.length === 1 ? "group" : "groups"}`
+
+    const units = selectedGroups.map((group) => ({
+      items: users.map((user) => ({
+        id: membershipOperationId(group.id, user.id),
+        name: `${formatPrincipalReference(user)} · ${group.label}`,
+        successDescription,
+        retry: async () => {
+          const result = await updateMembership(group.id, [user.id])
+          const failure = result.failed.find((entry) => entry.id === user.id)
+          void queryClient.invalidateQueries({ queryKey: ["principals"] })
+          if (failure) throw new Error(failure.error)
+        },
+      })),
+      run: async () => {
+        const result = await updateMembership(group.id, userIds)
+        return {
+          failed: result.failed.map((failure) => ({
+            ...failure,
+            id: membershipOperationId(group.id, failure.id),
+          })),
         }
+      },
+    }))
 
-        if (failedCount === 1) {
-          toast.error(
-            `${mode === "add" ? "Failed to add" : "Failed to remove"} ${result.failed[0].id}: ${capitalizeFirstLetter(result.failed[0].error)}`
-          )
-        } else if (failedCount > 1) {
-          toast.error(
-            `${mode === "add" ? "Failed to add" : "Failed to remove"} ${failedCount} users`
-          )
-        }
+    clearSelection()
+    setRowSelection({})
+    setSearch("")
+    onOpenChange(false)
 
-        await queryClient.invalidateQueries({ queryKey: ["principals"] })
+    showUnitMutationToast({
+      title:
+        mode === "add"
+          ? `Adding users to ${groupCountLabel}`
+          : `Removing users from ${groupCountLabel}`,
+      units,
+      concurrency: 1,
+      onSettled: () => {
+        void queryClient.invalidateQueries({ queryKey: ["principals"] })
+      },
+    })
+  }
 
-        if (failedCount === 0) {
-          clearSelection()
-          onOpenChange(false)
-        }
-      } catch (err) {
-        toast.error(formatToastError(err))
-      }
-    },
-  })
+  const emptyMessage =
+    groupOptions.length === 0
+      ? "No groups are available."
+      : "No groups match your search."
 
   return (
     <AppDialog
       open={open}
       onOpenChange={onOpenChange}
-      onClosed={() => form.reset()}
-      initialFocus={false}
+      onClosed={() => {
+        setRowSelection({})
+        setSearch("")
+      }}
       icon={mode === "add" ? UserAdd01Icon : UserMinusIcon}
       title={mode === "add" ? "Add Users" : "Remove Users"}
       description={
         mode === "add"
-          ? `Add ${selectedUsersLabel} to an existing group.`
-          : `Remove ${selectedUsersLabel} from an existing group.`
+          ? `Choose groups to add ${selectedUsersLabel} to.`
+          : `Choose groups to remove ${selectedUsersLabel} from.`
       }
       descriptionProps={{ render: <div /> }}
     >
       {isLoading ? (
-        <DialogBodySkeleton rows={3} />
+        <div className="relative min-h-66">
+          <PreloadOverlay active label="Loading groups" />
+        </div>
       ) : error ? (
-        <Item variant="muted">
-          <ItemContent>
-            <ItemDescription>
-              {error instanceof Error
-                ? error.message
-                : "Failed to load groups."}
-            </ItemDescription>
-          </ItemContent>
-        </Item>
+        <InlineErrorAlert error={error} fallback="Failed to load groups." />
       ) : (
-        <form
-          action={() => {
-            void form.handleSubmit()
-          }}
-        >
-          <FieldGroup className="-mt-2 pb-3">
-            <form.Field name="group">
-              {(field) => {
-                const isInvalid =
-                  field.state.meta.isTouched && !field.state.meta.isValid
-
-                return (
-                  <Field data-invalid={isInvalid}>
-                    <FieldContent>
-                      <Combobox
-                        items={groups ?? []}
-                        itemToStringLabel={(group) =>
-                          formatPrincipalReference(group)
-                        }
-                        value={field.state.value}
-                        onValueChange={(group) => field.handleChange(group)}
-                      >
-                        <ComboboxInput
-                          id={field.name}
-                          placeholder="Select a group"
-                          aria-invalid={isInvalid}
-                        />
-                        <ComboboxContent>
-                          <ComboboxEmpty>No groups found.</ComboboxEmpty>
-                          <ComboboxList>
-                            {(group) => (
-                              <ComboboxItem key={group.id} value={group}>
-                                {formatPrincipalReference(group)}
-                              </ComboboxItem>
-                            )}
-                          </ComboboxList>
-                        </ComboboxContent>
-                      </Combobox>
-                    </FieldContent>
-                    {isInvalid && (
-                      <FieldError errors={field.state.meta.errors} />
-                    )}
-                  </Field>
-                )
-              }}
-            </form.Field>
-          </FieldGroup>
-
-          <AppDialogScrollBody className="gap-4">
-            <ItemGroup>
-              {users.map((user) => (
-                <Item key={user.id} variant="muted">
-                  <ItemMedia variant="icon">
-                    <FacehashIcon
-                      name={getPrincipalBaseName(user)}
-                      size={28}
-                    />
-                  </ItemMedia>
-                  <ItemContent>
-                    <ItemTitle>{formatPrincipalReference(user)}</ItemTitle>
-                  </ItemContent>
-                </Item>
-              ))}
-            </ItemGroup>
+        <>
+          <SearchInputGroup
+            aria-label="Search groups"
+            placeholder="Search groups..."
+            value={search}
+            onValueChange={setSearch}
+            resultCount={visibleGroups.length}
+            resultLabel={(count) =>
+              `${count} ${count === 1 ? "group" : "groups"}`
+            }
+          />
+          <AppDialogScrollBody className="-mx-6 -mb-8 p-0">
+            <PrincipalSelectionTable
+              data={visibleGroups}
+              emptyMessage={emptyMessage}
+              rowSelection={rowSelection}
+              onRowSelectionChange={setRowSelection}
+              selectAllLabel="Select all visible groups"
+            />
           </AppDialogScrollBody>
-
           <DialogFooter>
-            <form.Subscribe
-              selector={(state) =>
-                [state.values.group, state.isSubmitting] as const
-              }
+            <AppDialogPrimaryButton
+              type="button"
+              disabled={selectedGroups.length === 0 || users.length === 0}
+              variant={mode === "add" ? "default" : "destructive"}
+              onClick={handleConfirm}
             >
-              {([group, isSubmitting]) => (
-                <AppDialogPrimaryButton
-                  disabled={!group}
-                  pending={isSubmitting}
-                  pendingLabel={mode === "add" ? "Adding..." : "Removing..."}
-                  variant={mode === "add" ? "default" : "destructive"}
-                >
-                  {mode === "add" ? "Add" : "Remove"}
-                </AppDialogPrimaryButton>
-              )}
-            </form.Subscribe>
+              {mode === "add" ? "Add" : "Remove"}{" "}
+              <span className="tabular-nums">{users.length}</span>{" "}
+              {users.length === 1 ? "user" : "users"}{" "}
+              {mode === "add" ? "to" : "from"}{" "}
+              <span className="tabular-nums">{selectedGroups.length}</span>{" "}
+              {selectedGroups.length === 1 ? "group" : "groups"}
+            </AppDialogPrimaryButton>
           </DialogFooter>
-        </form>
+        </>
       )}
     </AppDialog>
   )

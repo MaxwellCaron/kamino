@@ -1,54 +1,48 @@
-import { AnimatePresence, m } from "motion/react"
 import {
   Table,
+  TableBody,
   TableCell,
   TableHead,
   TableHeader,
   TableRow,
 } from "@workspace/ui/components/table"
-import {
-  flexRender,
-  getCoreRowModel,
-  useReactTable,
-} from "@tanstack/react-table"
+import { flexRender, useTable } from "@tanstack/react-table"
 
-import { animateContainer, animateTableRow } from "../animate"
+import { appTableFeatures } from "./data-table-types"
 import { DataTableStateRow } from "./data-table-state-row"
-import type { ColumnDef, TableOptions } from "@tanstack/react-table"
-import type { Key } from "react"
+import type { AppTableFeatures } from "./data-table-types"
+import type { ColumnDef, RowData, TableOptions } from "@tanstack/react-table"
 
-const MotionTableRow = m.create(TableRow)
-
-export type SimpleDataTableProps<TData, TValue> = {
-  animationKey?: Key
-  columns: Array<ColumnDef<TData, TValue>>
+export type SimpleDataTableProps<TData extends RowData, TValue> = {
+  columns: Array<ColumnDef<AppTableFeatures, TData, TValue>>
   data: Array<TData>
   error: Error | null
-  getRowId?: TableOptions<TData>["getRowId"]
+  getRowId?: TableOptions<AppTableFeatures, TData>["getRowId"]
   isLoading: boolean
 }
 
-export function SimpleDataTable<TData, TValue>({
-  animationKey,
+export function SimpleDataTable<TData extends RowData, TValue>({
   columns,
   data,
   error,
   getRowId,
   isLoading,
 }: SimpleDataTableProps<TData, TValue>) {
-  const table = useReactTable({
+  const table = useTable({
+    features: appTableFeatures,
     data,
-    columns,
-    getCoreRowModel: getCoreRowModel(),
+    columns: columns as Array<ColumnDef<AppTableFeatures, TData>>,
     getRowId,
+    manualPagination: true,
   })
-  const dataAnimationKey = JSON.stringify(
-    table.getCoreRowModel().rows.map((row) => row.id)
-  )
-  const resolvedAnimationKey = animationKey ?? dataAnimationKey
 
   return (
-    <div className="overflow-hidden **:no-scrollbar">
+    <div
+      className="overflow-hidden **:no-scrollbar"
+      role="status"
+      aria-live="polite"
+      aria-busy={isLoading || undefined}
+    >
       <Table className="border-y">
         <TableHeader className="bg-muted hover:bg-muted [&_tr]:border-b">
           {table.getHeaderGroups().map((headerGroup) => (
@@ -69,37 +63,24 @@ export function SimpleDataTable<TData, TValue>({
             </TableRow>
           ))}
         </TableHeader>
-        <AnimatePresence>
-          <m.tbody
-            key={`${String(resolvedAnimationKey)}-${isLoading ? "loading" : "loaded"}`}
-            className="overflow-hidden [&_tr:last-child]:border-0"
-            initial="hidden"
-            animate="show"
-            variants={animateContainer}
-          >
-            <AnimatePresence mode="popLayout">
-              {table.getRowModel().rows.length ? (
-                table.getRowModel().rows.map((row) => (
-                  <MotionTableRow key={row.id} variants={animateTableRow}>
-                    {row.getVisibleCells().map((cell) => (
-                      <TableCell
-                        key={cell.id}
-                        className={cell.column.columnDef.meta?.className}
-                      >
-                        {flexRender(
-                          cell.column.columnDef.cell,
-                          cell.getContext()
-                        )}
-                      </TableCell>
-                    ))}
-                  </MotionTableRow>
-                ))
-              ) : (
-                <DataTableStateRow colSpan={columns.length} error={error} />
-              )}
-            </AnimatePresence>
-          </m.tbody>
-        </AnimatePresence>
+        <TableBody className="overflow-hidden [&_tr:last-child]:border-0">
+          {table.getRowModel().rows.length ? (
+            table.getRowModel().rows.map((row) => (
+              <TableRow key={row.id}>
+                {row.getVisibleCells().map((cell) => (
+                  <TableCell
+                    key={cell.id}
+                    className={cell.column.columnDef.meta?.className}
+                  >
+                    {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                  </TableCell>
+                ))}
+              </TableRow>
+            ))
+          ) : (
+            <DataTableStateRow colSpan={columns.length} error={error} />
+          )}
+        </TableBody>
       </Table>
     </div>
   )

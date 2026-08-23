@@ -8,8 +8,8 @@ import {
 import { PublishedPodClonesTable } from "./published-pod-clones-table"
 import { PublishedPodsEmptyState } from "./published-pods-empty-state"
 import type { ColumnDef } from "@tanstack/react-table"
+import type { AppTableFeatures } from "@/components/data-table/data-table-types"
 import type { PublishedPodCatalogEntry } from "@/features/pods/types/pod-types"
-import type { PendingCloneRow } from "@/features/pods/types/published-pods-types"
 import { DataTable } from "@/components/data-table/data-table"
 
 export function PublishedPodsCatalogCard({
@@ -17,22 +17,18 @@ export function PublishedPodsCatalogCard({
   error,
   isLoading,
   pods,
-  pendingCloneRowsByPodId,
-  onDismissCloneRow,
 }: {
-  columns: Array<ColumnDef<PublishedPodCatalogEntry>>
+  columns: Array<ColumnDef<AppTableFeatures, PublishedPodCatalogEntry>>
   error: Error | null
   isLoading: boolean
   pods: Array<PublishedPodCatalogEntry>
-  pendingCloneRowsByPodId: Record<string, Array<PendingCloneRow>>
-  onDismissCloneRow: (podId: string, progressId: string) => void
 }) {
   return (
     <Card>
       <CardHeader>
         <CardTitle>Pod Catalog</CardTitle>
         <CardDescription>
-          All published pods. Search by title, creator, or slug.
+          All published pods. Search by title, creator, clone target, or slug.
         </CardDescription>
       </CardHeader>
       <CardContent className="px-0">
@@ -41,18 +37,14 @@ export function PublishedPodsCatalogCard({
             columns={columns}
             data={pods}
             error={error}
+            searchLabel="Search published pods"
             expandedRowComponent={(props) => (
-              <PublishedPodExpandedRow
-                {...props}
-                pendingCloneRowsByPodId={pendingCloneRowsByPodId}
-                onDismissCloneRow={onDismissCloneRow}
-              />
+              <PublishedPodExpandedRow {...props} />
             )}
+            features={{ loading: isLoading, selectionSummary: false }}
             getRowCanExpand={() => true}
             getRowId={(pod) => pod.id}
             initialPageSize={10}
-            isLoading={isLoading}
-            showSelectionSummary={false}
           />
         ) : (
           <PublishedPodsEmptyState />
@@ -62,22 +54,6 @@ export function PublishedPodsCatalogCard({
   )
 }
 
-function PublishedPodExpandedRow({
-  row: pod,
-  pendingCloneRowsByPodId,
-  onDismissCloneRow,
-}: {
-  row: PublishedPodCatalogEntry
-  pendingCloneRowsByPodId: Record<string, Array<PendingCloneRow>>
-  onDismissCloneRow: (podId: string, progressId: string) => void
-}) {
-  return (
-    <PublishedPodClonesTable
-      pod={pod}
-      pendingRows={pendingCloneRowsByPodId[pod.id] ?? []}
-      onDismissPendingRow={(progressId) =>
-        onDismissCloneRow(pod.id, progressId)
-      }
-    />
-  )
+function PublishedPodExpandedRow({ row: pod }: { row: PublishedPodCatalogEntry }) {
+  return <PublishedPodClonesTable pod={pod} />
 }

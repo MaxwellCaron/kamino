@@ -48,13 +48,6 @@ export function isYDomainTweenPhase(phase: ChartPhase): boolean {
   return phase === "gridTweenLoading" || phase === "gridTweenReady";
 }
 
-/** Phases where {@link ReferenceArea} bands are shown (fade in/out on transitions). */
-export function isReferenceAreaVisiblePhase(phase: ChartPhase): boolean {
-  return (
-    phase === "ready" || phase === "revealing" || phase === "gridTweenReady"
-  );
-}
-
 export function resolveAnimatedYDestinationDomains(
   chartPhase: ChartPhase,
   skeletonByAxis: Record<string, YDomain>,
@@ -90,20 +83,11 @@ export function computeYDomainsByAxis({
     domains[normalizeYAxisId(axisId)] = niceYDomain(resolveDomain(dataKeys));
   }
 
-  return domains;
-}
-
-/** Merge domain maps, normalizing axis ids to strings. */
-export function mergeYDomainRecords(
-  ...records: Array<Record<string, YDomain>>
-): Record<string, YDomain> {
-  const merged: Record<string, YDomain> = {};
-  for (const record of records) {
-    for (const [axisId, domain] of Object.entries(record)) {
-      merged[normalizeYAxisId(axisId)] = domain;
-    }
+  if (!domains.left) {
+    domains.left = niceYDomain([0, 100]);
   }
-  return merged;
+
+  return domains;
 }
 
 export function domainsEqual(
@@ -119,7 +103,7 @@ export function domainsEqual(
   for (const axisId of leftKeys) {
     const from = left[axisId];
     const to = right[axisId];
-    if (from[0] !== to[0] || from[1] !== to[1]) {
+    if (!(from && to) || from[0] !== to[0] || from[1] !== to[1]) {
       return false;
     }
   }

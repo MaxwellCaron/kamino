@@ -15,7 +15,31 @@ var (
 	ErrUnsupportedPrincipal = errors.New("unsupported principal")
 )
 
+type AuthenticatedPrincipal struct {
+	ExternalID string
+	Username   string
+}
+
+type Authenticator interface {
+	Authenticate(ctx context.Context, username, password string) (AuthenticatedPrincipal, error)
+}
+
+type ProviderCapabilities struct {
+	ProviderType         database.PrincipalProviderType `json:"provider_type"`
+	DisplayName          string                         `json:"display_name"`
+	CanSync              bool                           `json:"can_sync"`
+	CanCreateUsers       bool                           `json:"can_create_users"`
+	UserPasswordOnCreate bool                           `json:"user_password_on_create"`
+	CanRenameUsers       bool                           `json:"can_rename_users"`
+	CanSetPasswords      bool                           `json:"can_set_passwords"`
+	CanChangeOwnPassword bool                           `json:"can_change_own_password"`
+	CanCreateGroups      bool                           `json:"can_create_groups"`
+	CanManageMemberships bool                           `json:"can_manage_memberships"`
+}
+
 type Provider interface {
+	Capabilities() ProviderCapabilities
+
 	ListUsers(ctx context.Context) ([]database.GetAllUsersRow, error)
 	CreateUser(ctx context.Context, username, password, description string) (uuid.UUID, error)
 	UpdateUser(ctx context.Context, id uuid.UUID, username, fullName, description string) error
@@ -35,6 +59,7 @@ type Provider interface {
 	RemoveGroupMembers(ctx context.Context, groupID uuid.UUID, memberIDs []uuid.UUID) (map[uuid.UUID]error, error)
 
 	GetUserGroups(ctx context.Context, userID uuid.UUID) ([]database.GetUserGroupsRow, error)
+	SetUserGroups(ctx context.Context, userID uuid.UUID, groupIDs []uuid.UUID) error
 
 	TriggerSync(ctx context.Context) error
 }

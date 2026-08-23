@@ -7,10 +7,12 @@ import (
 	"time"
 
 	"github.com/MaxwellCaron/kamino/internal/proxmox"
+	"golang.org/x/sync/singleflight"
 )
 
 const pollInterval = 10 * time.Second
 const catchUpPollInterval = 1 * time.Second
+const refreshPollTimeout = 30 * time.Second
 
 type Event struct {
 	Type      string         `json:"type"`
@@ -36,11 +38,11 @@ type VMResources struct {
 type Notifier struct {
 	px *proxmox.Client
 
-	pollMu      sync.Mutex
-	mu          sync.RWMutex
-	subscribers map[chan Event]struct{}
-	last        map[int]string
-	resources   map[int]VMResources
+	refreshGroup singleflight.Group
+	mu           sync.RWMutex
+	subscribers  map[chan Event]struct{}
+	last         map[int]string
+	resources    map[int]VMResources
 }
 
 func NewNotifier(px *proxmox.Client) *Notifier {
@@ -73,10 +75,18 @@ func (n *Notifier) Start(ctx context.Context) {
 }
 
 func (n *Notifier) RefreshNow(ctx context.Context) error {
-	n.pollMu.Lock()
-	defer n.pollMu.Unlock()
+	result := n.refreshGroup.DoChan("refresh", func() (any, error) {
+		pollCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), refreshPollTimeout)
+		defer cancel()
+		return nil, n.pollAndBroadcast(pollCtx)
+	})
 
-	return n.pollAndBroadcast(ctx)
+	select {
+	case res := <-result:
+		return res.Err
+	case <-ctx.Done():
+		return ctx.Err()
+	}
 }
 
 func (n *Notifier) RefreshUntilStatus(
@@ -84,8 +94,20 @@ func (n *Notifier) RefreshUntilStatus(
 	vmid int,
 	expectedStatus string,
 ) error {
+	return n.RefreshUntilStatuses(ctx, map[int]string{vmid: expectedStatus})
+}
+
+func (n *Notifier) RefreshUntilStatuses(
+	ctx context.Context,
+	expected map[int]string,
+) error {
 	return n.refreshUntil(ctx, func(statuses map[int]string) bool {
-		return statuses[vmid] == expectedStatus
+		for vmid, want := range expected {
+			if statuses[vmid] != want {
+				return false
+			}
+		}
+		return true
 	})
 }
 
@@ -132,11 +154,7 @@ func (n *Notifier) refreshUntil(
 	defer ticker.Stop()
 
 	for {
-		if err := n.RefreshNow(ctx); err != nil {
-			return err
-		}
-
-		if matches(n.Current()) {
+		if err := n.RefreshNow(ctx); err == nil && matches(n.Current()) {
 			return nil
 		}
 

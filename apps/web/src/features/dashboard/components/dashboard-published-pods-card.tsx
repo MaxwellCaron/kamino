@@ -1,5 +1,3 @@
-import { useQuery } from "@tanstack/react-query"
-import { m } from "motion/react"
 import { Link } from "@tanstack/react-router"
 import { HugeiconsIcon } from "@hugeicons/react"
 import {
@@ -24,29 +22,22 @@ import {
   EmptyTitle,
 } from "@workspace/ui/components/empty"
 import { cn } from "@workspace/ui/lib/utils"
-import type { PublishedPodCatalogEntry } from "@/features/pods/types/pod-types"
+import type { PodCatalogSummary } from "@/features/pods/types/pod-types"
 import { BrowsePodsCard } from "@/features/pods/components/browse/browse-pods-card"
-import { BrowsePodsCardSkeleton } from "@/features/pods/components/browse/browse-pods-skeleton"
-import { PersonalPodCard } from "@/features/pods/components/browse/personal-pod-card"
-import { personalPodQueryOptions } from "@/features/pods/api/personal-pod-api"
-import { animateChild, animateContainer } from "@/components/animate"
+import { browsePodsCarouselItemClassName } from "@/features/pods/components/browse/browse-pods-skeleton"
 
 export function DashboardRecentPodsCard({
   className,
+  clonedPodIds,
   error,
   pods,
-  username,
 }: {
   className?: string
+  clonedPodIds: Set<string>
   error: Error | null
-  pods: Array<PublishedPodCatalogEntry>
-  username: string
+  pods: Array<PodCatalogSummary>
 }) {
-  const { data: personalPodStatus, isLoading: isPersonalPodLoading } = useQuery(
-    personalPodQueryOptions
-  )
-  const showPersonalPodCard = personalPodStatus?.configured ?? false
-  const showPublishedPodCards = pods.length > 0 || showPersonalPodCard
+  const showPublishedPodCards = pods.length > 0
 
   return (
     <Card className={cn(className)}>
@@ -64,7 +55,7 @@ export function DashboardRecentPodsCard({
           </Link>
         </CardAction>
       </CardHeader>
-      <CardContent className="mx-6 h-full rounded-4xl bg-muted/50 p-6">
+      <CardContent className="flex flex-col gap-6">
         {error ? (
           <Empty className="h-full min-h-52">
             <EmptyHeader>
@@ -72,37 +63,19 @@ export function DashboardRecentPodsCard({
               <EmptyDescription>{error.message}</EmptyDescription>
             </EmptyHeader>
           </Empty>
-        ) : showPublishedPodCards || isPersonalPodLoading ? (
-          <ScrollArea className="w-full **:scroll-fade-x firefox:**:scroll-fade-none">
-            <m.div
-              className="flex w-max gap-4 p-4"
-              initial="hidden"
-              animate="show"
-              variants={animateContainer}
-            >
-              {isPersonalPodLoading ? (
-                <m.div variants={animateChild} className="max-w-100">
-                  <BrowsePodsCardSkeleton />
-                </m.div>
-              ) : null}
-              {personalPodStatus?.configured ? (
-                <m.div variants={animateChild} className="max-w-100">
-                  <PersonalPodCard
-                    status={personalPodStatus}
-                    username={username}
-                  />
-                </m.div>
-              ) : null}
+        ) : showPublishedPodCards ? (
+          <ScrollArea className="w-full rounded-md">
+            <div className="flex w-max gap-6 pb-4">
               {pods.map((pod) => (
-                <m.div
-                  key={pod.id}
-                  variants={animateChild}
-                  className="max-w-100"
-                >
-                  <BrowsePodsCard pod={pod} />
-                </m.div>
+                <div key={pod.id} className={browsePodsCarouselItemClassName}>
+                  <BrowsePodsCard
+                    pod={pod}
+                    hasClonedInstance={clonedPodIds.has(pod.id)}
+                    animate={false}
+                  />
+                </div>
               ))}
-            </m.div>
+            </div>
             <ScrollBar orientation="horizontal" />
           </ScrollArea>
         ) : (

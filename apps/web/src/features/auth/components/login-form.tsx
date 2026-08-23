@@ -74,15 +74,24 @@ export function LoginForm({
                     <Input
                       id={field.name}
                       name={field.name}
+                      required
                       autoComplete="username"
                       value={field.state.value}
                       onChange={(e) => field.handleChange(e.target.value)}
                       onBlur={field.handleBlur}
                       placeholder="jdoe"
                       aria-invalid={isInvalid}
+                      aria-errormessage={
+                        isInvalid ? "login-username-error" : undefined
+                      }
                     />
                   </FieldContent>
-                  {isInvalid && <FieldError errors={field.state.meta.errors} />}
+                  {isInvalid && (
+                    <FieldError
+                      id="login-username-error"
+                      errors={field.state.meta.errors}
+                    />
+                  )}
                 </Field>
               )
             }}
@@ -100,15 +109,24 @@ export function LoginForm({
                       id={field.name}
                       name={field.name}
                       type="password"
+                      required
                       autoComplete="current-password"
                       value={field.state.value}
                       onChange={(e) => field.handleChange(e.target.value)}
                       onBlur={field.handleBlur}
                       placeholder="***********"
                       aria-invalid={isInvalid}
+                      aria-errormessage={
+                        isInvalid ? "login-password-error" : undefined
+                      }
                     />
                   </FieldContent>
-                  {isInvalid && <FieldError errors={field.state.meta.errors} />}
+                  {isInvalid && (
+                    <FieldError
+                      id="login-password-error"
+                      errors={field.state.meta.errors}
+                    />
+                  )}
                 </Field>
               )
             }}

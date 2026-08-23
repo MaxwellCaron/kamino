@@ -14,8 +14,6 @@ import {
 } from "@workspace/ui/components/dropdown-menu"
 import { HugeiconsIcon } from "@hugeicons/react"
 import {
-  ChevronRightIcon,
-  CopyIcon,
   Delete01Icon,
   ExternalLinkIcon,
   GlobeIcon,
@@ -27,8 +25,13 @@ import {
 } from "@hugeicons/core-free-icons"
 import { Link } from "@tanstack/react-router"
 import { RelativeTimeCard } from "@workspace/ui/components/relative-time-card"
+import {
+  PublishedPodClonesDisclosureButton,
+  PublishedPodManagerCloneMenuItem,
+} from "./published-pod-clones-disclosure"
 import { PublishedPodStatusBadge } from "./published-pod-status-badge"
 import type { ColumnDef } from "@tanstack/react-table"
+import type { AppTableFeatures } from "@/components/data-table/data-table-types"
 import type {
   PodStatus,
   PublishedPodCatalogEntry,
@@ -41,6 +44,7 @@ import {
 } from "@/features/pods/utils/pod-clone-actions"
 
 type PublishedPodColumnsOptions = {
+  cloneTargetLabels: ReadonlyMap<string, string>
   onDelete: (pod: PublishedPodCatalogEntry) => void
   onEdit: (pod: PublishedPodCatalogEntry) => void
   onStatusChange: (pod: PublishedPodCatalogEntry, status: PodStatus) => void
@@ -49,19 +53,24 @@ type PublishedPodColumnsOptions = {
     action: PodCloneAction
   ) => void
   cloneBulkActionPending?: boolean
+  statusChangePendingId?: string | null
   onManagerClone: (pod: PublishedPodCatalogEntry) => void
   managerClonePending?: boolean
 }
 
 export function getPublishedPodsColumns({
+  cloneTargetLabels,
   onDelete,
   onEdit,
   onStatusChange,
   onCloneBulkAction,
   cloneBulkActionPending,
+  statusChangePendingId,
   onManagerClone,
   managerClonePending,
-}: PublishedPodColumnsOptions): Array<ColumnDef<PublishedPodCatalogEntry>> {
+}: PublishedPodColumnsOptions): Array<
+  ColumnDef<AppTableFeatures, PublishedPodCatalogEntry>
+> {
   return [
     {
       id: "expand",
@@ -74,23 +83,11 @@ export function getPublishedPodsColumns({
         }
 
         return (
-          <Button
-            variant="ghost"
-            size="icon"
-            aria-expanded={row.getIsExpanded()}
-            aria-label={`${row.getIsExpanded() ? "Hide" : "Show"} cloned instances for ${pod.title}`}
-            onClick={() => row.toggleExpanded()}
-          >
-            <HugeiconsIcon
-              icon={ChevronRightIcon}
-              data-icon="inline-start"
-              className={
-                row.getIsExpanded()
-                  ? "rotate-90 transition-transform"
-                  : "transition-transform"
-              }
-            />
-          </Button>
+          <PublishedPodClonesDisclosureButton
+            pod={pod}
+            expanded={row.getIsExpanded()}
+            onExpandedChange={(expanded) => row.toggleExpanded(expanded)}
+          />
         )
       },
       enableHiding: false,
@@ -207,6 +204,27 @@ export function getPublishedPodsColumns({
       },
     },
     {
+      id: "clone_target",
+      accessorFn: (pod) =>
+        [cloneTargetLabels.get(pod.clone_target_key), pod.clone_target_key]
+          .filter(Boolean)
+          .join(" "),
+      header: "Clone target",
+      cell: ({ row }) => {
+        const targetKey = row.original.clone_target_key
+        const targetLabel = cloneTargetLabels.get(targetKey)
+
+        return (
+          <div className="flex min-w-32 flex-col gap-1 py-1 text-sm">
+            <span className="font-medium">{targetLabel ?? targetKey}</span>
+            {targetLabel && targetLabel !== targetKey ? (
+              <span className="text-xs text-muted-foreground">{targetKey}</span>
+            ) : null}
+          </div>
+        )
+      },
+    },
+    {
       accessorKey: "clone_count",
       header: "Clones",
       cell: ({ row }) => (
@@ -220,7 +238,11 @@ export function getPublishedPodsColumns({
       header: "Created",
       cell: ({ row }) => (
         <span className="py-1 text-sm text-muted-foreground">
-          <RelativeTimeCard date={row.original.created_at} />
+          <RelativeTimeCard
+            delay={50}
+            closeDelay={150}
+            date={row.original.created_at}
+          />
         </span>
       ),
     },
@@ -257,6 +279,7 @@ export function getPublishedPodsColumns({
                         params={{ podSlug: pod.slug }}
                         target="_blank"
                         rel="noreferrer"
+                        aria-label="Open published pod in a new tab"
                       />
                     }
                   >
@@ -277,19 +300,11 @@ export function getPublishedPodsColumns({
                 <DropdownMenuSeparator />
                 <DropdownMenuGroup>
                   <DropdownMenuLabel>Clones</DropdownMenuLabel>
-                  <DropdownMenuItem
+                  <PublishedPodManagerCloneMenuItem
+                    pod={pod}
                     disabled={managerClonePending}
-                    onClick={() => {
-                      row.toggleExpanded(true)
-                      onManagerClone(pod)
-                    }}
-                  >
-                    <HugeiconsIcon
-                      icon={CopyIcon}
-                      className="text-muted-foreground"
-                    />
-                    Clone
-                  </DropdownMenuItem>
+                    onManagerClone={onManagerClone}
+                  />
                   {POD_CLONE_ACTIONS.map((action) => {
                     const config = POD_CLONE_ACTION_CONFIG[action]
 
@@ -324,14 +339,20 @@ export function getPublishedPodsColumns({
                       onStatusChange(pod, value as PodStatus)
                     }
                   >
-                    <DropdownMenuRadioItem value="listed">
+                    <DropdownMenuRadioItem
+                      value="listed"
+                      disabled={statusChangePendingId === pod.id}
+                    >
                       <HugeiconsIcon
                         icon={ViewIcon}
                         className="text-muted-foreground"
                       />
                       Listed
                     </DropdownMenuRadioItem>
-                    <DropdownMenuRadioItem value="unlisted">
+                    <DropdownMenuRadioItem
+                      value="unlisted"
+                      disabled={statusChangePendingId === pod.id}
+                    >
                       <HugeiconsIcon
                         icon={ViewOffSlashIcon}
                         className="text-muted-foreground"
@@ -341,13 +362,15 @@ export function getPublishedPodsColumns({
                   </DropdownMenuRadioGroup>
                 </DropdownMenuGroup>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem
-                  variant="destructive"
-                  onClick={() => onDelete(pod)}
-                >
-                  <HugeiconsIcon icon={Delete01Icon} />
-                  Delete Pod
-                </DropdownMenuItem>
+                <DropdownMenuGroup>
+                  <DropdownMenuItem
+                    variant="destructive"
+                    onClick={() => onDelete(pod)}
+                  >
+                    <HugeiconsIcon icon={Delete01Icon} />
+                    Delete Pod
+                  </DropdownMenuItem>
+                </DropdownMenuGroup>
               </DropdownMenuContent>
             </DropdownMenu>
           </div>

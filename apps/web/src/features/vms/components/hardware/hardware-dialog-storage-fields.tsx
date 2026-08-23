@@ -40,9 +40,9 @@ export function VmHardwareStorageFields({
       <form.Field name="storage">
         {(field: StringFieldApi) => (
           <Field>
-            <FieldLabel>Disk</FieldLabel>
+            <FieldLabel htmlFor="hardware-storage">Disk</FieldLabel>
             <Select value={field.state.value} disabled onValueChange={() => {}}>
-              <SelectTrigger>
+              <SelectTrigger id="hardware-storage">
                 <SelectValue>{field.state.value}</SelectValue>
               </SelectTrigger>
               <SelectContent>
@@ -92,11 +92,16 @@ export function VmHardwareStorageFields({
                 )
               }
               aria-invalid={field.state.meta.errors.length > 0 || undefined}
+              aria-errormessage={
+                field.state.meta.errors.length > 0
+                  ? "hardware-disk-size-error"
+                  : undefined
+              }
             />
             <FieldDescription>
               Existing disks can only be expanded from {minimumDiskSize} GB.
             </FieldDescription>
-            <FieldError>
+            <FieldError id="hardware-disk-size-error">
               {formatFieldError(field.state.meta.errors[0])}
             </FieldError>
           </Field>

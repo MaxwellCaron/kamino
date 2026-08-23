@@ -9,6 +9,7 @@ import {
 import {
   Field,
   FieldDescription,
+  FieldError,
   FieldGroup,
   FieldLabel,
 } from "@workspace/ui/components/field"
@@ -25,8 +26,15 @@ import type {
 } from "@/features/pods/types/pod-types"
 import { AppActionButton } from "@/components/actions/app-action-button"
 import { AppDialogContent } from "@/components/dialogs/app-dialog"
-import { answerClonedPodQuestion } from "@/features/pods/api/clone-pod-api"
-import { podCatalogQueryOptions } from "@/features/pods/api/publish-pod-api"
+import {
+  answerClonedPodQuestion,
+  catalogCloneSummariesQueryOptions,
+  podQuestionActivityQueryOptions,
+} from "@/features/pods/api/clone-pod-api"
+import {
+  podCatalogQueryOptions,
+  publishedPodClonesQueryOptions,
+} from "@/features/pods/api/publish-pod-api"
 
 export function PodTaskQuestions({
   questions,
@@ -103,9 +111,20 @@ function PodTaskQuestionField({
     mutationFn: answerClonedPodQuestion,
     onSuccess: async (clonedPod) => {
       onAnswered?.(clonedPod)
-      await queryClient.invalidateQueries({
-        queryKey: podCatalogQueryOptions.queryKey,
-      })
+      await Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: catalogCloneSummariesQueryOptions().queryKey,
+        }),
+        queryClient.invalidateQueries({
+          queryKey: publishedPodClonesQueryOptions(clonedPod.pod_id).queryKey,
+        }),
+        queryClient.invalidateQueries({
+          queryKey: podQuestionActivityQueryOptions().queryKey,
+        }),
+        queryClient.invalidateQueries({
+          queryKey: podCatalogQueryOptions.queryKey,
+        }),
+      ])
     },
   })
   const answerSubmitted = answer != null
@@ -129,13 +148,12 @@ function PodTaskQuestionField({
           id={question.id}
           type="text"
           value={value}
-          placeholder={
-            question.answerOutline
-              ? question.answerOutline.replace(/[a-zA-Z0-9]/g, "*")
-              : "Type your answer here..."
-          }
+          placeholder={question.answerMask || "Type your answer here..."}
           disabled={controlsDisabled}
           aria-invalid={answerIsIncorrect || undefined}
+          aria-errormessage={
+            answerIsIncorrect ? `${question.id}-error` : undefined
+          }
           onChange={(event) =>
             setDraft({ answer: answer?.answer, value: event.target.value })
           }
@@ -181,6 +199,11 @@ function PodTaskQuestionField({
       {question.description && (
         <FieldDescription>{question.description}</FieldDescription>
       )}
+      {answerIsIncorrect ? (
+        <FieldError id={`${question.id}-error`}>
+          That answer is incorrect.
+        </FieldError>
+      ) : null}
       {mutation.isError && (
         <FieldDescription>{mutation.error.message}</FieldDescription>
       )}

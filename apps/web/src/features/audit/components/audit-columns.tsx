@@ -7,9 +7,10 @@ import {
   presentAuditItemIdentity,
 } from "../utils/audit-presenters"
 import type { ApiActionEvent } from "../api/audit-api"
+import type { AppTableFeatures } from "@/components/data-table/data-table-types"
 import type { ColumnDef } from "@tanstack/react-table"
 
-export const columns: Array<ColumnDef<ApiActionEvent>> = [
+export const columns: Array<ColumnDef<AppTableFeatures, ApiActionEvent>> = [
   {
     accessorKey: "created_at",
     header: () => <span className="pl-4">Time</span>,

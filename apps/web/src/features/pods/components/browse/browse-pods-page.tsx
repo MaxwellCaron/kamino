@@ -1,5 +1,5 @@
+import { useMemo } from "react"
 import { useQuery } from "@tanstack/react-query"
-import { useRouter } from "@tanstack/react-router"
 import {
   Empty,
   EmptyDescription,
@@ -10,41 +10,34 @@ import {
 import { HugeiconsIcon } from "@hugeicons/react"
 import { PackageRemoveIcon } from "@hugeicons/core-free-icons"
 import { BrowsePodsCard } from "./browse-pods-card"
-import { PersonalPodCard } from "./personal-pod-card"
 import {
-  BrowsePodsCardSkeleton,
   BrowsePodsGridSkeleton,
   browsePodsGridClassName,
 } from "./browse-pods-skeleton"
 import { InlineErrorAlert } from "@/components/feedback/inline-error-alert"
 import { GrainientBackground } from "@/components/grainient-background"
-import { personalPodQueryOptions } from "@/features/pods/api/personal-pod-api"
+import { catalogCloneSummariesQueryOptions } from "@/features/pods/api/clone-pod-api"
 import { podCatalogQueryOptions } from "@/features/pods/api/publish-pod-api"
 
 export function BrowsePodsPage() {
-  const router = useRouter({ warn: false }) as ReturnType<
-    typeof useRouter
-  > | null
   const {
     data: catalog,
     isLoading: isCatalogLoading,
-    error,
+    error: catalogError,
   } = useQuery(podCatalogQueryOptions)
   const {
-    data: personalPodStatus,
-    error: personalPodError,
-    isLoading: isPersonalPodLoading,
-  } = useQuery({
-    ...personalPodQueryOptions,
-    enabled: router !== null,
-  })
+    data: cloneSummaries,
+    error: cloneSummariesError,
+    isLoading: isCloneSummariesLoading,
+  } = useQuery(catalogCloneSummariesQueryOptions())
   const visiblePods = catalog ?? []
-  const username = router
-    ?.state.matches.find((match) => match.routeId === "/_pods")
-    ?.context.user.username
-  const showPersonalPodCard = personalPodStatus?.configured ?? false
-  const showPersonalPodSlot = showPersonalPodCard || isPersonalPodLoading
-  const showPodsEmptyState = visiblePods.length === 0 && !showPersonalPodSlot
+  const clonedPodIds = useMemo(
+    () => new Set(cloneSummaries?.map((item) => item.summary.pod_id) ?? []),
+    [cloneSummaries]
+  )
+  const isPublishedPodsLoading = isCatalogLoading || isCloneSummariesLoading
+  const publishedPodsError = catalogError ?? cloneSummariesError
+  const showPodsEmptyState = visiblePods.length === 0
 
   return (
     <div className="@container/main flex flex-1 flex-col">
@@ -65,56 +58,49 @@ export function BrowsePodsPage() {
         </div>
       </div>
 
-      <div className="mx-auto w-full max-w-7xl px-4 py-12 md:py-16 lg:px-6">
-        {isCatalogLoading ? (
-          <BrowsePodsGridSkeleton />
-        ) : error ? (
-          <InlineErrorAlert
-            error={error}
-            fallback="Failed to load pods."
-            title="Pods Error"
-            className="mx-auto max-w-lg"
-          />
-        ) : showPodsEmptyState ? (
-          <Empty className="min-h-[45vh] border border-dashed">
-            <EmptyHeader>
-              <EmptyMedia variant="icon">
-                <HugeiconsIcon
-                  icon={PackageRemoveIcon}
-                  className="text-muted-foreground"
-                />
-              </EmptyMedia>
-              <EmptyTitle>No Pods</EmptyTitle>
-              <EmptyDescription>
-                There has not been any pods published yet or you do not have the
-                necessary permissions to view them.
-              </EmptyDescription>
-            </EmptyHeader>
-          </Empty>
-        ) : (
-          <div className="space-y-6">
-            {personalPodError ? (
-              <InlineErrorAlert
-                error={personalPodError}
-                fallback="Failed to load personal pod status."
-                title="Personal Pod Error"
-                className="mx-auto max-w-lg"
-              />
-            ) : null}
-            <div className={browsePodsGridClassName}>
-              {isPersonalPodLoading ? <BrowsePodsCardSkeleton /> : null}
-              {personalPodStatus?.configured ? (
-                <PersonalPodCard
-                  status={personalPodStatus}
-                  username={username}
-                />
+      <div className="mx-auto w-full max-w-7xl px-4 lg:px-6">
+        <div className="py-12 md:py-16">
+          {isPublishedPodsLoading ? (
+            <BrowsePodsGridSkeleton />
+          ) : publishedPodsError ? (
+            <InlineErrorAlert
+              error={publishedPodsError}
+              fallback="Failed to load pods."
+              title="Pods Error"
+              className="mx-auto max-w-lg"
+            />
+          ) : showPodsEmptyState ? (
+            <Empty className="min-h-[45vh] border border-dashed">
+              <EmptyHeader>
+                <EmptyMedia variant="icon">
+                  <HugeiconsIcon
+                    icon={PackageRemoveIcon}
+                    className="text-muted-foreground"
+                  />
+                </EmptyMedia>
+                <EmptyTitle>No Pods</EmptyTitle>
+                <EmptyDescription>
+                  There has not been any pods published yet or you do not have
+                  the necessary permissions to view them.
+                </EmptyDescription>
+              </EmptyHeader>
+            </Empty>
+          ) : (
+            <div className="flex flex-col gap-6">
+              {visiblePods.length > 0 ? (
+                <div className={browsePodsGridClassName}>
+                  {visiblePods.map((pod) => (
+                    <BrowsePodsCard
+                      key={pod.id}
+                      pod={pod}
+                      hasClonedInstance={clonedPodIds.has(pod.id)}
+                    />
+                  ))}
+                </div>
               ) : null}
-              {visiblePods.map((pod) => (
-                <BrowsePodsCard key={pod.id} pod={pod} />
-              ))}
             </div>
-          </div>
-        )}
+          )}
+        </div>
       </div>
     </div>
   )

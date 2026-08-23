@@ -1,11 +1,19 @@
 export type ApiTreeNodeVM = {
   node: string
   vmid: number
+  guest_type: "qemu" | "lxc"
   is_template: boolean
   notes?: string | null
   cpu_count?: number
   memory_mb?: number
   disk_gb?: number
+  addresses?: Array<ApiInventoryVmAddress>
+}
+
+export type ApiInventoryVmAddress = {
+  label: "WAN" | "DMZ" | "LAN"
+  address: string
+  device: string
 }
 
 export type ApiTreeNodePermissions = {
@@ -18,6 +26,7 @@ export type ApiTreeNode = {
   id: string
   name: string
   kind: "folder" | "vm"
+  description?: string | null
   direct_vm_limit?: number | null
   effective_vm_limit?: number | null
   vm_count?: number | null
@@ -40,6 +49,7 @@ export type ApiInventoryItem = {
   parent_id: string | null
   kind: "folder" | "vm"
   name: string
+  description?: string | null
   inherit_permissions: boolean
   direct_vm_limit?: number | null
   effective_vm_limit?: number | null

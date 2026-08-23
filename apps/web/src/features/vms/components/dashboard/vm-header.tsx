@@ -4,6 +4,7 @@ import {
   ComputerIcon,
   Copy02Icon,
   CpuIcon,
+  CubeIcon,
   Globe02Icon,
   HardDriveIcon,
   IdentityCardIcon,
@@ -28,6 +29,7 @@ import {
   ItemTitle,
 } from "@workspace/ui/components/item"
 import type {
+  ApiInventoryVmAddress,
   ApiTreeNode,
   ApiTreeNodeVM,
 } from "@/features/inventory/types/inventory-types"
@@ -36,7 +38,7 @@ import type {
   VmResources,
 } from "@/features/vms/types/vm-types"
 import type { ReactNode } from "react"
-import { VmOptionsMenu } from "@/features/inventory/components/inventory-actions"
+import { VmOptionsMenu } from "@/features/inventory/components/inventory-actions/vm-options-menu"
 import {
   formatBytes,
   formatMemory,
@@ -46,7 +48,7 @@ import {
   formatVmPowerStatus,
   getVmPowerStatusSurfaceClassName,
   getVmPowerStatusTextClassName,
-} from "@/components/status/vm-icon"
+} from "@/components/status/vm-power-status"
 import { animateChild, animateContainer } from "@/components/animate"
 
 type Stat = {
@@ -109,13 +111,54 @@ function getUptimeDetail(
 
 function NetworkingStatContent({
   networks,
+  addresses,
   isLoading,
   isError,
 }: {
   networks: Array<ApiVmNetworkSummary> | undefined
+  addresses: Array<ApiInventoryVmAddress> | undefined
   isLoading: boolean
   isError: boolean
 }) {
+  const addressedDevices = new Set(
+    (addresses ?? []).map((address) => address.device)
+  )
+  const rows = [
+    ...(addresses ?? []).map((address) => ({
+      label: address.label,
+      value: address.address,
+    })),
+    ...(networks ?? []).flatMap((network, index) => {
+      const device = network.device ?? `net${index}`
+      return addressedDevices.has(device)
+        ? []
+        : [{ label: device, value: network.bridge }]
+    }),
+  ]
+
+  if (rows.length > 0) {
+    return (
+      <div className="flex min-h-15 w-full flex-col justify-between">
+        {rows.map((row) => (
+          <div
+            key={`${row.label}-${row.value}`}
+            className="flex items-start justify-between gap-3 text-sm"
+          >
+            <span className="shrink-0 text-xl font-semibold tracking-tight">
+              {row.label}
+            </span>
+            <span
+              className="min-w-0 text-right text-xl font-semibold tracking-tight whitespace-nowrap text-muted-foreground tabular-nums"
+              title={row.value}
+            >
+              {row.value}
+            </span>
+          </div>
+        ))}
+      </div>
+    )
+  }
+
   if (isLoading) {
     return (
       <div className="flex min-h-15 w-full flex-col justify-between gap-1.5">
@@ -141,23 +184,7 @@ function NetworkingStatContent({
     )
   }
 
-  return (
-    <div className="flex min-h-15 w-full flex-col justify-between">
-      {networks.map((network, index) => (
-        <div
-          key={`${network.device ?? index}-${network.bridge}`}
-          className="flex items-center justify-between gap-3 text-sm"
-        >
-          <span className="text-xl font-semibold tracking-tight">
-            {network.device ?? `net${index}`}
-          </span>
-          <span className="min-w-0 truncate text-xl font-semibold tracking-tight text-muted-foreground">
-            {network.bridge}
-          </span>
-        </div>
-      ))}
-    </div>
-  )
+  return null
 }
 
 function buildStats(
@@ -166,6 +193,7 @@ function buildStats(
   powerStatus: string | undefined,
   resources: VmResources | undefined,
   networks: Array<ApiVmNetworkSummary> | undefined,
+  addresses: Array<ApiInventoryVmAddress> | undefined,
   isNetworksLoading: boolean,
   isNetworksError: boolean
 ): Array<Stat> {
@@ -256,6 +284,7 @@ function buildStats(
       content: (
         <NetworkingStatContent
           networks={networks}
+          addresses={addresses}
           isLoading={isNetworksLoading}
           isError={isNetworksError}
         />
@@ -271,6 +300,7 @@ export function VmHeader({
   powerStatus,
   resources,
   networks,
+  addresses,
   isNetworksLoading,
   isNetworksError,
   isTemplate,
@@ -281,6 +311,7 @@ export function VmHeader({
   powerStatus: string | undefined
   resources: VmResources | undefined
   networks: Array<ApiVmNetworkSummary> | undefined
+  addresses: Array<ApiInventoryVmAddress> | undefined
   isNetworksLoading: boolean
   isNetworksError: boolean
   isTemplate: boolean
@@ -291,25 +322,24 @@ export function VmHeader({
     powerStatus,
     resources,
     networks,
+    addresses,
     isNetworksLoading,
     isNetworksError
   )
+  const headerIcon = isTemplate
+    ? Copy02Icon
+    : vm.guest_type === "lxc"
+      ? CubeIcon
+      : ComputerIcon
 
   return (
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          {isTemplate ? (
-            <HugeiconsIcon
-              icon={Copy02Icon}
-              className="size-7 text-muted-foreground"
-            />
-          ) : (
-            <HugeiconsIcon
-              icon={ComputerIcon}
-              className="size-7 text-muted-foreground"
-            />
-          )}
+          <HugeiconsIcon
+            icon={headerIcon}
+            className="size-7 text-muted-foreground"
+          />
           <h1 className="scroll-m-20 text-center text-4xl font-extrabold tracking-tight text-balance">
             {node.name}
           </h1>
@@ -322,6 +352,7 @@ export function VmHeader({
             nodeId={node.id}
             permissions={node.permissions}
             isTemplate={isTemplate}
+            guestType={vm.guest_type}
             itemId={itemId}
             vmid={vm.vmid}
             pveNode={vm.node}
@@ -344,7 +375,7 @@ export function VmHeader({
               <m.div key={stat.label} variants={animateChild}>
                 <Item
                   variant="muted"
-                  className={`${hasUsage ? "relative overflow-hidden pr-10" : ""} ${stat.bgStyle ?? ""}`}
+                  className={`h-full ${hasUsage ? "relative overflow-hidden pr-10" : ""} ${stat.bgStyle ?? ""}`}
                 >
                   <ItemMedia>{stat.icon}</ItemMedia>
                   <ItemContent

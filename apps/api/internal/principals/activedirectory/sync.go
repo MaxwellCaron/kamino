@@ -5,23 +5,35 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"time"
 
 	"github.com/MaxwellCaron/kamino/database"
 	"github.com/MaxwellCaron/kamino/internal/principals"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 // Sync handles syncing AD users and groups into the principals tables.
+type syncDirectoryReader interface {
+	FetchGroups(ctx context.Context) ([]Group, error)
+	FetchUsers(ctx context.Context) ([]User, error)
+}
+
 type Sync struct {
 	db     *pgxpool.Pool
-	client *Client
+	client syncDirectoryReader
 }
 
 // NewSync creates a new AD sync service.
-func NewSync(db *pgxpool.Pool, client *Client) *Sync {
+// The reader-only client boundary prevents sync from mutating AD.
+func NewSync(db *pgxpool.Pool, client syncDirectoryReader) *Sync {
 	return &Sync{db: db, client: client}
+}
+
+func principalCreatedAtParam(createdAt time.Time) pgtype.Timestamptz {
+	return pgtype.Timestamptz{Time: createdAt.UTC(), Valid: true}
 }
 
 // Run performs a full sync: fetches users/groups from AD, upserts them as
@@ -29,12 +41,12 @@ func NewSync(db *pgxpool.Pool, client *Client) *Sync {
 func (s *Sync) Run(ctx context.Context) error {
 	log.Println("Starting Active Directory sync")
 
-	groups, err := s.client.FetchGroups()
+	groups, err := s.client.FetchGroups(ctx)
 	if err != nil {
 		return fmt.Errorf("fetching AD groups: %w", err)
 	}
 
-	users, err := s.client.FetchUsers()
+	users, err := s.client.FetchUsers(ctx)
 	if err != nil {
 		return fmt.Errorf("fetching AD users: %w", err)
 	}
@@ -59,11 +71,12 @@ func (s *Sync) Run(ctx context.Context) error {
 	keptSIDs := make([]string, 0, len(groups)+len(users))
 
 	for _, g := range groups {
-		id, err := q.UpsertPrincipal(ctx, database.UpsertPrincipalParams{
+		id, err := q.UpsertSyncedPrincipal(ctx, database.UpsertSyncedPrincipalParams{
 			ProviderID:    providerID,
 			PrincipalType: database.PrincipalTypeGroup,
 			ExternalID:    g.SID,
 			Name:          &g.Name,
+			CreatedAt:     principalCreatedAtParam(g.CreatedAt),
 		})
 		if err != nil {
 			return fmt.Errorf("upserting group %q: %w", g.Name, err)
@@ -80,11 +93,12 @@ func (s *Sync) Run(ctx context.Context) error {
 			return fmt.Errorf("normalizing full name for user %q: %w", u.Username, err)
 		}
 
-		id, err := q.UpsertPrincipal(ctx, database.UpsertPrincipalParams{
+		id, err := q.UpsertSyncedPrincipal(ctx, database.UpsertSyncedPrincipalParams{
 			ProviderID:    providerID,
 			PrincipalType: database.PrincipalTypeUser,
 			ExternalID:    u.SID,
 			Name:          &u.Username,
+			CreatedAt:     principalCreatedAtParam(u.CreatedAt),
 		})
 		if err != nil {
 			return fmt.Errorf("upserting user %q: %w", u.Username, err)
@@ -110,6 +124,13 @@ func (s *Sync) Run(ctx context.Context) error {
 			ID:       id,
 		}); err != nil {
 			return fmt.Errorf("updating user full name %q: %w", u.Username, err)
+		}
+
+		if err := q.UpdatePrincipalStatus(ctx, database.UpdatePrincipalStatusParams{
+			Status: &u.Enabled,
+			ID:     id,
+		}); err != nil {
+			return fmt.Errorf("updating user status %q: %w", u.Username, err)
 		}
 		dnToID[u.DN] = id
 		keptSIDs = append(keptSIDs, u.SID)

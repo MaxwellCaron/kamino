@@ -163,19 +163,21 @@ func scanInventoryItemWithPermissions(row database.GetInventoryItemWithPermissio
 	*(dest[1].(**uuid.UUID)) = row.ParentID
 	*(dest[2].(*database.InventoryItemKind)) = row.Kind
 	*(dest[3].(*string)) = row.Name
-	*(dest[4].(*bool)) = row.InheritPermissions
-	*(dest[5].(**int32)) = row.DirectVmLimit
-	*(dest[6].(*int32)) = row.EffectiveVmLimit
-	*(dest[7].(*int32)) = row.VmCount
-	*(dest[8].(**string)) = row.Node
-	*(dest[9].(**int32)) = row.Vmid
-	*(dest[10].(**bool)) = row.IsTemplate
-	*(dest[11].(**string)) = row.Notes
-	*(dest[12].(**int32)) = row.CpuCount
-	*(dest[13].(**int32)) = row.MemoryMb
-	*(dest[14].(**float64)) = row.DiskGb
-	*(dest[15].(*int64)) = row.AllowedMask
-	*(dest[16].(*int64)) = row.DeniedMask
+	*(dest[4].(**string)) = row.Description
+	*(dest[5].(*bool)) = row.InheritPermissions
+	*(dest[6].(**int32)) = row.DirectVmLimit
+	*(dest[7].(*int32)) = row.EffectiveVmLimit
+	*(dest[8].(*int32)) = row.VmCount
+	*(dest[9].(**string)) = row.Node
+	*(dest[10].(**int32)) = row.Vmid
+	*(dest[11].(**string)) = row.GuestType
+	*(dest[12].(**bool)) = row.IsTemplate
+	*(dest[13].(**string)) = row.Notes
+	*(dest[14].(**int32)) = row.CpuCount
+	*(dest[15].(**int32)) = row.MemoryMb
+	*(dest[16].(**float64)) = row.DiskGb
+	*(dest[17].(*int64)) = row.AllowedMask
+	*(dest[18].(*int64)) = row.DeniedMask
 	return nil
 }
 
@@ -184,17 +186,19 @@ func scanInventoryItemByID(row database.GetInventoryItemByIDRow, dest ...any) er
 	*(dest[1].(**uuid.UUID)) = row.ParentID
 	*(dest[2].(*database.InventoryItemKind)) = row.Kind
 	*(dest[3].(*string)) = row.Name
-	*(dest[4].(*bool)) = row.InheritPermissions
-	*(dest[5].(**int32)) = row.DirectVmLimit
-	*(dest[6].(*int32)) = row.EffectiveVmLimit
-	*(dest[7].(*int32)) = row.VmCount
-	*(dest[8].(**string)) = row.Node
-	*(dest[9].(**int32)) = row.Vmid
-	*(dest[10].(**bool)) = row.IsTemplate
-	*(dest[11].(**string)) = row.Notes
-	*(dest[12].(**int32)) = row.CpuCount
-	*(dest[13].(**int32)) = row.MemoryMb
-	*(dest[14].(**float64)) = row.DiskGb
+	*(dest[4].(**string)) = row.Description
+	*(dest[5].(*bool)) = row.InheritPermissions
+	*(dest[6].(**int32)) = row.DirectVmLimit
+	*(dest[7].(*int32)) = row.EffectiveVmLimit
+	*(dest[8].(*int32)) = row.VmCount
+	*(dest[9].(**string)) = row.Node
+	*(dest[10].(**int32)) = row.Vmid
+	*(dest[11].(**string)) = row.GuestType
+	*(dest[12].(**bool)) = row.IsTemplate
+	*(dest[13].(**string)) = row.Notes
+	*(dest[14].(**int32)) = row.CpuCount
+	*(dest[15].(**int32)) = row.MemoryMb
+	*(dest[16].(**float64)) = row.DiskGb
 	return nil
 }
 
@@ -202,12 +206,13 @@ func scanVMRecord(row database.GetProxmoxVMByInventoryItemIDRow, dest ...any) er
 	*(dest[0].(*uuid.UUID)) = row.InventoryItemID
 	*(dest[1].(*string)) = row.Node
 	*(dest[2].(*int32)) = row.Vmid
-	*(dest[3].(*uuid.UUID)) = row.UpstreamUuid
-	*(dest[4].(*bool)) = row.IsTemplate
-	*(dest[5].(**string)) = row.Notes
-	*(dest[6].(**int32)) = row.CpuCount
-	*(dest[7].(**int32)) = row.MemoryMb
-	*(dest[8].(**float64)) = row.DiskGb
+	*(dest[3].(*string)) = row.GuestType
+	*(dest[4].(*uuid.UUID)) = row.UpstreamUuid
+	*(dest[5].(*bool)) = row.IsTemplate
+	*(dest[6].(**string)) = row.Notes
+	*(dest[7].(**int32)) = row.CpuCount
+	*(dest[8].(**int32)) = row.MemoryMb
+	*(dest[9].(**float64)) = row.DiskGb
 	return nil
 }
 
@@ -388,9 +393,6 @@ func TestGetVMRecordNotFound(t *testing.T) {
 	if !errors.Is(err, pgx.ErrNoRows) {
 		t.Errorf("GetVMRecord: expected error wrapping pgx.ErrNoRows, got %v", err)
 	}
-	if !IsMissingVM(err) {
-		t.Errorf("IsMissingVM(err): expected true, got false for err = %v", err)
-	}
 }
 
 func TestGetVMRecordFound(t *testing.T) {
@@ -402,6 +404,7 @@ func TestGetVMRecordFound(t *testing.T) {
 		InventoryItemID: itemID,
 		Node:            "pve1",
 		Vmid:            101,
+		GuestType:       "qemu",
 		UpstreamUuid:    upstreamUUID,
 	}
 

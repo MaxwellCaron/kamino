@@ -9,6 +9,7 @@ import (
 	"context"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 const getPersonalPodByUser = `-- name: GetPersonalPodByUser :one
@@ -17,6 +18,7 @@ SELECT
     user_principal_id,
     folder_id,
     network_number,
+    clone_target_key,
     created_at,
     updated_at
 FROM personal_pods
@@ -31,6 +33,7 @@ func (q *Queries) GetPersonalPodByUser(ctx context.Context, userPrincipalID uuid
 		&i.UserPrincipalID,
 		&i.FolderID,
 		&i.NetworkNumber,
+		&i.CloneTargetKey,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -73,66 +76,132 @@ func (q *Queries) GetPersonalPodForInventoryItem(ctx context.Context, id uuid.UU
 }
 
 const insertPersonalPod = `-- name: InsertPersonalPod :one
-WITH allocation_lock AS (
-    SELECT pg_advisory_xact_lock(740020003)
-),
-candidate AS (
+WITH candidate AS (
     SELECT n::INTEGER AS network_number
-    FROM allocation_lock,
-         generate_series($4::INTEGER, $5::INTEGER) AS n
+    FROM generate_series($1::INTEGER, $2::INTEGER) AS n
     WHERE NOT EXISTS (
         SELECT 1
-        FROM personal_pods pp
-        WHERE pp.network_number = n
+        FROM pod_network_allocations pna
+        WHERE pna.network_number = n
     )
     ORDER BY n
     LIMIT 1
-)
-INSERT INTO personal_pods (
-    id,
-    user_principal_id,
-    folder_id,
-    network_number
+),
+allocation AS (
+    INSERT INTO pod_network_allocations (
+        network_number,
+        kind,
+        network_profile_key,
+        clone_target_key,
+        folder_id
+    )
+    SELECT
+        candidate.network_number,
+        'personal_pod',
+        'lan-router-v1',
+        $3,
+        $4
+    FROM candidate
+    RETURNING id, network_number
+),
+inserted AS (
+    INSERT INTO personal_pods (
+        id,
+        user_principal_id,
+        folder_id,
+        network_number,
+        clone_target_key
+    )
+    SELECT
+        $5,
+        $6,
+        $4,
+        allocation.network_number,
+        $3
+    FROM allocation
+    RETURNING
+        id,
+        user_principal_id,
+        folder_id,
+        network_number,
+        clone_target_key,
+        created_at,
+        updated_at
+),
+_link AS (
+    UPDATE pod_network_allocations AS pna
+    SET personal_pod_id = inserted.id
+    FROM inserted, allocation
+    WHERE pna.id = allocation.id
 )
 SELECT
-    $1,
-    $2,
-    $3,
-    candidate.network_number
-FROM candidate
-RETURNING
     id,
     user_principal_id,
     folder_id,
     network_number,
+    clone_target_key,
     created_at,
     updated_at
+FROM inserted
 `
 
 type InsertPersonalPodParams struct {
-	ID               uuid.UUID `json:"id"`
-	UserPrincipalID  uuid.UUID `json:"user_principal_id"`
-	FolderID         uuid.UUID `json:"folder_id"`
 	MinNetworkNumber int32     `json:"min_network_number"`
 	MaxNetworkNumber int32     `json:"max_network_number"`
+	CloneTargetKey   string    `json:"clone_target_key"`
+	FolderID         uuid.UUID `json:"folder_id"`
+	ID               uuid.UUID `json:"id"`
+	UserPrincipalID  uuid.UUID `json:"user_principal_id"`
 }
 
-func (q *Queries) InsertPersonalPod(ctx context.Context, arg InsertPersonalPodParams) (PersonalPods, error) {
+type InsertPersonalPodRow struct {
+	ID              uuid.UUID          `json:"id"`
+	UserPrincipalID uuid.UUID          `json:"user_principal_id"`
+	FolderID        uuid.UUID          `json:"folder_id"`
+	NetworkNumber   int32              `json:"network_number"`
+	CloneTargetKey  string             `json:"clone_target_key"`
+	CreatedAt       pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt       pgtype.Timestamptz `json:"updated_at"`
+}
+
+func (q *Queries) InsertPersonalPod(ctx context.Context, arg InsertPersonalPodParams) (InsertPersonalPodRow, error) {
 	row := q.db.QueryRow(ctx, insertPersonalPod,
-		arg.ID,
-		arg.UserPrincipalID,
-		arg.FolderID,
 		arg.MinNetworkNumber,
 		arg.MaxNetworkNumber,
+		arg.CloneTargetKey,
+		arg.FolderID,
+		arg.ID,
+		arg.UserPrincipalID,
 	)
-	var i PersonalPods
+	var i InsertPersonalPodRow
 	err := row.Scan(
 		&i.ID,
 		&i.UserPrincipalID,
 		&i.FolderID,
 		&i.NetworkNumber,
+		&i.CloneTargetKey,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
 	return i, err
+}
+
+const setPersonalPodRouterInventoryItem = `-- name: SetPersonalPodRouterInventoryItem :execrows
+UPDATE pod_network_allocations
+SET inventory_item_id = $1
+WHERE personal_pod_id = $2
+  AND kind = 'personal_pod'
+`
+
+type SetPersonalPodRouterInventoryItemParams struct {
+	InventoryItemID *uuid.UUID `json:"inventory_item_id"`
+	PersonalPodID   *uuid.UUID `json:"personal_pod_id"`
+}
+
+func (q *Queries) SetPersonalPodRouterInventoryItem(ctx context.Context, arg SetPersonalPodRouterInventoryItemParams) (int64, error) {
+	result, err := q.db.Exec(ctx, setPersonalPodRouterInventoryItem, arg.InventoryItemID, arg.PersonalPodID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
 }

@@ -4,14 +4,22 @@ import (
 	"context"
 	"errors"
 	"net/http"
+	"time"
 
-	"github.com/MaxwellCaron/kamino/internal/audit"
 	"github.com/MaxwellCaron/kamino/internal/authorization"
 	"github.com/MaxwellCaron/kamino/internal/proxmox"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 )
+
+// liveCheckInterval is the shared SSE/VNC live-session revalidation cadence.
+const liveCheckInterval = 20 * time.Second
+
+// liveSessionValidator rechecks an already-established connection's session family.
+type liveSessionValidator interface {
+	ValidateLiveSession(ctx context.Context, sessionID, principalID uuid.UUID) error
+}
 
 type PermissionEnvelope struct {
 	AllowedMask authorization.Mask `json:"allowed_mask"`
@@ -31,6 +39,21 @@ func currentPrincipalID(c *gin.Context) (uuid.UUID, bool) {
 
 	id, ok := value.(uuid.UUID)
 	return id, ok && id != uuid.Nil
+}
+
+func currentSessionID(c *gin.Context) (uuid.UUID, bool) {
+	value, ok := c.Get("sessionID")
+	if !ok {
+		return uuid.Nil, false
+	}
+
+	id, ok := value.(uuid.UUID)
+	return id, ok && id != uuid.Nil
+}
+
+// freshAuthzContext wraps ctx in a new, empty principal-expansion cache.
+func freshAuthzContext(ctx context.Context) context.Context {
+	return authorization.WithPrincipalCache(ctx)
 }
 
 func toPermissionEnvelope(value authorization.EffectivePermissions) PermissionEnvelope {
@@ -72,37 +95,12 @@ func requireInventoryPermission(
 	}
 }
 
-func requireVMPermission(
-	c *gin.Context,
-	authzService *authorization.Service,
-	principalID uuid.UUID,
-	node string,
-	vmid int32,
-	required authorization.Mask,
-) (uuid.UUID, bool) {
-	itemID, err := authzService.ResolveVMItemID(c.Request.Context(), node, vmid)
-	switch {
-	case err == nil:
-	case errors.Is(err, pgx.ErrNoRows):
-		c.JSON(http.StatusNotFound, gin.H{"error": "vm not found"})
-		return uuid.Nil, false
-	default:
-		writeLoggedError(c, http.StatusInternalServerError, "authorization failed", "resolve vm inventory item", err)
-		return uuid.Nil, false
-	}
-
-	if !requireInventoryPermission(c, authzService, principalID, itemID, required) {
-		return uuid.Nil, false
-	}
-
-	return itemID, true
-}
-
 type verifiedVMTarget struct {
 	ItemID       uuid.UUID
 	Node         string
 	VMID         int
 	UpstreamUUID uuid.UUID
+	GuestType    proxmox.GuestType
 }
 
 type requestError struct {
@@ -126,7 +124,7 @@ func (e *requestError) Error() string {
 func parseItemIDParam(c *gin.Context) (uuid.UUID, bool) {
 	itemID, err := uuid.Parse(c.Param("id"))
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
+		writeInvalidRequest(c, "invalid id")
 		return uuid.Nil, false
 	}
 
@@ -177,7 +175,19 @@ func resolveVerifiedVMItemPermission(
 		}
 	}
 
+	return resolveVerifiedVMItem(ctx, authzService, px, itemID, lock)
+}
+
+func resolveVerifiedVMItem(
+	ctx context.Context,
+	authzService vmAuthz,
+	px vmProxmox,
+	itemID uuid.UUID,
+	lock bool,
+) (verifiedVMTarget, *requestError) {
+
 	var record authorization.VMRecord
+	var err error
 	if lock {
 		record, err = authzService.GetVMRecordForUpdate(ctx, itemID)
 	} else {
@@ -208,7 +218,7 @@ func verifyVMRecordIdentity(
 	px vmProxmox,
 	record authorization.VMRecord,
 ) (verifiedVMTarget, *requestError) {
-	identity, err := px.GetVMIdentity(ctx, record.Node, int(record.Vmid))
+	identity, err := px.GetVMIdentity(ctx, proxmox.GuestType(record.GuestType), record.Node, int(record.Vmid))
 	switch {
 	case err == nil:
 	case errors.Is(err, proxmox.ErrVMIdentityNotConfigured), errors.Is(err, proxmox.ErrVMIdentityInvalid):
@@ -232,12 +242,30 @@ func verifyVMRecordIdentity(
 		}
 	}
 
+	return verifiedVMTargetFromRecord(record), nil
+}
+
+func verifyVMRecordIdentityForAction(
+	ctx context.Context,
+	px vmProxmox,
+	record authorization.VMRecord,
+	allowMissingUpstream bool,
+) (verifiedVMTarget, *requestError) {
+	target, reqErr := verifyVMRecordIdentity(ctx, px, record)
+	if allowMissingUpstream && reqErr != nil && isMissingProxmoxVMError(reqErr.Err) {
+		return verifiedVMTargetFromRecord(record), nil
+	}
+	return target, reqErr
+}
+
+func verifiedVMTargetFromRecord(record authorization.VMRecord) verifiedVMTarget {
 	return verifiedVMTarget{
 		ItemID:       record.InventoryItemID,
 		Node:         record.Node,
 		VMID:         int(record.Vmid),
 		UpstreamUUID: record.UpstreamUUID,
-	}, nil
+		GuestType:    proxmox.GuestType(record.GuestType),
+	}
 }
 
 // requireVerifiedVMItemPermission keeps sensitive VM actions bound to the
@@ -283,7 +311,7 @@ func requireVerifiedVMItemPermission(
 // requireVMCreateMetadataAccess gates Proxmox VM-create metadata endpoints
 func requireVMCreateMetadataAccess(
 	c *gin.Context,
-	authzService *authorization.Service,
+	authzService vmCreateAuthz,
 	principalID uuid.UUID,
 ) bool {
 	hasCreateVM, err := authzService.HasAny(c.Request.Context(), principalID, authorization.CreateVM)
@@ -310,7 +338,13 @@ func requireVMCreateMetadataAccess(
 
 func requireManagementPermission(
 	c *gin.Context,
-	authzService *authorization.Service,
+	authzService interface {
+		RequireManagement(
+			ctx context.Context,
+			principalID uuid.UUID,
+			required authorization.ManagementPermission,
+		) error
+	},
 	principalID uuid.UUID,
 	required authorization.ManagementPermission,
 ) bool {
@@ -325,174 +359,4 @@ func requireManagementPermission(
 		writeLoggedError(c, http.StatusInternalServerError, "authorization failed", "authorize management resource", err)
 		return false
 	}
-}
-
-type AuthorizationHandler struct {
-	Authz *authorization.Service
-	Audit *audit.Service
-}
-
-type updateManagementACLRequest struct {
-	Grants []authorization.ManagementPermission `json:"grants"`
-}
-
-type managementPermissionDefinitionResponse struct {
-	BootstrapOnly bool                               `json:"bootstrap_only"`
-	Dangerous     bool                               `json:"dangerous"`
-	Description   string                             `json:"description"`
-	Key           authorization.ManagementPermission `json:"key"`
-	Label         string                             `json:"label"`
-}
-
-type managementPermissionSectionResponse struct {
-	Key         string                                   `json:"key"`
-	Label       string                                   `json:"label"`
-	Permissions []managementPermissionDefinitionResponse `json:"permissions"`
-}
-
-type managementACLResponse struct {
-	CanEditBootstrapOnly bool                                  `json:"can_edit_bootstrap_only"`
-	EffectiveGrants      []authorization.ManagementPermission  `json:"effective_grants"`
-	Grants               []authorization.ManagementPermission  `json:"grants"`
-	GroupID              uuid.UUID                             `json:"group_id"`
-	Immutable            bool                                  `json:"immutable"`
-	Sections             []managementPermissionSectionResponse `json:"sections"`
-}
-
-func (h *AuthorizationHandler) GetManagementACLForGroup(c *gin.Context) {
-	principalID, ok := currentPrincipalID(c)
-	if !ok {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "authentication required"})
-		return
-	}
-
-	if !requireManagementPermission(c, h.Authz, principalID, authorization.ManagementPermissionAdministrator) {
-		return
-	}
-
-	groupID, err := uuid.Parse(c.Param("id"))
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid group id"})
-		return
-	}
-
-	permissions, err := h.Authz.GetManagementPermissionsForGroup(
-		c.Request.Context(),
-		principalID,
-		groupID,
-	)
-	switch {
-	case err == nil:
-	case errors.Is(err, pgx.ErrNoRows):
-		c.JSON(http.StatusNotFound, gin.H{"error": "group not found"})
-		return
-	case authorization.IsManagementACLRequiresGroup(err):
-		c.JSON(http.StatusBadRequest, gin.H{"error": "management access only applies to groups"})
-		return
-	default:
-		writeLoggedError(c, http.StatusInternalServerError, "failed to fetch management access", "get management acl for group", err)
-		return
-	}
-
-	c.JSON(http.StatusOK, managementACLResponse{
-		CanEditBootstrapOnly: permissions.CanEditBootstrapOnly,
-		EffectiveGrants:      permissions.EffectiveGrants,
-		Grants:               permissions.Grants,
-		GroupID:              groupID,
-		Immutable:            permissions.Immutable,
-		Sections:             managementPermissionSectionsResponse(),
-	})
-}
-
-func (h *AuthorizationHandler) UpdateManagementACLForGroup(c *gin.Context) {
-	principalID, ok := currentPrincipalID(c)
-	if !ok {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "authentication required"})
-		return
-	}
-
-	if !requireManagementPermission(c, h.Authz, principalID, authorization.ManagementPermissionAdministrator) {
-		return
-	}
-
-	groupID, err := uuid.Parse(c.Param("id"))
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid group id"})
-		return
-	}
-
-	var req updateManagementACLRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		writeInvalidRequest(c, "invalid request body")
-		return
-	}
-
-	err = h.Authz.SetManagementPermissionsForGroup(
-		c.Request.Context(),
-		principalID,
-		groupID,
-		req.Grants,
-	)
-	switch {
-	case err == nil:
-	case authorization.IsForbidden(err):
-		writeForbidden(c)
-		return
-	case errors.Is(err, pgx.ErrNoRows):
-		c.JSON(http.StatusNotFound, gin.H{"error": "group not found"})
-		return
-	case authorization.IsManagementACLRequiresGroup(err):
-		c.JSON(http.StatusBadRequest, gin.H{"error": "management access only applies to groups"})
-		return
-	default:
-		writeLoggedError(c, http.StatusBadRequest, "failed to update management access", "update management acl for group", err)
-		return
-	}
-
-	grantKeys := make([]string, 0, len(req.Grants))
-	for _, g := range req.Grants {
-		grantKeys = append(grantKeys, string(g))
-	}
-	h.Audit.RecordSuccess(c.Request.Context(), audit.EventParams{
-		ActorPrincipalID: &principalID,
-		ActionKind:       "management_acl.update",
-		TargetKind:       "principal",
-		Metadata: map[string]any{
-			"group_id": groupID.String(),
-			"grants":   grantKeys,
-		},
-	})
-	c.JSON(http.StatusOK, gin.H{"ok": true})
-}
-
-func managementPermissionSectionsResponse() []managementPermissionSectionResponse {
-	catalog := authorization.ManagementPermissionCatalog()
-	sections := make([]managementPermissionSectionResponse, 0, len(catalog))
-	sectionIndexByKey := make(map[string]int, len(catalog))
-
-	for _, definition := range catalog {
-		index, ok := sectionIndexByKey[definition.SectionKey]
-		if !ok {
-			index = len(sections)
-			sectionIndexByKey[definition.SectionKey] = index
-			sections = append(sections, managementPermissionSectionResponse{
-				Key:         definition.SectionKey,
-				Label:       definition.SectionLabel,
-				Permissions: make([]managementPermissionDefinitionResponse, 0),
-			})
-		}
-
-		sections[index].Permissions = append(
-			sections[index].Permissions,
-			managementPermissionDefinitionResponse{
-				BootstrapOnly: definition.BootstrapOnly,
-				Dangerous:     definition.Dangerous,
-				Description:   definition.Description,
-				Key:           definition.Key,
-				Label:         definition.Label,
-			},
-		)
-	}
-
-	return sections
 }

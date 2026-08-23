@@ -20,10 +20,10 @@ export function AppActionButton({
       aria-busy={pending ? "true" : undefined}
       {...props}
     >
-      {pending ? (
+      {pending && pendingLabel ? (
         <>
           <Spinner data-icon="inline-start" />
-          {pendingLabel ?? children}
+          {pendingLabel}
         </>
       ) : (
         children

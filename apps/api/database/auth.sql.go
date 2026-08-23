@@ -48,6 +48,19 @@ func (q *Queries) CreateAuthSession(ctx context.Context, arg CreateAuthSessionPa
 	return err
 }
 
+const deleteExpiredAuthSessions = `-- name: DeleteExpiredAuthSessions :execrows
+DELETE FROM auth_sessions
+WHERE auth_sessions.expires_at < $1
+`
+
+func (q *Queries) DeleteExpiredAuthSessions(ctx context.Context, expiredBefore pgtype.Timestamptz) (int64, error) {
+	result, err := q.db.Exec(ctx, deleteExpiredAuthSessions, expiredBefore)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
 const getAuthSessionByTokenHashForUpdate = `-- name: GetAuthSessionByTokenHashForUpdate :one
 SELECT
     id,
@@ -85,6 +98,56 @@ func (q *Queries) GetAuthSessionByTokenHashForUpdate(ctx context.Context, tokenH
 	return i, err
 }
 
+const isAuthSessionActive = `-- name: IsAuthSessionActive :one
+SELECT EXISTS (
+    SELECT 1
+    FROM auth_sessions
+    WHERE id = $1
+      AND principal_id = $2
+      AND revoked_at IS NULL
+      AND expires_at > now()
+) AS active
+`
+
+type IsAuthSessionActiveParams struct {
+	ID          uuid.UUID `json:"id"`
+	PrincipalID uuid.UUID `json:"principal_id"`
+}
+
+func (q *Queries) IsAuthSessionActive(ctx context.Context, arg IsAuthSessionActiveParams) (bool, error) {
+	row := q.db.QueryRow(ctx, isAuthSessionActive, arg.ID, arg.PrincipalID)
+	var active bool
+	err := row.Scan(&active)
+	return active, err
+}
+
+const isAuthSessionFamilyActiveForSession = `-- name: IsAuthSessionFamilyActiveForSession :one
+SELECT EXISTS (
+    SELECT 1
+    FROM auth_sessions AS anchor
+    JOIN auth_sessions AS active
+      ON active.family_id = anchor.family_id
+     AND active.principal_id = anchor.principal_id
+    WHERE anchor.id = $1
+      AND anchor.principal_id = $2
+      AND active.revoked_at IS NULL
+      AND active.expires_at > now()
+) AS active
+`
+
+type IsAuthSessionFamilyActiveForSessionParams struct {
+	ID          uuid.UUID `json:"id"`
+	PrincipalID uuid.UUID `json:"principal_id"`
+}
+
+// Validates that the anchor session's family still has an active member.
+func (q *Queries) IsAuthSessionFamilyActiveForSession(ctx context.Context, arg IsAuthSessionFamilyActiveForSessionParams) (bool, error) {
+	row := q.db.QueryRow(ctx, isAuthSessionFamilyActiveForSession, arg.ID, arg.PrincipalID)
+	var active bool
+	err := row.Scan(&active)
+	return active, err
+}
+
 const revokeAuthSession = `-- name: RevokeAuthSession :exec
 UPDATE auth_sessions
 SET revoked_at = COALESCE(revoked_at, now())
@@ -111,11 +174,29 @@ func (q *Queries) RevokeAuthSessionFamily(ctx context.Context, familyID uuid.UUI
 	return result.RowsAffected(), nil
 }
 
+const revokeAuthSessionsForPrincipal = `-- name: RevokeAuthSessionsForPrincipal :execrows
+UPDATE auth_sessions
+SET revoked_at = COALESCE(revoked_at, now())
+WHERE principal_id = $1
+  AND revoked_at IS NULL
+  AND expires_at > now()
+`
+
+func (q *Queries) RevokeAuthSessionsForPrincipal(ctx context.Context, principalID uuid.UUID) (int64, error) {
+	result, err := q.db.Exec(ctx, revokeAuthSessionsForPrincipal, principalID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
 const rotateAuthSession = `-- name: RotateAuthSession :exec
 UPDATE auth_sessions
 SET
     revoked_at = now(),
     replaced_by_session_id = $2,
+    user_agent = $3,
+    ip_address = $4,
     last_used_at = now()
 WHERE id = $1
 `
@@ -123,9 +204,27 @@ WHERE id = $1
 type RotateAuthSessionParams struct {
 	ID                  uuid.UUID  `json:"id"`
 	ReplacedBySessionID *uuid.UUID `json:"replaced_by_session_id"`
+	UserAgent           *string    `json:"user_agent"`
+	IpAddress           *string    `json:"ip_address"`
 }
 
 func (q *Queries) RotateAuthSession(ctx context.Context, arg RotateAuthSessionParams) error {
-	_, err := q.db.Exec(ctx, rotateAuthSession, arg.ID, arg.ReplacedBySessionID)
+	_, err := q.db.Exec(ctx, rotateAuthSession,
+		arg.ID,
+		arg.ReplacedBySessionID,
+		arg.UserAgent,
+		arg.IpAddress,
+	)
+	return err
+}
+
+const updateAuthSessionLastUsed = `-- name: UpdateAuthSessionLastUsed :exec
+UPDATE auth_sessions
+SET last_used_at = now()
+WHERE id = $1
+`
+
+func (q *Queries) UpdateAuthSessionLastUsed(ctx context.Context, id uuid.UUID) error {
+	_, err := q.db.Exec(ctx, updateAuthSessionLastUsed, id)
 	return err
 }

@@ -14,6 +14,7 @@ import {
   HeatmapTooltip,
   HeatmapXAxis,
   HeatmapYAxis,
+  levelStylesFromColors,
 } from "@workspace/ui/components/charts/heatmap"
 import {
   Empty,
@@ -23,6 +24,18 @@ import {
 } from "@workspace/ui/components/empty"
 import { cn } from "@workspace/ui/lib/utils"
 import type { HeatmapColumn } from "@workspace/ui/components/charts/heatmap"
+
+const questionActivityLevelColors = [
+  "var(--color-muted)",
+  "#0e4429",
+  "#006d32",
+  "#26a641",
+  "#39d353",
+] as const
+
+const questionActivityLevelStyles = levelStylesFromColors(
+  questionActivityLevelColors
+)
 
 export function DashboardQuestionActivityCard({
   className,
@@ -43,7 +56,7 @@ export function DashboardQuestionActivityCard({
           Task questions answered by day.
         </CardDescription>
       </CardHeader>
-      <CardContent className="min-w-0">
+      <CardContent className="-mx-4 min-w-0">
         {error ? (
           <Empty className="min-h-48 border border-dashed">
             <EmptyHeader>
@@ -53,18 +66,31 @@ export function DashboardQuestionActivityCard({
           </Empty>
         ) : (
           <HeatmapInteractionProvider>
-            <HeatmapInteractionBoundary>
-              <HeatmapChart data={data} gap={2} layout="fluid" animate={false}>
-                <HeatmapCells cornerRadius={999} />
+            <HeatmapInteractionBoundary className="flex w-full flex-col items-stretch">
+              <HeatmapChart
+                data={data}
+                gap={3}
+                animate={false}
+                layout="fluid"
+                levelColors={questionActivityLevelColors}
+              >
+                <HeatmapCells
+                  cornerRadius={999}
+                  inactiveOpacity={1}
+                  inactiveScale={1}
+                />
                 <HeatmapXAxis />
-                <HeatmapYAxis />
-                <HeatmapTooltip />
+                <HeatmapYAxis tickFilter="all" labelFormat="initial" />
+                <HeatmapTooltip instant />
               </HeatmapChart>
               <HeatmapLegend
                 align="center"
                 cornerRadius={999}
-                gap={3}
-                className="pt-3"
+                gap={5}
+                inactiveOpacity={1}
+                inactiveScale={1}
+                levelStyles={questionActivityLevelStyles}
+                className="pt-4"
               />
             </HeatmapInteractionBoundary>
           </HeatmapInteractionProvider>

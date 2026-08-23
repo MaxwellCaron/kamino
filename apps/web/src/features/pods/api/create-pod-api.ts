@@ -1,6 +1,11 @@
 import type { ApiInventoryItem } from "@/features/inventory/types/inventory-types"
-import type { CreatePodFormValues } from "@/features/pods/components/create/create-pod-form"
-import { apiFetch } from "@/features/auth/api/auth-api"
+import type { PodCloneTarget } from "@/features/pods/api/clone-targets-api"
+import type {
+  CreatePodFormValues,
+  PodNetworkingMode,
+} from "@/features/pods/components/create/create-pod-form"
+import { isPodNetworkingWithRouter } from "@/features/pods/components/create/create-pod-form"
+import { apiJson } from "@/features/shared/api/api-json"
 
 export type PodTemplateOption = {
   id: string
@@ -13,8 +18,24 @@ export type PodTemplateOption = {
   is_router_template: boolean
 }
 
+export type PodNetworkSegment = {
+  key: string
+  label: string
+}
+
+export type PodNetworkProfile = {
+  key: Exclude<PodNetworkingMode, "none">
+  label: string
+  description: string
+  default_segment_key?: string
+  segments: Array<PodNetworkSegment>
+  prefix_nat_segment_key?: string
+}
+
 export type CreatePodOptions = {
   router_template_configured: boolean
+  network_profiles: Array<PodNetworkProfile>
+  clone_targets: Array<PodCloneTarget>
   templates: Array<PodTemplateOption>
 }
 
@@ -44,16 +65,11 @@ export type PodNameAvailability = {
 
 export const createPodOptionsQueryOptions = {
   queryKey: ["pods", "create", "options"] as const,
-  queryFn: async (): Promise<CreatePodOptions> => {
-    const res = await apiFetch("/api/v1/pods/create/options")
-    if (!res.ok) {
-      const body = await res.json().catch(() => ({}))
-      throw new Error(
-        body.error ?? `Failed to fetch pod create options: ${res.status}`
-      )
-    }
-    return res.json()
-  },
+  queryFn: (): Promise<CreatePodOptions> =>
+    apiJson<CreatePodOptions>(
+      "/api/v1/pods/create/options",
+      "fetch pod create options"
+    ),
 }
 
 export async function validatePodNameAvailability(
@@ -61,16 +77,37 @@ export async function validatePodNameAvailability(
   signal?: AbortSignal
 ): Promise<PodNameAvailability> {
   const params = new URLSearchParams({ name })
-  const res = await apiFetch(
+  return apiJson<PodNameAvailability>(
     `/api/v1/pods/create/name-availability?${params.toString()}`,
+    "validate pod name",
     { signal }
   )
-  if (!res.ok) {
-    const body = await res.json().catch(() => ({}))
-    throw new Error(body.error ?? `Failed to validate pod name: ${res.status}`)
-  }
+}
 
-  return res.json()
+export function buildCreatePodRequestBody(values: CreatePodFormValues) {
+  const usesManagedNetworking = isPodNetworkingWithRouter(values.networkingMode)
+
+  return {
+    name: values.name,
+    ...(usesManagedNetworking
+      ? {
+          network_profile_key: values.networkingMode,
+          clone_target_key: values.cloneTargetKey,
+        }
+      : {}),
+    templates: values.templates.map((template) => ({
+      template_item_id: template.templateItemId,
+      vms: template.vms.map((vm) => ({
+        name: vm.name,
+        cpu_count: vm.cpuCount,
+        memory_gb: vm.memoryGb,
+        storage_gb: vm.storageGb,
+        ...(values.networkingMode === "lan-dmz-router-v1" && vm.segmentKey
+          ? { segment_key: vm.segmentKey }
+          : {}),
+      })),
+    })),
+  }
 }
 
 export async function createPod(
@@ -80,29 +117,11 @@ export async function createPod(
   }
 ): Promise<CreatePodResult> {
   const query = new URLSearchParams({ progress_id: params.progressId })
-  const res = await apiFetch(`/api/v1/pods?${query.toString()}`, {
+  return apiJson<CreatePodResult>(`/api/v1/pods?${query.toString()}`, "create pod", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      name: params.values.name,
-      include_router: params.values.includeRouter,
-      templates: params.values.templates.map((template) => ({
-        template_item_id: template.templateItemId,
-        vms: template.vms.map((vm) => ({
-          name: vm.name,
-          cpu_count: vm.cpuCount,
-          memory_gb: vm.memoryGb,
-          storage_gb: vm.storageGb,
-        })),
-      })),
-    }),
+    body: JSON.stringify(buildCreatePodRequestBody(params.values)),
   })
-  if (!res.ok) {
-    const body = await res.json().catch(() => ({}))
-    throw new Error(body.error ?? `Failed to create pod: ${res.status}`)
-  }
-
-  return res.json()
 }
 
 export function createPodProgressQueryOptions(
@@ -111,18 +130,11 @@ export function createPodProgressQueryOptions(
 ) {
   return {
     queryKey: ["pods", "create", "progress", progressId] as const,
-    queryFn: async (): Promise<CreatePodProgress> => {
-      const res = await apiFetch(
-        `/api/v1/pods/create/progress/${encodeURIComponent(progressId ?? "")}`
-      )
-      if (!res.ok) {
-        const body = await res.json().catch(() => ({}))
-        throw new Error(
-          body.error ?? `Failed to fetch create progress: ${res.status}`
-        )
-      }
-      return res.json()
-    },
+    queryFn: (): Promise<CreatePodProgress> =>
+      apiJson<CreatePodProgress>(
+        `/api/v1/pods/create/progress/${encodeURIComponent(progressId ?? "")}`,
+        "fetch create progress"
+      ),
     enabled: enabled && !!progressId,
     retry: false,
     refetchOnReconnect: false,

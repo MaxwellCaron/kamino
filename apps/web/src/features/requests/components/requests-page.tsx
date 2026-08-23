@@ -7,7 +7,6 @@ import {
 } from "@tanstack/react-query"
 import { getRouteApi } from "@tanstack/react-router"
 
-import { RequestsPageSkeleton } from "./requests-page-skeleton"
 import { RequestsPageOverviewCard } from "./requests-page-overview-card"
 import { RequestsPageQueueCard } from "./requests-page-queue-card"
 import { RequestsPageDialogs } from "./requests-page-dialogs"
@@ -27,11 +26,13 @@ import { inventoryTreeQueryOptions } from "@/features/inventory/api/inventory-ap
 import {
   approveRequest,
   denyRequest,
+  managerRequestStatusCountsQueryOptions,
   requestDetailQueryOptions,
   requestsTableQueryOptions,
 } from "@/features/requests/api/requests-api"
 import { getRequestColumns } from "@/features/requests/components/requests-columns"
 import { formatRequestStatus } from "@/features/requests/utils/request-presenters"
+import { useDebouncedValue } from "@/features/shared/hooks/use-debounced-value"
 
 const requestsRouteApi = getRouteApi("/_dashboard/manager/requests")
 
@@ -145,9 +146,21 @@ export function RequestsPage() {
     user.management_permissions,
     ManagementPermissionKeys.manager
   )
+  const debouncedPendingSearch = useDebouncedValue(
+    pendingTableState.search,
+    250
+  )
+  const debouncedCompletedSearch = useDebouncedValue(
+    completedTableState.search,
+    250
+  )
 
   const { data: tree, isLoading: isTreeLoading } = useQuery(
     inventoryTreeQueryOptions
+  )
+
+  const { data: statusCountsData } = useQuery(
+    managerRequestStatusCountsQueryOptions()
   )
 
   const {
@@ -158,7 +171,7 @@ export function RequestsPage() {
     ...requestsTableQueryOptions("pending", {
       pageIndex: pendingTableState.pagination.pageIndex,
       pageSize: pendingTableState.pagination.pageSize,
-      search: pendingTableState.search,
+      search: debouncedPendingSearch,
     }),
     placeholderData: keepPreviousData,
   })
@@ -171,7 +184,7 @@ export function RequestsPage() {
     ...requestsTableQueryOptions("completed", {
       pageIndex: completedTableState.pagination.pageIndex,
       pageSize: completedTableState.pagination.pageSize,
-      search: completedTableState.search,
+      search: debouncedCompletedSearch,
     }),
     placeholderData: keepPreviousData,
     enabled: scope === "completed",
@@ -194,24 +207,15 @@ export function RequestsPage() {
   const isRequestsLoading = isTreeLoading || isPendingLoading
   const pendingCount = pendingPage?.total ?? 0
   const completedCount = isCompletedLoading ? null : (completedPage?.total ?? 0)
-  const statusCounts = useMemo(() => {
-    const counts: Record<ApiRequestStatus, number> = {
-      pending: 0,
-      approved: 0,
-      denied: 0,
-      executed: 0,
-      execution_failed: 0,
+  const statusCounts = useMemo((): Record<ApiRequestStatus, number> => {
+    return {
+      pending: statusCountsData?.pending ?? 0,
+      approved: statusCountsData?.approved ?? 0,
+      denied: statusCountsData?.denied ?? 0,
+      executed: statusCountsData?.executed ?? 0,
+      execution_failed: statusCountsData?.execution_failed ?? 0,
     }
-
-    pendingPage?.items.forEach((r) => {
-      counts[r.status]++
-    })
-    completedPage?.items.forEach((r) => {
-      counts[r.status]++
-    })
-
-    return counts
-  }, [pendingPage, completedPage])
+  }, [statusCountsData])
 
   const chartData = useMemo(() => {
     const statusClasses: Record<ApiRequestStatus, string> = {
@@ -332,13 +336,11 @@ export function RequestsPage() {
     dispatch({ type: "setConfirm", confirm: null })
   }, [])
 
-  if (isRequestsLoading) {
-    return <RequestsPageSkeleton />
-  }
-
   return (
-    <div className="@container/main flex flex-1 flex-col gap-2">
-      <div className="flex flex-col gap-4 px-4 py-4 md:gap-6 md:py-6 lg:px-6">
+    <div className="@container/main relative flex flex-1 flex-col gap-2">
+      {!isRequestsLoading && (
+        <>
+          <div className="flex flex-col gap-4 px-4 py-4 md:gap-6 md:py-6 lg:px-6">
         <RequestsPageOverviewCard
           statusCounts={statusCounts}
           chartData={chartData}
@@ -392,6 +394,8 @@ export function RequestsPage() {
         confirm={confirm}
         onConfirmClose={handleConfirmClose}
       />
+        </>
+      )}
     </div>
   )
 }

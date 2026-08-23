@@ -1,8 +1,11 @@
 import { Suspense, lazy, useCallback, useEffect, useRef, useState } from "react"
+import { useQuery } from "@tanstack/react-query"
 import { HugeiconsIcon } from "@hugeicons/react"
 import {
   Cancel01Icon,
+  Clock01Icon,
   ConnectIcon,
+  Download01Icon,
   KeyboardIcon,
   Plug01Icon,
   PowerIcon,
@@ -27,6 +30,7 @@ import {
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@workspace/ui/components/dropdown-menu"
@@ -38,11 +42,16 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from "@workspace/ui/components/empty"
-import { Spinner } from "@workspace/ui/components/spinner"
 import type { VncScreenHandle } from "react-vnc"
+import { LazyContentFallback } from "@/components/loading-overlay"
 
 import { AppActionButton } from "@/components/actions/app-action-button"
 import { apiFetch, apiUrl } from "@/features/auth/api/auth-api"
+import { vmOverviewQueryOptions } from "@/features/vms/api/vm-api"
+import { downloadSpiceConfig } from "@/features/vms/api/vm-console-api"
+import { alignVncLayoutAnchorIfOverscrolled } from "@/features/vms/components/dashboard/vnc-layout-anchor"
+import { toastDownloadSpiceConfig } from "@/features/vms/utils/vm-toasts"
+import { supportsNativeSpice } from "@/features/vms/utils/vm-console-utils"
 
 const LazyVncScreen = lazy(() =>
   import("./vnc-screen-client").then((module) => ({
@@ -50,30 +59,71 @@ const LazyVncScreen = lazy(() =>
   }))
 )
 
+export type VncConnectionStatus =
+  "connecting" | "connected" | "disconnected" | "expired" | "error"
+
 type VncConsoleProps = {
   itemId: string
+  guestType?: "qemu" | "lxc"
   powerStatus?: string
+  vmName?: string | null
+  vmid?: number | null
+  isViewed: boolean
+  onStatusChange: (status: VncConnectionStatus) => void
 }
 
-type Status = "connecting" | "connected" | "disconnected" | "error"
-
 type Session = {
+  sessionId: string
   url: string
   password: string
 }
 
-export function VncConsole({ itemId, powerStatus }: VncConsoleProps) {
+const VNC_IDLE_TIMEOUT_MS = 30 * 60 * 1000
+
+export function VncConsole({
+  itemId,
+  guestType,
+  powerStatus,
+  vmName,
+  vmid,
+  isViewed,
+  onStatusChange,
+}: VncConsoleProps) {
   const vncRef = useRef<VncScreenHandle>(null)
   const connectingRef = useRef(false)
+  const activeSessionIdRef = useRef<string | null>(null)
   const [session, setSession] = useState<Session | null>(null)
-  const [status, setStatus] = useState<Status>("disconnected")
+  const [status, setStatus] = useState<VncConnectionStatus>("disconnected")
   const [error, setError] = useState<string>()
   const [connectedAt, setConnectedAt] = useState<number | null>(null)
+  const [spiceDownloadInFlight, setSpiceDownloadInFlight] = useState(false)
+  const { data: overview } = useQuery({
+    ...vmOverviewQueryOptions(itemId),
+    enabled: Boolean(itemId) && guestType === "qemu",
+  })
+  const showSpiceDownload = supportsNativeSpice(guestType, overview?.display)
+
+  function handleDownloadSpiceConfig() {
+    if (spiceDownloadInFlight || !itemId || powerStatus !== "running") {
+      return
+    }
+
+    setSpiceDownloadInFlight(true)
+    toastDownloadSpiceConfig(
+      downloadSpiceConfig(itemId).finally(() => {
+        setSpiceDownloadInFlight(false)
+      }),
+      vmid,
+      vmName
+    )
+  }
 
   async function startConnection() {
     if (connectingRef.current) return
+    alignVncLayoutAnchorIfOverscrolled()
     connectingRef.current = true
     setStatus("connecting")
+    onStatusChange("connecting")
     setError(undefined)
 
     try {
@@ -98,36 +148,108 @@ export function VncConsole({ itemId, powerStatus }: VncConsoleProps) {
       wsHttpUrl.protocol = wsHttpUrl.protocol === "https:" ? "wss:" : "ws:"
       wsHttpUrl.searchParams.set("sessionId", sessionId)
 
-      setSession({ url: wsHttpUrl.toString(), password })
+      activeSessionIdRef.current = sessionId
+      setSession({ sessionId, url: wsHttpUrl.toString(), password })
     } catch (err) {
       setStatus("error")
+      onStatusChange("error")
       setError(err instanceof Error ? err.message : "Connection failed")
     } finally {
       connectingRef.current = false
     }
   }
 
-  function disconnect() {
-    vncRef.current?.disconnect()
+  const closeConnection = useCallback(() => {
+    const activeConnection = vncRef.current
+    activeSessionIdRef.current = null
+    activeConnection?.disconnect()
     setSession(null)
-    setStatus("disconnected")
     setError(undefined)
     setConnectedAt(null)
-  }
-
-  const handleConnect = useCallback(() => {
-    setStatus("connected")
-    setConnectedAt(Date.now())
   }, [])
 
-  const handleDisconnect = useCallback(() => {
+  const disconnect = useCallback(() => {
+    closeConnection()
     setStatus("disconnected")
-  }, [])
+    onStatusChange("disconnected")
+  }, [closeConnection, onStatusChange])
 
-  const handleSecurityFailure = useCallback(() => {
-    setStatus("error")
-    setError("Authentication failed")
-  }, [])
+  const handleConnect = useCallback(
+    (sessionId: string) => {
+      if (activeSessionIdRef.current !== sessionId) {
+        return
+      }
+
+      setStatus("connected")
+      onStatusChange("connected")
+      setConnectedAt(Date.now())
+    },
+    [onStatusChange]
+  )
+
+  const handleDisconnect = useCallback(
+    (sessionId: string) => {
+      if (activeSessionIdRef.current !== sessionId) {
+        return
+      }
+
+      activeSessionIdRef.current = null
+      setSession(null)
+      setStatus("disconnected")
+      onStatusChange("disconnected")
+      setConnectedAt(null)
+    },
+    [onStatusChange]
+  )
+
+  const handleSecurityFailure = useCallback(
+    (sessionId: string) => {
+      if (activeSessionIdRef.current !== sessionId) {
+        return
+      }
+
+      setStatus("error")
+      onStatusChange("error")
+      setError("Authentication failed")
+    },
+    [onStatusChange]
+  )
+
+  const expireConnection = useCallback(() => {
+    closeConnection()
+    setStatus("expired")
+    onStatusChange("expired")
+  }, [closeConnection, onStatusChange])
+
+  useVncIdleExpiry(status === "connected", isViewed, expireConnection)
+
+  useEffect(() => {
+    if (status !== "connected" || !isViewed) {
+      return
+    }
+
+    let secondFrameId = 0
+    const firstFrameId = requestAnimationFrame(() => {
+      secondFrameId = requestAnimationFrame(() => {
+        const rfb = vncRef.current?.rfb
+        if (!rfb) {
+          return
+        }
+        rfb.scaleViewport = false
+        rfb.scaleViewport = true
+      })
+    })
+
+    return () => {
+      cancelAnimationFrame(firstFrameId)
+      if (secondFrameId !== 0) {
+        cancelAnimationFrame(secondFrameId)
+      }
+    }
+  }, [status, isViewed])
+
+  const isRunning = powerStatus === "running"
+  const isExpired = status === "expired"
 
   return (
     <Card>
@@ -140,8 +262,9 @@ export function VncConsole({ itemId, powerStatus }: VncConsoleProps) {
           Console
         </CardTitle>
         <CardDescription>
-          Connect directly to the GUI interface of this VM using a VNC client
-          connection.
+          {showSpiceDownload
+            ? "Connect to this VM's console in Kamino or open it in a native SPICE client."
+            : "Connect to this VM's console in Kamino."}
         </CardDescription>
 
         <CardAction>
@@ -149,6 +272,7 @@ export function VncConsole({ itemId, powerStatus }: VncConsoleProps) {
             status={status}
             error={error}
             connectedAt={connectedAt}
+            isViewed={isViewed}
             vncRef={vncRef}
             onDisconnect={disconnect}
           />
@@ -160,9 +284,14 @@ export function VncConsole({ itemId, powerStatus }: VncConsoleProps) {
           <Empty className="w-full max-w-md">
             <EmptyHeader>
               <EmptyMedia variant="icon">
-                {powerStatus !== "running" ? (
+                {!isRunning ? (
                   <HugeiconsIcon
                     icon={PowerIcon}
+                    className="text-muted-foreground"
+                  />
+                ) : isExpired ? (
+                  <HugeiconsIcon
+                    icon={Clock01Icon}
                     className="text-muted-foreground"
                   />
                 ) : (
@@ -173,23 +302,42 @@ export function VncConsole({ itemId, powerStatus }: VncConsoleProps) {
                 )}
               </EmptyMedia>
               <EmptyTitle>
-                {powerStatus !== "running" ? "VM Not Running" : "Not Connected"}
+                {!isRunning
+                  ? "VM Not Running"
+                  : isExpired
+                    ? "Session Expired"
+                    : "Not Connected"}
               </EmptyTitle>
               <EmptyDescription>
-                {powerStatus !== "running"
-                  ? "The VM must be running to create a VNC session."
-                  : "You haven't created a VNC session. Start a new session to connect."}
+                {!isRunning
+                  ? "The VM must be running to open a console."
+                  : isExpired
+                    ? "This console was closed after 30 minutes away. Connect to start a new session."
+                    : "Connect to start an in-app console session."}
               </EmptyDescription>
             </EmptyHeader>
-            <EmptyContent className="flex-row justify-center gap-2">
+            <EmptyContent className="flex flex-row flex-wrap justify-center gap-2">
               <AppActionButton
                 onClick={startConnection}
-                disabled={powerStatus !== "running" || !itemId}
+                disabled={!isRunning || !itemId}
                 pending={status === "connecting"}
                 pendingLabel="Connecting..."
               >
                 Connect
               </AppActionButton>
+              {showSpiceDownload && (
+                <AppActionButton
+                  variant="outline"
+                  onClick={handleDownloadSpiceConfig}
+                  disabled={!isRunning || !itemId || spiceDownloadInFlight}
+                >
+                  <HugeiconsIcon
+                    icon={Download01Icon}
+                    data-icon="inline-start"
+                  />
+                  Download SPICE config
+                </AppActionButton>
+              )}
             </EmptyContent>
           </Empty>
         )}
@@ -197,26 +345,26 @@ export function VncConsole({ itemId, powerStatus }: VncConsoleProps) {
         {session && (
           <Suspense
             fallback={
-              <div
-                className="absolute inset-0 flex items-center justify-center"
-                style={{ width: "100%", height: "100%" }}
-              >
-                <Spinner />
-              </div>
+              <LazyContentFallback
+                label="Loading console"
+                className="absolute inset-0"
+              />
             }
           >
             <LazyVncScreen
+              key={session.sessionId}
               ref={vncRef}
               url={session.url}
               rfbOptions={{ credentials: { password: session.password } }}
+              focusOnClick
               scaleViewport
               resizeSession={false}
               qualityLevel={8}
               compressionLevel={2}
               background="transparent"
-              onConnect={handleConnect}
-              onDisconnect={handleDisconnect}
-              onSecurityFailure={handleSecurityFailure}
+              onConnect={() => handleConnect(session.sessionId)}
+              onDisconnect={() => handleDisconnect(session.sessionId)}
+              onSecurityFailure={() => handleSecurityFailure(session.sessionId)}
               style={{
                 width: "100%",
                 height: "100%",
@@ -238,22 +386,66 @@ function formatElapsed(seconds: number): string {
   return [h, m, s].map((v) => String(v).padStart(2, "0")).join(":")
 }
 
-function useElapsed(since: number | null): string {
+function useElapsed(since: number | null, active: boolean): string {
   const [now, setNow] = useState(() => Date.now())
 
   useEffect(() => {
-    if (since === null) {
+    if (since === null || !active) {
       return
     }
     const id = setInterval(() => {
       setNow(Date.now())
     }, 1000)
     return () => clearInterval(id)
-  }, [since])
+  }, [since, active])
 
   const elapsed =
     since === null ? 0 : Math.max(0, Math.floor((now - since) / 1000))
   return formatElapsed(elapsed)
+}
+
+function useVncIdleExpiry(
+  connected: boolean,
+  isViewed: boolean,
+  onExpire: () => void
+) {
+  const deadlineRef = useRef<number | null>(null)
+
+  useEffect(() => {
+    if (!connected) {
+      deadlineRef.current = null
+      return
+    }
+
+    const now = Date.now()
+    const existingDeadline = deadlineRef.current
+
+    if (isViewed) {
+      if (existingDeadline !== null && now >= existingDeadline) {
+        deadlineRef.current = null
+        onExpire()
+        return
+      }
+
+      deadlineRef.current = null
+      return
+    }
+
+    const deadline = existingDeadline ?? now + VNC_IDLE_TIMEOUT_MS
+    deadlineRef.current = deadline
+
+    const timeoutId = window.setTimeout(
+      () => {
+        if (deadlineRef.current !== null && Date.now() >= deadline) {
+          deadlineRef.current = null
+          onExpire()
+        }
+      },
+      Math.max(0, deadline - now)
+    )
+
+    return () => window.clearTimeout(timeoutId)
+  }, [connected, isViewed, onExpire])
 }
 
 const KEY_COMBOS = [
@@ -279,16 +471,21 @@ function ConsoleToolbar({
   status,
   error,
   connectedAt,
+  isViewed,
   vncRef,
   onDisconnect,
 }: {
-  status: Status
+  status: VncConnectionStatus
   error: string | undefined
   connectedAt: number | null
+  isViewed: boolean
   vncRef: React.RefObject<VncScreenHandle | null>
   onDisconnect: () => void
 }) {
-  const elapsed = useElapsed(status === "connected" ? connectedAt : null)
+  const elapsed = useElapsed(
+    status === "connected" ? connectedAt : null,
+    isViewed
+  )
 
   function send(action: (ref: VncScreenHandle) => void) {
     if (vncRef.current) {
@@ -302,7 +499,7 @@ function ConsoleToolbar({
       return (
         <div className="flex items-center gap-2">
           <Badge>
-            <HugeiconsIcon icon={Plug01Icon} />
+            <HugeiconsIcon icon={Plug01Icon} data-icon="inline-start" />
             <span className="font-mono">{elapsed}</span>
           </Badge>
           <DropdownMenu>
@@ -315,14 +512,16 @@ function ConsoleToolbar({
               }
             />
             <DropdownMenuContent align="end">
-              {KEY_COMBOS.map((combo) => (
-                <DropdownMenuItem
-                  key={combo.label}
-                  onClick={() => send(combo.action)}
-                >
-                  {combo.label}
-                </DropdownMenuItem>
-              ))}
+              <DropdownMenuGroup>
+                {KEY_COMBOS.map((combo) => (
+                  <DropdownMenuItem
+                    key={combo.label}
+                    onClick={() => send(combo.action)}
+                  >
+                    {combo.label}
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuGroup>
             </DropdownMenuContent>
           </DropdownMenu>
           <TooltipProvider>
@@ -332,6 +531,7 @@ function ConsoleToolbar({
                   <Button
                     variant="destructive"
                     size="icon-xs"
+                    aria-label="Disconnect VNC session"
                     onClick={onDisconnect}
                   >
                     <HugeiconsIcon icon={Cancel01Icon} />
@@ -343,6 +543,13 @@ function ConsoleToolbar({
           </TooltipProvider>
         </div>
       )
+    case "expired":
+      return (
+        <Badge variant="secondary">
+          <HugeiconsIcon icon={Clock01Icon} data-icon="inline-start" />
+          Expired
+        </Badge>
+      )
     case "disconnected":
     case "error":
       return (
@@ -350,7 +557,7 @@ function ConsoleToolbar({
           <Tooltip>
             <TooltipTrigger>
               <Badge variant="destructive">
-                <HugeiconsIcon icon={ConnectIcon} />
+                <HugeiconsIcon icon={ConnectIcon} data-icon="inline-start" />
                 {status === "error" ? "Error" : "Disconnected"}
               </Badge>
             </TooltipTrigger>

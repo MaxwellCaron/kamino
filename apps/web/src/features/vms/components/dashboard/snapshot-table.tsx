@@ -42,12 +42,14 @@ export function SnapshotsTable({
   itemId,
   vmid,
   vmName,
+  guestType,
   isTemplate,
   permissions,
 }: {
   itemId: string
   vmid: number | null
   vmName?: string
+  guestType?: "qemu" | "lxc"
   isTemplate: boolean
   permissions: SnapshotTablePermissions
 }) {
@@ -71,26 +73,19 @@ export function SnapshotsTable({
   const [requestRollbackSnapshot, setRequestRollbackSnapshot] = useState<
     string | null
   >(null)
-  const [requestRollbackOpen, setRequestRollbackOpen] = useState(false)
   const [snapshotOpen, setSnapshotOpen] = useState(false)
   const vmReference = formatVmReference(vmid, vmName)
   const filtered =
     snapshots?.filter((snapshot) => snapshot.name !== "current") ?? []
 
-  const openRequestRollbackDialog = (snapshotName: string) => {
-    setRequestRollbackSnapshot(snapshotName)
-    setRequestRollbackOpen(true)
-  }
-
   const closeRequestRollbackDialog = () => {
-    setRequestRollbackOpen(false)
     setRequestRollbackSnapshot(null)
   }
   const columns = getSnapshotTableColumns({
     itemId,
     permissions,
     onOpenConfirm: setConfirm,
-    onOpenRequestRollback: openRequestRollbackDialog,
+    onOpenRequestRollback: setRequestRollbackSnapshot,
     rollback,
     remove,
     submitRollbackRequest,
@@ -133,7 +128,6 @@ export function SnapshotsTable({
       </CardHeader>
       <CardContent className="flex-1 border-b px-0">
         <SimpleDataTable
-          animationKey={itemId}
           columns={columns}
           data={filtered}
           error={snapshotsError}
@@ -146,7 +140,7 @@ export function SnapshotsTable({
       </CardFooter>
       <ConfirmDialog config={confirm} onClose={() => setConfirm(null)} />
       <SnapshotRequestRollbackDialog
-        open={requestRollbackOpen}
+        open={requestRollbackSnapshot !== null}
         snapshotName={requestRollbackSnapshot}
         vmReference={vmReference}
         itemId={itemId}
@@ -161,6 +155,7 @@ export function SnapshotsTable({
             itemId={itemId}
             vmid={vmid}
             vmName={vmName}
+            guestType={guestType}
             mode={permissions.canManage ? "direct" : "request"}
             open={snapshotOpen}
             onOpenChange={setSnapshotOpen}

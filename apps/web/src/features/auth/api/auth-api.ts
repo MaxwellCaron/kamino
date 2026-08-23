@@ -4,6 +4,7 @@ import type { AuthSession } from "../types/auth-types"
 
 const AUTH_REFRESH_BUFFER_MS = 60_000
 const AUTH_BOOTSTRAP_RETRY_BUFFER_MS = 5_000
+const REFRESH_COLLISION_RETRY_DELAY_MS = 300
 const API_BASE_URL = import.meta.env.DEV
   ? ""
   : (import.meta.env.VITE_API_BASE_URL?.trim().replace(/\/$/, "") ?? "")
@@ -18,6 +19,8 @@ let refreshPromise: Promise<AuthSession> | null = null
 let bootstrapPromise: Promise<AuthSession> | null = null
 let refreshTimer: number | null = null
 let authFailure: AuthenticationError | null = null
+let authGeneration = 0
+let logoutPromise: Promise<void> | null = null
 
 export class AuthenticationError extends Error {}
 
@@ -76,6 +79,7 @@ function applyAuthSession(session: AuthSession): AuthSession {
 }
 
 function resetAuthState() {
+  authGeneration += 1
   currentSession = null
   bootstrapPromise = null
   clearRefreshTimer()
@@ -104,13 +108,36 @@ function isAuthEndpoint(input: string) {
   return input.startsWith("/api/v1/auth/")
 }
 
+const CSRF_HEADER_NAME = "X-Kamino-Request"
+const CSRF_HEADER_VALUE = "1"
+
+function mergeRequestHeaders(init?: RequestInit): HeadersInit {
+  const csrfHeader = { [CSRF_HEADER_NAME]: CSRF_HEADER_VALUE }
+  if (!init?.headers) {
+    return csrfHeader
+  }
+  if (init.headers instanceof Headers) {
+    const merged = new Headers(init.headers)
+    merged.set(CSRF_HEADER_NAME, CSRF_HEADER_VALUE)
+    return merged
+  }
+  if (Array.isArray(init.headers)) {
+    return [...init.headers, [CSRF_HEADER_NAME, CSRF_HEADER_VALUE]]
+  }
+  return { ...csrfHeader, ...init.headers }
+}
+
 export async function apiFetch(
   input: string,
   init?: RequestInit,
   options?: { retryOn401?: boolean }
 ): Promise<Response> {
   const retryOn401 = options?.retryOn401 ?? true
-  const requestInit = { credentials: "include" as const, ...init }
+  const requestInit = {
+    credentials: "include" as const,
+    ...init,
+    headers: mergeRequestHeaders(init),
+  }
   const isProtectedRequest = retryOn401 && !isAuthEndpoint(input)
 
   if (isProtectedRequest) {
@@ -221,10 +248,27 @@ export async function login(params: {
 }
 
 export async function logout(): Promise<void> {
-  await fetch(apiUrl("/api/v1/auth/logout"), {
-    ...{ method: "POST", credentials: "include" as const },
-  })
+  if (logoutPromise) return logoutPromise
+
+  const inFlightRefresh = refreshPromise
   clearAuthState()
+
+  const pendingLogout = (async () => {
+    await inFlightRefresh?.catch(() => undefined)
+    await fetch(apiUrl("/api/v1/auth/logout"), {
+      method: "POST",
+      credentials: "include" as const,
+      headers: { [CSRF_HEADER_NAME]: CSRF_HEADER_VALUE },
+    })
+  })()
+  logoutPromise = pendingLogout
+
+  try {
+    await pendingLogout
+  } finally {
+    clearAuthState()
+    if (logoutPromise === pendingLogout) logoutPromise = null
+  }
 }
 
 export async function changeOwnPassword(params: {
@@ -240,18 +284,38 @@ export async function changeOwnPassword(params: {
     const body = await res.json().catch(() => ({}))
     throw new Error(body.error ?? `Failed to change password: ${res.status}`)
   }
+
+  clearAuthState()
+  redirectToLogin()
+}
+
+function wait(ms: number) {
+  return new Promise((resolve) => window.setTimeout(resolve, ms))
+}
+
+function requestRefresh() {
+  return fetch(apiUrl("/api/v1/auth/refresh"), {
+    method: "POST",
+    credentials: "include",
+    headers: { [CSRF_HEADER_NAME]: CSRF_HEADER_VALUE },
+  })
 }
 
 export async function refreshAuth(): Promise<AuthSession> {
+  if (logoutPromise) {
+    throw new AuthenticationError("logout in progress")
+  }
   if (refreshPromise) {
     return refreshPromise
   }
 
+  const generation = authGeneration
   refreshPromise = (async () => {
-    const res = await fetch(apiUrl("/api/v1/auth/refresh"), {
-      method: "POST",
-      credentials: "include",
-    })
+    let res = await requestRefresh()
+    if (res.status === 409) {
+      await wait(REFRESH_COLLISION_RETRY_DELAY_MS)
+      res = await requestRefresh()
+    }
     if (!res.ok) {
       if (res.status === 401) {
         invalidateAuthState("refresh failed")
@@ -260,7 +324,11 @@ export async function refreshAuth(): Promise<AuthSession> {
       throw new Error("refresh failed")
     }
 
-    return applyAuthSession(await res.json())
+    const session = (await res.json()) as AuthSession
+    if (generation === authGeneration) {
+      applyAuthSession(session)
+    }
+    return session
   })()
 
   try {

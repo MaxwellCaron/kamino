@@ -4,7 +4,7 @@ import { Button } from "@workspace/ui/components/button"
 import type { ErrorComponentProps } from "@tanstack/react-router"
 import { FullPageStatus } from "@/components/full-page-status"
 
-export function RouteError(_props: ErrorComponentProps) {
+export function RouteErrorBoundary(_props: ErrorComponentProps) {
   const router = useRouter()
   const [retrying, setRetrying] = useState(false)
 

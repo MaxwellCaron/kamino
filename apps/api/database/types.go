@@ -140,6 +140,50 @@ func (ns NullInventoryRequestPowerAction) Value() (driver.Value, error) {
 	return string(ns.InventoryRequestPowerAction), nil
 }
 
+type PodNetworkAllocationKind string
+
+const (
+	PodNetworkAllocationKindPublishedClone PodNetworkAllocationKind = "published_clone"
+	PodNetworkAllocationKindDevPod         PodNetworkAllocationKind = "dev_pod"
+	PodNetworkAllocationKindPersonalPod    PodNetworkAllocationKind = "personal_pod"
+	PodNetworkAllocationKindManualRouter   PodNetworkAllocationKind = "manual_router"
+)
+
+func (e *PodNetworkAllocationKind) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = PodNetworkAllocationKind(s)
+	case string:
+		*e = PodNetworkAllocationKind(s)
+	default:
+		return fmt.Errorf("unsupported scan type for PodNetworkAllocationKind: %T", src)
+	}
+	return nil
+}
+
+type NullPodNetworkAllocationKind struct {
+	PodNetworkAllocationKind PodNetworkAllocationKind `json:"pod_network_allocation_kind"`
+	Valid                    bool                     `json:"valid"` // Valid is true if PodNetworkAllocationKind is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullPodNetworkAllocationKind) Scan(value interface{}) error {
+	if value == nil {
+		ns.PodNetworkAllocationKind, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.PodNetworkAllocationKind.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullPodNetworkAllocationKind) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.PodNetworkAllocationKind), nil
+}
+
 type PrincipalProviderType string
 
 const (
@@ -431,13 +475,15 @@ type AuthSessions struct {
 }
 
 type ClonedPods struct {
-	ID              uuid.UUID          `json:"id"`
-	PodID           uuid.UUID          `json:"pod_id"`
-	UserPrincipalID uuid.UUID          `json:"user_principal_id"`
-	FolderID        uuid.UUID          `json:"folder_id"`
-	NetworkNumber   int32              `json:"network_number"`
-	CreatedAt       pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt       pgtype.Timestamptz `json:"updated_at"`
+	ID                uuid.UUID          `json:"id"`
+	PodID             uuid.UUID          `json:"pod_id"`
+	UserPrincipalID   uuid.UUID          `json:"user_principal_id"`
+	FolderID          uuid.UUID          `json:"folder_id"`
+	NetworkNumber     int32              `json:"network_number"`
+	NetworkProfileKey string             `json:"network_profile_key"`
+	CloneTargetKey    string             `json:"clone_target_key"`
+	CreatedAt         pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt         pgtype.Timestamptz `json:"updated_at"`
 }
 
 type FolderVmCapacityReservations struct {
@@ -461,15 +507,43 @@ type PersonalPods struct {
 	UserPrincipalID uuid.UUID          `json:"user_principal_id"`
 	FolderID        uuid.UUID          `json:"folder_id"`
 	NetworkNumber   int32              `json:"network_number"`
+	CloneTargetKey  string             `json:"clone_target_key"`
 	CreatedAt       pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt       pgtype.Timestamptz `json:"updated_at"`
 }
 
-type PodDevNetworkAllocations struct {
-	PodFolderID   uuid.UUID          `json:"pod_folder_id"`
-	NetworkNumber int32              `json:"network_number"`
-	CreatedAt     pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt     pgtype.Timestamptz `json:"updated_at"`
+type PodCloneClaims struct {
+	PodID            uuid.UUID          `json:"pod_id"`
+	UserPrincipalID  uuid.UUID          `json:"user_principal_id"`
+	Action           string             `json:"action"`
+	ActorPrincipalID uuid.UUID          `json:"actor_principal_id"`
+	ClaimedAt        pgtype.Timestamptz `json:"claimed_at"`
+}
+
+type PodCloneTargets struct {
+	Key               string             `json:"key"`
+	Label             string             `json:"label"`
+	NetworkProfileKey string             `json:"network_profile_key"`
+	LanVnet           string             `json:"lan_vnet"`
+	DmzVnet           *string            `json:"dmz_vnet"`
+	WanBridge         string             `json:"wan_bridge"`
+	WanSubnet         string             `json:"wan_subnet"`
+	NetworkMin        int32              `json:"network_min"`
+	NetworkMax        int32              `json:"network_max"`
+	CloudInitStorage  string             `json:"cloud_init_storage"`
+	IsDefault         bool               `json:"is_default"`
+	IsPersonal        bool               `json:"is_personal"`
+	CreatedAt         pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt         pgtype.Timestamptz `json:"updated_at"`
+}
+
+type PodDevVmNetworkAssignments struct {
+	InventoryItemID uuid.UUID          `json:"inventory_item_id"`
+	PodFolderID     uuid.UUID          `json:"pod_folder_id"`
+	IsRouter        bool               `json:"is_router"`
+	SegmentKey      *string            `json:"segment_key"`
+	CreatedAt       pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt       pgtype.Timestamptz `json:"updated_at"`
 }
 
 type PublishedPods struct {
@@ -481,6 +555,8 @@ type PublishedPods struct {
 	Status               PublishedPodStatus `json:"status"`
 	SourceFolderID       uuid.UUID          `json:"source_folder_id"`
 	PublisherPrincipalID uuid.UUID          `json:"publisher_principal_id"`
+	NetworkProfileKey    string             `json:"network_profile_key"`
+	CloneTargetKey       string             `json:"clone_target_key"`
 	CloneCount           int32              `json:"clone_count"`
 	CreatedAt            pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt            pgtype.Timestamptz `json:"updated_at"`

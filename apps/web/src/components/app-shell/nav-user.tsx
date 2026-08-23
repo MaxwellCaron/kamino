@@ -1,5 +1,6 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { useRouter } from "@tanstack/react-router"
+import { toast } from "sonner"
 import { HugeiconsIcon } from "@hugeicons/react"
 import { Logout01Icon } from "@hugeicons/core-free-icons"
 import {
@@ -18,6 +19,7 @@ import {
   useSidebar,
 } from "@workspace/ui/components/sidebar"
 import { FacehashIcon } from "@workspace/ui/components/facehash"
+import { Spinner } from "@workspace/ui/components/spinner"
 import { ThemeToggleMenuItems } from "./theme-toggle"
 import { logout } from "@/features/auth/api/auth-api"
 
@@ -37,7 +39,10 @@ export function NavUser({
       queryClient.clear()
       router.navigate({ to: "/login" })
     },
+    onError: () => toast.error("Log out failed."),
   })
+  const isPending = logoutMutation.isPending
+
   return (
     <SidebarMenu className="items-center">
       <SidebarMenuItem>
@@ -47,6 +52,7 @@ export function NavUser({
               <SidebarMenuButton
                 size="lg"
                 className="size-9! justify-center p-0!"
+                aria-label={`Open account menu for ${user.username}`}
               />
             }
           >
@@ -73,13 +79,26 @@ export function NavUser({
             <DropdownMenuSeparator />
             <ThemeToggleMenuItems />
             <DropdownMenuSeparator />
-            <DropdownMenuItem
-              variant="destructive"
-              onClick={() => logoutMutation.mutate()}
-            >
-              <HugeiconsIcon icon={Logout01Icon} />
-              Log out
-            </DropdownMenuItem>
+            <DropdownMenuGroup>
+              <DropdownMenuItem
+                variant="destructive"
+                disabled={isPending}
+                aria-busy={isPending || undefined}
+                onSelect={(event) => {
+                  event.preventDefault()
+                  logoutMutation.mutate()
+                }}
+              >
+                {isPending ? (
+                  <Spinner />
+                ) : (
+                  <HugeiconsIcon icon={Logout01Icon} />
+                )}
+                <span role="status" aria-live="polite">
+                  {isPending ? "Logging out..." : "Log out"}
+                </span>
+              </DropdownMenuItem>
+            </DropdownMenuGroup>
           </DropdownMenuContent>
         </DropdownMenu>
       </SidebarMenuItem>

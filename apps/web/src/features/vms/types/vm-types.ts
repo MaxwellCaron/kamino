@@ -43,16 +43,21 @@ export type ApiVmHardwareConfig = {
   balloon: number
   storage: string
   disk_size: number
+  display: string
   networks: Array<ApiVmHardwareNetwork>
 }
+
+export type ApiVmHardwareUpdate = Omit<ApiVmHardwareConfig, "display">
 
 export type ApiVmNetworkSummary = {
   device?: string
   bridge: string
 }
 
-export type ApiVmNetworksResponse = {
+export type ApiVmOverviewResponse = {
   networks: Array<ApiVmNetworkSummary>
+  display?: string
+  resources?: VmResources
 }
 
 export type ApiSnapshot = {
@@ -86,6 +91,9 @@ export type ApiStorage = {
   avail: number
   total: number
   used: number
+  shared?: number
+  kamino_shared?: boolean
+  kamino_excluded?: boolean
 }
 
 export type ApiISO = {

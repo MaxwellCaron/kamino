@@ -34,6 +34,48 @@ func ParseIPv4Subnet24(value string) (netip.Prefix, error) {
 	return prefix, nil
 }
 
+// ParseIPv4Subnet16 parses value as a canonical IPv4 /16 network address. Pod
+// WAN subnets are /16 so the network number can fill the third octet.
+func ParseIPv4Subnet16(value string) (netip.Prefix, error) {
+	trimmed := strings.TrimSpace(value)
+	if trimmed == "" {
+		return netip.Prefix{}, fmt.Errorf("must not be empty")
+	}
+
+	prefix, err := netip.ParsePrefix(trimmed)
+	if err != nil {
+		return netip.Prefix{}, fmt.Errorf("must be a CIDR subnet: %w", err)
+	}
+	if !prefix.Addr().Is4() {
+		return netip.Prefix{}, fmt.Errorf("must be an IPv4 subnet")
+	}
+	if prefix.Bits() != 16 {
+		return netip.Prefix{}, fmt.Errorf("must be a /16 subnet")
+	}
+	if prefix.Masked() != prefix {
+		return netip.Prefix{}, fmt.Errorf("must be a network address, not a host address")
+	}
+
+	return prefix, nil
+}
+
+// PodWANSubnet carves the pod's /24 out of a /16 WAN subnet using its network
+// number as the third octet.
+func PodWANSubnet(wanSubnet string, networkNumber int32) (netip.Prefix, error) {
+	prefix, err := ParseIPv4Subnet16(wanSubnet)
+	if err != nil {
+		return netip.Prefix{}, err
+	}
+	if networkNumber < 1 || networkNumber > 254 {
+		return netip.Prefix{}, fmt.Errorf("network number %d is out of range", networkNumber)
+	}
+
+	octets := prefix.Addr().As4()
+	octets[2] = byte(networkNumber)
+	octets[3] = 0
+	return netip.PrefixFrom(netip.AddrFrom4(octets), 24), nil
+}
+
 func NormalizeDottedPrefix(value string) (string, error) {
 	trimmed := strings.TrimSpace(value)
 	if trimmed == "" {
@@ -94,6 +136,18 @@ func NormalizeCloudInitFilePattern(envName, value string) (string, error) {
 	}
 	return trimmed, nil
 }
+
+const (
+	DefaultLANRouterCloudInitUserFilePattern    = "kamino-router-{network}-user-data.yaml"
+	DefaultLANRouterCloudInitNetworkFile        = "kamino-router-network-config.yaml"
+	DefaultLANDMZRouterCloudInitUserFilePattern = "kamino-router-lan-dmz-{network}-user-data.yaml"
+	DefaultLANDMZRouterCloudInitNetworkFile     = "kamino-router-lan-dmz-network-config.yaml"
+
+	LANDMZLANSubnet      = "192.168.1.0/24"
+	LANDMZLANGatewayHost = 1
+	LANDMZDMZSubnet      = "10.0.50.0/24"
+	LANDMZDMZGatewayHost = 1
+)
 
 func NormalizeCloudInitFileName(envName, value string) (string, error) {
 	trimmed := strings.TrimSpace(value)

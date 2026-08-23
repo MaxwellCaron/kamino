@@ -49,6 +49,7 @@ export function VmNotes({
                 variant="ghost"
                 size="icon-sm"
                 className="-mt-1"
+                aria-label="Edit VM notes"
                 onClick={() => setIsNotesOpen(true)}
               >
                 <HugeiconsIcon icon={PencilEdit01Icon} />

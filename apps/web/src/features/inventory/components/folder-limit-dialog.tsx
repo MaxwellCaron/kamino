@@ -133,8 +133,16 @@ export function FolderLimitDialog({
                     onChange={(event) => field.handleChange(event.target.value)}
                     onBlur={field.handleBlur}
                     aria-invalid={isInvalid}
+                    aria-errormessage={
+                      isInvalid ? "folder-limit-error" : undefined
+                    }
                   />
-                  {isInvalid && <FieldError errors={field.state.meta.errors} />}
+                  {isInvalid && (
+                    <FieldError
+                      id="folder-limit-error"
+                      errors={field.state.meta.errors}
+                    />
+                  )}
                 </Field>
               )
             }}
@@ -143,7 +151,8 @@ export function FolderLimitDialog({
         <DialogFooter className="mt-6">
           <AppDialogPrimaryButton
             pending={updateLimit.isPending}
-            pendingLabel="Saving..."
+            disabled={updateLimit.isPending}
+            aria-busy={updateLimit.isPending || undefined}
           >
             Save Limit
           </AppDialogPrimaryButton>

@@ -8,18 +8,43 @@ import {
   ComboboxItem,
   ComboboxLabel,
   ComboboxList,
-  ComboboxSeparator,
 } from "@workspace/ui/components/combobox"
 import type { NetworkOption } from "@/features/vms/components/hardware/hardware-section-utils"
+
+type NetworkOptionGroup = {
+  key: string
+  label: string
+  items: Array<NetworkOption>
+}
 
 type VmHardwareNetworkBridgeComboboxProps = {
   bridgeOptions: Array<NetworkOption>
   vnetOptions: Array<NetworkOption>
   networkOptions: Array<NetworkOption>
   value: string
+  id?: string
+  errorId?: string
   invalid?: boolean
+  disabled?: boolean
   onBlur: () => void
   onValueChange: (value: string) => void
+}
+
+function buildNetworkGroups(
+  bridgeOptions: Array<NetworkOption>,
+  vnetOptions: Array<NetworkOption>
+): Array<NetworkOptionGroup> {
+  const groups: Array<NetworkOptionGroup> = []
+
+  if (bridgeOptions.length) {
+    groups.push({ key: "bridges", label: "Bridges", items: bridgeOptions })
+  }
+
+  if (vnetOptions.length) {
+    groups.push({ key: "vnets", label: "VNets", items: vnetOptions })
+  }
+
+  return groups
 }
 
 export function VmHardwareNetworkBridgeCombobox({
@@ -27,29 +52,38 @@ export function VmHardwareNetworkBridgeCombobox({
   vnetOptions,
   networkOptions,
   value,
+  id,
+  errorId,
   invalid,
+  disabled,
   onBlur,
   onValueChange,
 }: VmHardwareNetworkBridgeComboboxProps) {
+  const networkGroups = buildNetworkGroups(bridgeOptions, vnetOptions)
+
   return (
     <Combobox
-      items={networkOptions}
-      itemToStringValue={(option) => option.label}
+      items={networkGroups}
+      itemToStringLabel={(option) => option.label}
+      itemToStringValue={(option) => option.value}
       value={networkOptions.find((option) => option.value === value) ?? null}
       onValueChange={(option) => onValueChange(option?.value ?? "")}
+      disabled={disabled}
       autoHighlight
     >
       <ComboboxInput
+        id={id}
         placeholder="Select network"
         onBlur={onBlur}
         aria-invalid={invalid || undefined}
+        aria-errormessage={invalid ? errorId : undefined}
       />
       <ComboboxContent>
         <ComboboxEmpty>No networks found.</ComboboxEmpty>
         <ComboboxList>
-          {bridgeOptions.length ? (
-            <ComboboxGroup items={bridgeOptions}>
-              <ComboboxLabel>Bridges</ComboboxLabel>
+          {(group) => (
+            <ComboboxGroup key={group.key} items={group.items}>
+              <ComboboxLabel>{group.label}</ComboboxLabel>
               <ComboboxCollection>
                 {(option) => (
                   <ComboboxItem key={option.value} value={option}>
@@ -58,22 +92,7 @@ export function VmHardwareNetworkBridgeCombobox({
                 )}
               </ComboboxCollection>
             </ComboboxGroup>
-          ) : null}
-          {bridgeOptions.length && vnetOptions.length ? (
-            <ComboboxSeparator />
-          ) : null}
-          {vnetOptions.length ? (
-            <ComboboxGroup items={vnetOptions}>
-              <ComboboxLabel>VNets</ComboboxLabel>
-              <ComboboxCollection>
-                {(option) => (
-                  <ComboboxItem key={option.value} value={option}>
-                    {option.label}
-                  </ComboboxItem>
-                )}
-              </ComboboxCollection>
-            </ComboboxGroup>
-          ) : null}
+          )}
         </ComboboxList>
       </ComboboxContent>
     </Combobox>

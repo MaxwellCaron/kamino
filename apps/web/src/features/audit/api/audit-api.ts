@@ -1,4 +1,4 @@
-import { apiFetch } from "@/features/auth/api/auth-api"
+import { apiJson } from "@/features/shared/api/api-json"
 
 export type ApiActionEvent = {
   id: number
@@ -35,27 +35,27 @@ type ActionEventsQueryParams = {
   search: string
 }
 
-async function fetchActionEvents({
-  pageIndex,
-  pageSize,
-  search,
-}: ActionEventsQueryParams): Promise<ApiActionEventsListResponse> {
+async function fetchActionEvents(
+  { pageIndex, pageSize, search }: ActionEventsQueryParams,
+  signal?: AbortSignal
+): Promise<ApiActionEventsListResponse> {
   const params = new URLSearchParams({
     page: String(pageIndex + 1),
     rows: String(pageSize),
   })
   if (search) params.set("search", search)
 
-  const res = await apiFetch(`/api/v1/admin/audit/actions?${params}`)
-  if (!res.ok) {
-    throw new Error(`Failed to fetch audit events: ${res.status}`)
-  }
-  return res.json()
+  return apiJson<ApiActionEventsListResponse>(
+    `/api/v1/admin/audit/actions?${params}`,
+    "fetch audit events",
+    { signal }
+  )
 }
 
 export function actionEventsQueryOptions(params: ActionEventsQueryParams) {
   return {
     queryKey: ["audit", "actions", params] as const,
-    queryFn: () => fetchActionEvents(params),
+    queryFn: ({ signal }: { signal: AbortSignal }) =>
+      fetchActionEvents(params, signal),
   }
 }

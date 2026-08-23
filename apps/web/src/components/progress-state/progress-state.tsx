@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState } from "react"
-import { Loader } from "@dot-loaders/react"
 import { Link } from "@tanstack/react-router"
 import { HugeiconsIcon } from "@hugeicons/react"
 import {
@@ -16,6 +15,7 @@ import {
   EmptyTitle,
 } from "@workspace/ui/components/empty"
 import { Progress } from "@workspace/ui/components/progress"
+import { Spinner } from "@workspace/ui/components/spinner"
 import { cn } from "@workspace/ui/lib/utils"
 import {
   COMPLETE_PROGRESS_COLORS,
@@ -70,6 +70,12 @@ export type ProgressStateAction =
   | ProgressStateInventoryItemAction
   | ProgressStateButtonAction
 
+function useScrollToTopOnMount() {
+  useEffect(() => {
+    window.scrollTo({ top: 0, left: 0, behavior: "auto" })
+  }, [])
+}
+
 type ProgressStateProps<TStepId extends number> = {
   children?: ReactNode
   detail?: string
@@ -91,6 +97,7 @@ export function ProgressState<TStepId extends number>({
   steps,
   title,
 }: ProgressStateProps<TStepId>) {
+  useScrollToTopOnMount()
   const [simulatedStepIndex, setSimulatedStepIndex] = useState(0)
   const hasCompletedRef = useRef(false)
   const externalStepIndex =
@@ -125,7 +132,7 @@ export function ProgressState<TStepId extends number>({
   }, [intervalMs, onComplete, simulatedStepIndex, stepId, steps.length])
 
   return (
-    <Empty>
+    <Empty role="status">
       <EmptyHeader>
         <EmptyMedia variant="icon" className="size-12.5">
           <span
@@ -134,16 +141,7 @@ export function ProgressState<TStepId extends number>({
               colors.text
             )}
           >
-            <Loader
-              loader="braille"
-              renderer="svg-grid"
-              speed={0.85}
-              rendererOptions={{
-                shape: "square",
-                cellSize: 6,
-                gap: 2,
-              }}
-            />
+            <Spinner className="size-7" />
           </span>
         </EmptyMedia>
         <EmptyTitle className="pt-3">{title}</EmptyTitle>
@@ -187,6 +185,8 @@ export function ProgressLoadingState({
   onComplete?: () => void
   title: string
 }) {
+  useScrollToTopOnMount()
+
   useEffect(() => {
     if (intervalMs === undefined) return
 
@@ -198,22 +198,13 @@ export function ProgressLoadingState({
   }, [intervalMs, onComplete])
 
   return (
-    <Empty>
+    <Empty role="status">
       <EmptyHeader>
         <EmptyMedia variant="icon" className="size-12.5">
           <span
             className={cn("flex items-center", DEFAULT_PROGRESS_COLORS.text)}
           >
-            <Loader
-              loader="braille"
-              renderer="svg-grid"
-              speed={0.85}
-              rendererOptions={{
-                shape: "square",
-                cellSize: 6,
-                gap: 2,
-              }}
-            />
+            <Spinner className="size-7" />
           </span>
         </EmptyMedia>
         <EmptyTitle className="pt-3">{title}</EmptyTitle>
@@ -306,7 +297,7 @@ export function ProgressSuccessState({
   title: string
 }) {
   return (
-    <Empty>
+    <Empty role="status">
       <EmptyHeader>
         <EmptyMedia variant="icon" className="size-12.5">
           <HugeiconsIcon
@@ -332,7 +323,7 @@ export function ProgressErrorState({
   title: string
 }) {
   return (
-    <Empty>
+    <Empty role="alert">
       <EmptyHeader>
         <EmptyMedia variant="icon" className="size-12.5">
           <HugeiconsIcon
@@ -341,7 +332,9 @@ export function ProgressErrorState({
           />
         </EmptyMedia>
         <EmptyTitle className="pt-3">{title}</EmptyTitle>
-        <EmptyDescription>{description}</EmptyDescription>
+        <EmptyDescription className="first-letter:uppercase">
+          {description}
+        </EmptyDescription>
       </EmptyHeader>
       <ProgressStateActions actions={actions} />
     </Empty>

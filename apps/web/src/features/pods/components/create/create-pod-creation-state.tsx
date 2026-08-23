@@ -85,12 +85,12 @@ const CREATE_POD_WITH_ROUTER_STEPS = [
 
 function getCreatePodSteps({
   hasVirtualMachines,
-  includeRouter,
+  hasRouter,
 }: {
   hasVirtualMachines: boolean
-  includeRouter: boolean
+  hasRouter: boolean
 }) {
-  if (includeRouter) return CREATE_POD_WITH_ROUTER_STEPS
+  if (hasRouter) return CREATE_POD_WITH_ROUTER_STEPS
   if (hasVirtualMachines) return CREATE_POD_WITH_VM_STEPS
   return CREATE_POD_FOLDER_STEPS
 }
@@ -108,24 +108,26 @@ function getCreateProgressStepId(
 
 export function CreatePodSubmitState({
   createdPod,
-  errorMessage,
+  error,
   hasVirtualMachines,
-  includeRouter,
+  hasRouter,
+  onCreateAnother,
   onCreatingComplete,
-  onReset,
+  onRetry,
   progress,
   state,
 }: {
   createdPod?: CreatePodResult | null
-  errorMessage?: string | null
+  error?: string | null
   hasVirtualMachines: boolean
-  includeRouter: boolean
+  hasRouter: boolean
+  onCreateAnother: () => void
   onCreatingComplete?: () => void
-  onReset: () => void
+  onRetry: () => void
   progress?: CreatePodProgress
   state: CreatePodSubmitStatus
 }) {
-  const steps = getCreatePodSteps({ hasVirtualMachines, includeRouter })
+  const steps = getCreatePodSteps({ hasVirtualMachines, hasRouter })
   const createdPodFolderId = createdPod?.folder_id ?? null
 
   switch (state) {
@@ -148,7 +150,7 @@ export function CreatePodSubmitState({
             {
               icon: PackageAddIcon,
               label: "Create Another",
-              onClick: onReset,
+              onClick: onCreateAnother,
               to: "/pods/create",
               variant: "secondary",
             },
@@ -172,15 +174,14 @@ export function CreatePodSubmitState({
         <ProgressErrorState
           title="Creation Failed"
           description={
-            errorMessage ??
+            error ??
             "Your Pod failed to create. Please try again or contact support if the issue persists."
           }
           actions={[
             {
               icon: ReloadIcon,
               label: "Try Again",
-              onClick: onReset,
-              to: "/pods/create",
+              onClick: onRetry,
               variant: "secondary",
             },
           ]}

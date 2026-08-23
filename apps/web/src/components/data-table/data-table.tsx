@@ -30,25 +30,25 @@ import {
 import { HugeiconsIcon } from "@hugeicons/react"
 import { Cancel01Icon, Search01Icon } from "@hugeicons/core-free-icons"
 import { Skeleton } from "@workspace/ui/components/skeleton"
-import {
-  flexRender,
-  getCoreRowModel,
-  getExpandedRowModel,
-  getFilteredRowModel,
-  getPaginationRowModel,
-  useReactTable,
-} from "@tanstack/react-table"
-import { Fragment, useRef, useState } from "react"
+import { flexRender, useTable } from "@tanstack/react-table"
+import { Fragment, useState } from "react"
 import { DataTablePagination } from "./data-table-pagination"
 import { DataTableStateRow } from "./data-table-state-row"
+import { appTableFeatures, defaultDataTableFeatures } from "./data-table-types"
 import type { ComponentType, ReactNode } from "react"
-import type { DataTableSelectionActionsContext } from "./data-table-types"
+import type {
+  AppTableFeatures,
+  DataTableFeatures,
+  DataTableSelectionActionsContext,
+} from "./data-table-types"
 import type {
   ColumnDef,
   ExpandedState,
   OnChangeFn,
   PaginationState,
+  RowData,
   RowSelectionState,
+  SortingState,
   TableOptions,
 } from "@tanstack/react-table"
 
@@ -72,70 +72,74 @@ export type DataTableServerPagination = {
   onSearchChange: (value: string) => void
 }
 
-interface DataTableProps<TData, TValue> {
-  columns: Array<ColumnDef<TData, TValue>>
+interface DataTableProps<TData extends RowData, TValue> {
+  columns: Array<ColumnDef<AppTableFeatures, TData, TValue>>
   data: Array<TData>
-  isLoading?: boolean
+  emptyMessage?: string
   error: Error | null
-  getRowId?: TableOptions<TData>["getRowId"]
+  features?: DataTableFeatures
+  getRowId?: TableOptions<AppTableFeatures, TData>["getRowId"]
   initialPageSize?: number
-  enablePagination?: boolean
-  showSelectionSummary?: boolean
+  initialSorting?: SortingState
   selectionActions?: (
     context: DataTableSelectionActionsContext<TData>
   ) => ReactNode
   expandedRowComponent?: ComponentType<{ row: TData }>
   getRowCanExpand?: (row: TData) => boolean
   serverPagination?: DataTableServerPagination
+  searchLabel?: string
 }
 
-export function DataTable<TData, TValue>({
+export function DataTable<TData extends RowData, TValue>({
   columns,
   data,
-  isLoading = false,
+  emptyMessage,
   error,
+  features: featuresInput,
   getRowId,
   initialPageSize = 25,
-  enablePagination = true,
-  showSelectionSummary = true,
+  initialSorting = [],
   selectionActions,
   expandedRowComponent: ExpandedRowComponent,
   getRowCanExpand,
   serverPagination,
+  searchLabel = "Search table",
 }: DataTableProps<TData, TValue>) {
+  const features = { ...defaultDataTableFeatures, ...featuresInput }
+  const {
+    loading: isLoading,
+    pagination: enablePagination,
+    sorting: enableSorting,
+    selectionSummary: showSelectionSummary,
+  } = features
   const isServerMode = serverPagination?.mode === "server"
   const [globalFilter, setGlobalFilter] = useState("")
   const [rowSelection, setRowSelection] = useState<RowSelectionState>({})
+  const [sorting, setSorting] = useState<SortingState>(initialSorting)
   const [expanded, setExpanded] = useState<ExpandedState>({})
-  const hasBeenLoading = useRef(isLoading)
-  if (isLoading) hasBeenLoading.current = true
   const notReady = isLoading || error !== null
 
   const searchValue = isServerMode ? serverPagination.search : globalFilter
-  const onSearchChange = isServerMode
-    ? serverPagination.onSearchChange
-    : (value: string) => setGlobalFilter(value)
 
-  const table = useReactTable({
+  const table = useTable({
+    features: appTableFeatures,
     data,
-    columns,
+    columns: columns as Array<ColumnDef<AppTableFeatures, TData>>,
     getRowId,
     enableRowSelection: true,
-    getExpandedRowModel: getExpandedRowModel(),
     getRowCanExpand: getRowCanExpand
       ? (row) => getRowCanExpand(row.original)
       : undefined,
-    getCoreRowModel: getCoreRowModel(),
-    getPaginationRowModel:
-      enablePagination && !isServerMode ? getPaginationRowModel() : undefined,
-    getFilteredRowModel: isServerMode ? undefined : getFilteredRowModel(),
-    manualPagination: isServerMode,
+    manualSorting: !enableSorting,
+    manualFiltering: isServerMode,
+    manualPagination: isServerMode || !enablePagination,
     rowCount: isServerMode ? serverPagination.rowCount : undefined,
     ...(isServerMode
       ? { onPaginationChange: serverPagination.onPaginationChange }
       : {}),
     onGlobalFilterChange: isServerMode ? undefined : setGlobalFilter,
     onRowSelectionChange: setRowSelection,
+    onSortingChange: setSorting,
     onExpandedChange: setExpanded,
     globalFilterFn: isServerMode ? undefined : "includesString",
     state: {
@@ -143,12 +147,14 @@ export function DataTable<TData, TValue>({
         ? { pagination: serverPagination.pagination }
         : { globalFilter }),
       rowSelection,
+      sorting,
       expanded,
     },
     initialState:
       enablePagination && !isServerMode
         ? {
             pagination: {
+              pageIndex: 0,
               pageSize: initialPageSize,
             },
           }
@@ -167,12 +173,13 @@ export function DataTable<TData, TValue>({
             <HugeiconsIcon icon={Search01Icon} />
           </InputGroupAddon>
           <InputGroupInput
+            aria-label={searchLabel}
             placeholder="Search..."
             value={searchValue}
             onChange={(e) => {
               const value = String(e.target.value)
               if (isServerMode) {
-                onSearchChange(value)
+                serverPagination.onSearchChange(value)
                 serverPagination.onPaginationChange((prev) => ({
                   ...prev,
                   pageIndex: 0,
@@ -189,7 +196,7 @@ export function DataTable<TData, TValue>({
           <div className="flex items-center gap-2">
             <p className="hidden text-sm font-medium lg:block">Rows per page</p>
             <Select
-              value={`${table.getState().pagination.pageSize}`}
+              value={`${table.state.pagination.pageSize}`}
               onValueChange={(value) => {
                 if (isServerMode) {
                   serverPagination.onPaginationChange((prev) => ({
@@ -203,9 +210,9 @@ export function DataTable<TData, TValue>({
               }}
               disabled={notReady}
             >
-              <SelectTrigger>
+              <SelectTrigger aria-label="Rows per page">
                 <SelectValue
-                  placeholder={table.getState().pagination.pageSize}
+                  placeholder={table.state.pagination.pageSize}
                 />
               </SelectTrigger>
               <SelectContent alignItemWithTrigger={false} align="end">
@@ -231,6 +238,13 @@ export function DataTable<TData, TValue>({
                   return (
                     <TableHead
                       key={header.id}
+                      aria-sort={
+                        header.column.getIsSorted() === "asc"
+                          ? "ascending"
+                          : header.column.getIsSorted() === "desc"
+                            ? "descending"
+                            : undefined
+                      }
                       className={header.column.columnDef.meta?.className}
                     >
                       {header.isPlaceholder
@@ -291,7 +305,11 @@ export function DataTable<TData, TValue>({
                 </Fragment>
               ))
             ) : (
-              <DataTableStateRow colSpan={columns.length} error={error} />
+              <DataTableStateRow
+                colSpan={columns.length}
+                error={error}
+                emptyMessage={emptyMessage}
+              />
             )}
           </TableBody>
         </Table>
@@ -309,7 +327,7 @@ export function DataTable<TData, TValue>({
             if (!open) clearSelection()
           }}
         >
-          <ActionBarSelection>
+          <ActionBarSelection role="status" aria-live="polite" aria-atomic>
             {selectedRows.length}{" "}
             <span className="hidden lg:block">selected</span>
           </ActionBarSelection>

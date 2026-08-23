@@ -1,5 +1,6 @@
 import { useState } from "react"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
+import { m } from "motion/react"
 import { HugeiconsIcon } from "@hugeicons/react"
 import {
   Delete01Icon,
@@ -16,7 +17,6 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from "@workspace/ui/components/empty"
-import { ItemGroup } from "@workspace/ui/components/item"
 import { RelativeTimeCard } from "@workspace/ui/components/relative-time-card"
 import {
   Table,
@@ -26,8 +26,6 @@ import {
   TableHeader,
   TableRow,
 } from "@workspace/ui/components/table"
-import { ClonesTableSkeleton } from "./clones-table-skeleton"
-import { PendingCloneStatusItem } from "./pending-clone-status-item"
 import { PublishedPodCloneActionsMenu } from "./published-pod-clone-actions-menu"
 import type { IconSvgElement } from "@hugeicons/react"
 import type { ClonedPodPowerAction } from "@/features/pods/api/clone-pod-api"
@@ -35,14 +33,15 @@ import type {
   PublishedPodCatalogEntry,
   PublishedPodCloneSummary,
 } from "@/features/pods/types/pod-types"
-import type {
-  PendingCloneRow,
-  PublishedPodClonePendingAction,
-} from "@/features/pods/types/published-pods-types"
+import type { PublishedPodClonePendingAction } from "@/features/pods/types/published-pods-types"
 import type { ConfirmConfig } from "@/components/dialogs/confirm-dialog"
 import { ConfirmDialog } from "@/components/dialogs/confirm-dialog"
 import { InlineErrorAlert } from "@/components/feedback/inline-error-alert"
-import { showSingleMutationToast } from "@/components/feedback/mutation-progress-toast"
+import { LazyContentFallback } from "@/components/loading-overlay"
+import {
+  showSingleMutationToast,
+  showUnitMutationToast,
+} from "@/components/feedback/mutation-progress-toast"
 import {
   deletePublishedPodClone,
   podCatalogQueryOptions,
@@ -52,7 +51,14 @@ import {
   reclonePublishedPodClone,
 } from "@/features/pods/api/publish-pod-api"
 import { ClonedPodStatusBadge } from "@/features/pods/components/cloned-pod-status-badge"
-import { POD_CLONE_ACTION_CONFIG } from "@/features/pods/utils/pod-clone-actions"
+import {
+  POD_CLONE_ACTION_CONFIG,
+  podPowerIncompleteMessage,
+} from "@/features/pods/utils/pod-clone-actions"
+
+function vnetIdentity(vnet: string, vlanTag: number | undefined) {
+  return vlanTag == null ? vnet : `${vnet} · VLAN ${vlanTag}`
+}
 
 const CLONE_ACTION_DIALOG_CONFIG: Record<
   Exclude<PublishedPodClonePendingAction, null>["type"],
@@ -100,12 +106,8 @@ const CLONE_ACTION_DIALOG_CONFIG: Record<
 
 export function PublishedPodClonesTable({
   pod,
-  pendingRows,
-  onDismissPendingRow,
 }: {
   pod: PublishedPodCatalogEntry
-  pendingRows: Array<PendingCloneRow>
-  onDismissPendingRow: (progressId: string) => void
 }) {
   const queryClient = useQueryClient()
   const [pendingAction, setPendingAction] =
@@ -115,7 +117,10 @@ export function PublishedPodClonesTable({
     data: clones,
     isLoading,
     error,
-  } = useQuery(publishedPodClonesQueryOptions(pod.id))
+  } = useQuery({
+    ...publishedPodClonesQueryOptions(pod.id),
+    retryOnMount: false,
+  })
 
   const clonesQueryKey = publishedPodClonesQueryOptions(pod.id).queryKey
 
@@ -192,30 +197,61 @@ export function PublishedPodClonesTable({
             pendingAction.type === "start" ||
             pendingAction.type === "shutdown"
           ) {
+            const powerAction = pendingAction.type
             showSingleMutationToast({
               title: actionConfig.pendingLabel,
-              name: cloneName,
-              promise: () =>
-                powerMutation.mutateAsync({
+              name: pod.title,
+              promise: async () => {
+                const updated = await powerMutation.mutateAsync({
                   clonedPodId: clone.id,
-                  action: pendingAction.type,
-                }),
-              successDescription:
-                pendingAction.type === "start" ? "Started" : "Shut down",
+                  action: powerAction,
+                })
+                queryClient.setQueryData(
+                  clonesQueryKey,
+                  (current: Array<PublishedPodCloneSummary> | undefined) =>
+                    current?.map((c) => (c.id === updated.id ? updated : c)) ??
+                    []
+                )
+                if (updated.power_result?.status !== "succeeded") {
+                  throw new Error(podPowerIncompleteMessage(powerAction))
+                }
+              },
             })
           } else if (pendingAction.type === "reclone") {
-            showSingleMutationToast({
+            showUnitMutationToast({
               title: "Re-cloning",
-              name: cloneName,
-              promise: () => recloneMutation.mutateAsync(clone.id),
-              successDescription: "Re-cloned",
+              units: [
+                {
+                  items: [
+                    {
+                      id: clone.id,
+                      name: cloneName,
+                      successDescription: "Re-cloned",
+                    },
+                  ],
+                  run: async () => {
+                    await recloneMutation.mutateAsync(clone.id)
+                  },
+                },
+              ],
             })
           } else {
-            showSingleMutationToast({
+            showUnitMutationToast({
               title: "Deleting",
-              name: cloneName,
-              promise: () => deleteMutation.mutateAsync(clone.id),
-              successDescription: "Deleted",
+              units: [
+                {
+                  items: [
+                    {
+                      id: clone.id,
+                      name: cloneName,
+                      successDescription: "Deleted",
+                    },
+                  ],
+                  run: async () => {
+                    await deleteMutation.mutateAsync(clone.id)
+                  },
+                },
+              ],
             })
           }
         }
@@ -233,30 +269,20 @@ export function PublishedPodClonesTable({
   return (
     <div>
       {isLoading ? (
-        <ClonesTableSkeleton />
-      ) : error ? (
-        <InlineErrorAlert
-          error={error}
-          fallback="Failed to load clones."
-          className="mx-4 my-3"
-        />
+        <LazyContentFallback label="Loading clones" className="min-h-40" />
       ) : (
-        <>
-          {pendingRows.length > 0 && (
-            <ItemGroup
-              role="list"
-              className="grid p-6 md:grid-cols-2 xl:grid-cols-3"
-            >
-              {pendingRows.map((row) => (
-                <PendingCloneStatusItem
-                  key={row.progressId}
-                  row={row}
-                  onDismiss={onDismissPendingRow}
-                />
-              ))}
-            </ItemGroup>
-          )}
-          {clones && clones.length > 0 ? (
+        <m.div
+          initial={{ opacity: 0, transform: "translateY(-4px)" }}
+          animate={{ opacity: 1, transform: "translateY(0px)" }}
+          transition={{ duration: 0.16, ease: [0.23, 1, 0.32, 1] }}
+        >
+          {error ? (
+            <InlineErrorAlert
+              error={error}
+              fallback="Failed to load clones."
+              className="mx-4 my-3"
+            />
+          ) : clones && clones.length > 0 ? (
             <div className="overflow-x-auto">
               <Table>
                 <TableHeader>
@@ -266,7 +292,7 @@ export function PublishedPodClonesTable({
                     <TableHead>Status</TableHead>
                     <TableHead>Network</TableHead>
                     <TableHead>VMs</TableHead>
-                    <TableHead>Tasks</TableHead>
+                    <TableHead>Questions</TableHead>
                     <TableHead className="w-12" />
                   </TableRow>
                 </TableHeader>
@@ -294,18 +320,23 @@ export function PublishedPodClonesTable({
                       <TableCell>
                         <ClonedPodStatusBadge status={clone.status} />
                       </TableCell>
-                      <TableCell>{clone.network.vnet}</TableCell>
+                      <TableCell>
+                        {vnetIdentity(
+                          clone.network.vnet,
+                          clone.network.lan_vlan_tag
+                        )}
+                      </TableCell>
                       <TableCell className="text-sm tabular-nums">
                         {clone.vm_count}
                       </TableCell>
                       <TableCell className="text-sm">
                         <span className="tabular-nums">
-                          {clone.task_summary.completed}/
-                          {clone.task_summary.total}
+                          {clone.question_summary.answered}/
+                          {clone.question_summary.total}
                         </span>
-                        {clone.task_summary.total > 0 && (
+                        {clone.question_summary.total > 0 && (
                           <span className="ml-1.5 text-muted-foreground tabular-nums">
-                            {Math.round(clone.task_summary.progress)}%
+                            {Math.round(clone.question_summary.progress)}%
                           </span>
                         )}
                       </TableCell>
@@ -321,7 +352,7 @@ export function PublishedPodClonesTable({
                 </TableBody>
               </Table>
             </div>
-          ) : pendingRows.length === 0 ? (
+          ) : (
             <Empty className="py-8">
               <EmptyHeader>
                 <EmptyMedia variant="icon">
@@ -336,8 +367,8 @@ export function PublishedPodClonesTable({
                 </EmptyDescription>
               </EmptyHeader>
             </Empty>
-          ) : null}
-        </>
+          )}
+        </m.div>
       )}
 
       {confirm && (

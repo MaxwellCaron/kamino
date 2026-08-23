@@ -1,12 +1,20 @@
 import { InventorySelectionActionBar } from "./inventory-selection-action-bar"
+import { InventoryTreeLoadingSkeleton } from "./inventory-tree-loading-skeleton"
 import { InventoryTreeContent } from "./tree-content"
-import { useInventoryTreeContext } from "./inventory-tree-context"
+import {
+  useInventoryTreeDataContext,
+  useInventoryTreeViewContext,
+} from "./inventory-tree-context"
 import { InlineErrorAlert } from "@/components/feedback/inline-error-alert"
-import { SidebarListSkeleton } from "@/components/loading-skeletons"
 
 export function InventoryTreeBody() {
-  const { tree, getStatus, isLoading, error, isEmpty } =
-    useInventoryTreeContext()
+  const {
+    getStatus,
+    isLoading,
+    error,
+    isEmpty,
+  } = useInventoryTreeDataContext()
+  const { tree, isSearchActive, searchResultCount } = useInventoryTreeViewContext()
 
   if (error) {
     return (
@@ -27,7 +35,15 @@ export function InventoryTreeBody() {
   }
 
   if (isLoading) {
-    return <SidebarListSkeleton />
+    return <InventoryTreeLoadingSkeleton />
+  }
+
+  if (isSearchActive && searchResultCount === 0) {
+    return (
+      <div className="px-4 py-2 text-sm text-muted-foreground">
+        No matching inventory items
+      </div>
+    )
   }
 
   return (

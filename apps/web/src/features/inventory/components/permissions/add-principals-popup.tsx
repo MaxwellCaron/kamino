@@ -60,13 +60,14 @@ export function AddPrincipalsDialog({
     >
       <ComboboxTrigger
         disabled={disabled}
-        render={<Button size="icon" disabled={disabled} />}
+        render={<Button disabled={disabled} />}
         className="[&>svg:last-child]:hidden"
       >
-        <HugeiconsIcon icon={Add01Icon} />
+        <HugeiconsIcon icon={Add01Icon} data-icon="inline-start" />
+        New
       </ComboboxTrigger>
       <ComboboxContent align="end" className="w-80">
-        <ComboboxInput showTrigger={false} placeholder="Search principals..." />
+        <ComboboxInput showTrigger={false} placeholder="Search" />
         <ComboboxEmpty>No principals found.</ComboboxEmpty>
         <ComboboxList>
           {(principal) => (

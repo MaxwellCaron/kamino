@@ -201,14 +201,14 @@ export function PublishPodSubmitState({
   progress,
   state,
   updateVirtualMachines = EMPTY_UPDATE_VIRTUAL_MACHINES,
-  errorMessage,
+  error,
   onBackToForm,
 }: {
   podSlug: string | null
   progress?: PublishPodProgress
   state: PublishPodSubmitStatus
   updateVirtualMachines?: Array<PublishPodUpdateVirtualMachine>
-  errorMessage?: string | null
+  error?: string | null
   onBackToForm: () => void
 }) {
   switch (state) {
@@ -229,7 +229,7 @@ export function PublishPodSubmitState({
       }
       return <SuccessState podSlug={podSlug} />
     case "error":
-      return <ErrorState message={errorMessage} onBackToForm={onBackToForm} />
+      return <ErrorState message={error} onBackToForm={onBackToForm} />
   }
 }
 

@@ -1,4 +1,3 @@
-import { m } from "motion/react"
 import { HugeiconsIcon } from "@hugeicons/react"
 import { StarIcon } from "@hugeicons/core-free-icons"
 import {
@@ -16,23 +15,27 @@ import {
   EmptyTitle,
 } from "@workspace/ui/components/empty"
 import { ItemGroup } from "@workspace/ui/components/item"
+import { Skeleton } from "@workspace/ui/components/skeleton"
 import { cn } from "@workspace/ui/lib/utils"
 import type { ApiTreeNode } from "@/features/inventory/types/inventory-types"
 import { InventoryFolderItem } from "@/features/inventory/components/folder/inventory-folder-item"
 import { useInventoryFavorites } from "@/features/inventory/hooks/use-inventory-favorites"
-import { animateContainer, animateTableRow } from "@/components/animate"
+import { InlineErrorAlert } from "@/components/feedback/inline-error-alert"
 
 export function DashboardFavoritesCard({
   className,
   favorites,
+  isTreeLoading = false,
+  treeError,
   vmStatuses,
 }: {
   className?: string
   favorites: Array<ApiTreeNode>
+  isTreeLoading?: boolean
+  treeError?: unknown
   vmStatuses?: Record<number, string>
 }) {
   const { toggleFavorite } = useInventoryFavorites()
-  const visibleFavorites = favorites.slice(0, 5)
 
   return (
     <Card className={cn(className)}>
@@ -44,29 +47,43 @@ export function DashboardFavoritesCard({
           Favorited items in the inventory tree.
         </CardDescription>
       </CardHeader>
-      <CardContent className="h-full">
-        {visibleFavorites.length > 0 ? (
-          <m.div initial="hidden" animate="show" variants={animateContainer}>
+      <CardContent className="no-scrollbar min-h-0 flex-1 scroll-fade overflow-y-auto overscroll-contain px-4">
+        {treeError ? (
+          <InlineErrorAlert
+            error={treeError}
+            fallback="Failed to load favorites."
+          />
+        ) : isTreeLoading ? (
+          <div
+            aria-busy="true"
+            aria-label="Loading favorites"
+            className="flex flex-col gap-3"
+          >
+            {Array.from({ length: 3 }, (_, index) => (
+              <Skeleton key={index} className="h-12 w-full rounded-md" />
+            ))}
+          </div>
+        ) : favorites.length > 0 ? (
+          <div>
             <ItemGroup>
-              {visibleFavorites.map((favorite) => {
+              {favorites.map((favorite) => {
                 const vmid = favorite.vm?.vmid
                 const status =
                   vmid !== undefined ? vmStatuses?.[vmid] : undefined
 
                 return (
-                  <m.div key={favorite.id} variants={animateTableRow}>
+                  <div key={favorite.id}>
                     <InventoryFolderItem
-                      key={favorite.id}
                       node={favorite}
                       status={status}
                       isFavorite
                       onToggleFavorite={() => toggleFavorite(favorite.id)}
                     />
-                  </m.div>
+                  </div>
                 )
               })}
             </ItemGroup>
-          </m.div>
+          </div>
         ) : (
           <Empty className="h-full min-h-52 border border-dashed">
             <EmptyHeader>

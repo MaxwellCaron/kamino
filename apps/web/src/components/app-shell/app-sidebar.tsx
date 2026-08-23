@@ -4,9 +4,9 @@ import { Link, useRouterState } from "@tanstack/react-router"
 import { HugeiconsIcon } from "@hugeicons/react"
 import {
   DashboardSquare01Icon,
+  GitPullRequestIcon,
   Globe02Icon,
   Home03Icon,
-  Invoice01Icon,
   NotebookIcon,
   PackageAddIcon,
   PackageCheck,
@@ -110,7 +110,7 @@ const navItems = [
     title: "Requests",
     description: "Review pending and completed user requests.",
     url: "/manager/requests",
-    icon: Invoice01Icon,
+    icon: GitPullRequestIcon,
     group: "manager",
     visibility: "manager",
   },
@@ -300,7 +300,7 @@ function IconRailNavItem({
             "cursor-pointer justify-center transition-[background-color,color,transform] duration-200 active:scale-[0.96]",
             styles.button
           )}
-          render={<Link to={item.url} />}
+          render={<Link to={item.url} aria-label={item.title} />}
         >
           <HugeiconsIcon icon={item.icon} className="size-5!" />
           <span className="sr-only">{item.title}</span>
@@ -318,13 +318,13 @@ function IconRailNavItem({
   )
 }
 
-function AppSidebarIconRailContent({ user }: { user: AuthUser }) {
+export function AppSidebarIconRailContent({ user }: { user: AuthUser }) {
   const pathname = useRouterState({ select: (s) => s.location.pathname })
   const navGroups = useVisibleNavGroups(user)
 
   return (
     <>
-      <SidebarHeader>
+      <SidebarHeader className="shrink-0">
         <SidebarMenu className="items-center">
           <SidebarMenuItem>
             <IconRailHoverCard
@@ -334,7 +334,7 @@ function AppSidebarIconRailContent({ user }: { user: AuthUser }) {
               <SidebarMenuButton
                 size="lg"
                 className="cursor-pointer justify-center md:size-9! md:p-0"
-                render={<Link to="/" />}
+                render={<Link to="/" aria-label="Kamino home" />}
               >
                 <Image
                   src="/kamino.svg"
@@ -348,7 +348,7 @@ function AppSidebarIconRailContent({ user }: { user: AuthUser }) {
           </SidebarMenuItem>
         </SidebarMenu>
       </SidebarHeader>
-      <SidebarContent className="overflow-visible group-data-[collapsible=icon]:overflow-visible!">
+      <SidebarContent className="overflow-x-hidden overscroll-y-contain group-data-[collapsible=icon]:overflow-y-auto!">
         <SidebarGroup className="overflow-visible">
           <SidebarGroupContent className="overflow-visible">
             <SidebarMenu className="flex flex-col items-center gap-2 overflow-visible">
@@ -375,28 +375,10 @@ function AppSidebarIconRailContent({ user }: { user: AuthUser }) {
           </SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>
-      <SidebarFooter>
+      <SidebarFooter className="shrink-0">
         <NavUser user={user} />
       </SidebarFooter>
     </>
-  )
-}
-
-export function AppSidebarIconRail({
-  user,
-  className,
-  ...props
-}: React.ComponentProps<typeof Sidebar> & {
-  user: AuthUser
-}) {
-  return (
-    <Sidebar
-      collapsible="icon"
-      className={cn("overflow-hidden", className)}
-      {...props}
-    >
-      <AppSidebarIconRailContent user={user} />
-    </Sidebar>
   )
 }
 

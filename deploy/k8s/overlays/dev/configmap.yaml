@@ -9,7 +9,10 @@ data:
   GIN_MODE: release
   PORT: :8080
   FRONTEND_URL: https://dev.placeholder.invalid
+  TRUSTED_PROXY_CIDRS: ""
   PROXMOX_INSECURE: "false"
   PROXMOX_INITIAL_SYNC_ENABLED: "true"
+  PRINCIPAL_PROVIDER: active_directory
+  PRINCIPAL_INITIAL_SYNC_ENABLED: "true"
+  PROXMOX_AUTH_REALM: pve
   LDAP_INSECURE: "false"
-  AD_INITIAL_SYNC_ENABLED: "true"

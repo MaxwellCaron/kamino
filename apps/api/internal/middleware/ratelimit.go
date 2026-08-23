@@ -13,9 +13,9 @@ type rlEntry struct {
 	windowStart time.Time
 }
 
-// LoginRateLimit returns a fixed-window rate limiter keyed by client IP.
-// Requests exceeding maxAttempts within window receive 429.
-func LoginRateLimit(maxAttempts int, window time.Duration) gin.HandlerFunc {
+// IPRateLimit returns a fixed-window rate limiter keyed by client IP.
+// Requests exceeding maxAttempts within window receive 429 with message.
+func IPRateLimit(maxAttempts int, window time.Duration, message string) gin.HandlerFunc {
 	var mu sync.Mutex
 	entries := make(map[string]*rlEntry)
 
@@ -41,7 +41,7 @@ func LoginRateLimit(maxAttempts int, window time.Duration) gin.HandlerFunc {
 		e.count++
 		if e.count > maxAttempts {
 			mu.Unlock()
-			c.AbortWithStatusJSON(http.StatusTooManyRequests, gin.H{"error": "too many login attempts, try again later"})
+			c.AbortWithStatusJSON(http.StatusTooManyRequests, gin.H{"error": message})
 			return
 		}
 		mu.Unlock()

@@ -82,13 +82,19 @@ export function useChartInteraction({
       const d0 = data[index - 1];
       const d1 = data[index];
 
+      if (!d0) {
+        return null;
+      }
+
       let d = d0;
       let finalIndex = index - 1;
-      const d0Time = xAccessor(d0).getTime();
-      const d1Time = xAccessor(d1).getTime();
-      if (x0.getTime() - d0Time > d1Time - x0.getTime()) {
-        d = d1;
-        finalIndex = index;
+      if (d1) {
+        const d0Time = xAccessor(d0).getTime();
+        const d1Time = xAccessor(d1).getTime();
+        if (x0.getTime() - d0Time > d1Time - x0.getTime()) {
+          d = d1;
+          finalIndex = index;
+        }
       }
 
       const yPositions: Record<string, number> = {};
@@ -96,14 +102,14 @@ export function useChartInteraction({
         const value = d[line.dataKey];
         if (typeof value === "number") {
           const axisScale = yScales[normalizeYAxisId(line.yAxisId)] ?? yScale;
-          yPositions[line.dataKey] = axisScale(value);
+          yPositions[line.dataKey] = axisScale(value) ?? 0;
         }
       }
 
       return {
         point: d,
         index: finalIndex,
-        x: xScale(xAccessor(d)),
+        x: xScale(xAccessor(d)) ?? 0,
         yPositions,
       };
     },
@@ -116,10 +122,15 @@ export function useChartInteraction({
       const index = bisectDate(data, x0, 1);
       const d0 = data[index - 1];
       const d1 = data[index];
-      const d0Time = xAccessor(d0).getTime();
-      const d1Time = xAccessor(d1).getTime();
-      if (x0.getTime() - d0Time > d1Time - x0.getTime()) {
-        return index;
+      if (!d0) {
+        return 0;
+      }
+      if (d1) {
+        const d0Time = xAccessor(d0).getTime();
+        const d1Time = xAccessor(d1).getTime();
+        if (x0.getTime() - d0Time > d1Time - x0.getTime()) {
+          return index;
+        }
       }
       return index - 1;
     },
@@ -135,6 +146,9 @@ export function useChartInteraction({
 
       if ("touches" in event) {
         const touch = event.touches[touchIndex];
+        if (!touch) {
+          return null;
+        }
         const svg = event.currentTarget.ownerSVGElement;
         if (!svg) {
           return null;

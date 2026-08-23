@@ -42,7 +42,9 @@ export function SearchInputGroup({
       </InputGroupAddon>
       {resultCount != null && (
         <InputGroupAddon align="inline-end">
-          {resultLabel(resultCount)}
+          <span role="status" aria-live="polite" aria-atomic="true">
+            {resultLabel(resultCount)}
+          </span>
         </InputGroupAddon>
       )}
     </InputGroup>

@@ -12,7 +12,7 @@ import type { ComponentProps, HTMLAttributes, MouseEventHandler } from "react"
 
 /** Border + shadow stack using theme tokens so elevation reads in light and dark. */
 export const cutoutCardSurfaceShadowClassName = cn(
-  "border border-border/80 dark:border-border/60"
+  "border border-border/80 shadow dark:border-border/60"
 )
 
 export const cutoutCardSurfaceClassName = cn(

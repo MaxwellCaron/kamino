@@ -7,9 +7,11 @@ import (
 
 const RootFolderName = "Proxmox"
 
+const RootFolderDescription = "Imported Proxmox inventory. Folders represent Proxmox resource pools."
+
 const proxmoxRootFolderName = RootFolderName
 
-func findManagedRootFolderID(rows []database.GetAllInventoryItemsRow) *uuid.UUID {
+func FindManagedRootFolderID(rows []database.GetAllInventoryItemsRow) *uuid.UUID {
 	var (
 		namedRootID *uuid.UUID
 		soleRootID  *uuid.UUID

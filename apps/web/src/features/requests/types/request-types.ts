@@ -68,3 +68,11 @@ export type ApiRequestActionResponse = {
   processed: Array<string>
   failed: Array<ApiRequestActionFailure>
 }
+
+export type ApiManagerRequestStatusCounts = {
+  pending: number
+  approved: number
+  denied: number
+  executed: number
+  execution_failed: number
+}

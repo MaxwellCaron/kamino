@@ -103,6 +103,7 @@ export function PublishPodTaskQuestions({
                             type="button"
                             variant="destructive"
                             size="icon"
+                            aria-label={`Delete question ${questionIndex + 1}`}
                             onClick={() =>
                               questionsField.removeValue(questionIndex)
                             }
@@ -126,6 +127,7 @@ export function PublishPodTaskQuestions({
                               const isInvalid =
                                 isOverLimit ||
                                 (showValidation && !field.state.meta.isValid)
+                              const errorId = `${field.name}-error`
 
                               return (
                                 <Field
@@ -145,12 +147,16 @@ export function PublishPodTaskQuestions({
                                         field.handleChange(event.target.value)
                                       }
                                       aria-invalid={isInvalid || undefined}
+                                      aria-errormessage={
+                                        isInvalid ? errorId : undefined
+                                      }
                                       maxLength={
                                         publishPodQuestionTextMaxLength
                                       }
                                       placeholder="e.g. What is the status of the service?"
                                     />
                                     <FieldError
+                                      id={errorId}
                                       errors={
                                         showValidation
                                           ? field.state.meta.errors
@@ -176,6 +182,7 @@ export function PublishPodTaskQuestions({
                               const isInvalid =
                                 isOverLimit ||
                                 (showValidation && !field.state.meta.isValid)
+                              const errorId = `${field.name}-error`
 
                               return (
                                 <Field data-invalid={isInvalid || undefined}>
@@ -192,12 +199,16 @@ export function PublishPodTaskQuestions({
                                         field.handleChange(event.target.value)
                                       }
                                       aria-invalid={isInvalid || undefined}
+                                      aria-errormessage={
+                                        isInvalid ? errorId : undefined
+                                      }
                                       maxLength={
                                         publishPodQuestionTextMaxLength
                                       }
                                       placeholder="e.g. active (running)"
                                     />
                                     <FieldError
+                                      id={errorId}
                                       errors={
                                         showValidation
                                           ? field.state.meta.errors
@@ -223,6 +234,7 @@ export function PublishPodTaskQuestions({
                               const isInvalid =
                                 isOverLimit ||
                                 (showValidation && !field.state.meta.isValid)
+                              const errorId = `${field.name}-error`
 
                               return (
                                 <Field
@@ -245,12 +257,16 @@ export function PublishPodTaskQuestions({
                                         field.handleChange(event.target.value)
                                       }
                                       aria-invalid={isInvalid || undefined}
+                                      aria-errormessage={
+                                        isInvalid ? errorId : undefined
+                                      }
                                       maxLength={
                                         publishPodQuestionTextMaxLength
                                       }
                                       placeholder="e.g. Check the service manager output."
                                     />
                                     <FieldError
+                                      id={errorId}
                                       errors={
                                         showValidation
                                           ? field.state.meta.errors

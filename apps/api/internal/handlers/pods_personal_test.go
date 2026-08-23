@@ -1,88 +1,109 @@
 package handlers
 
 import (
-	"net/netip"
-	"strings"
+	"errors"
+	"fmt"
+	"net/http"
 	"testing"
 
-	"github.com/MaxwellCaron/kamino/internal/names"
+	"github.com/MaxwellCaron/kamino/internal/personalpods"
+	"github.com/google/uuid"
 )
 
-func TestPersonalPodFolderName(t *testing.T) {
-	longName := strings.Repeat("a", 80)
+func TestRequestErrorFromPersonalPodsError(t *testing.T) {
 	tests := []struct {
-		name     string
-		username string
-		want     string
+		kind personalpods.Kind
+		want int
 	}{
-		{name: "plain name", username: "Alice", want: "Alice"},
-		{name: "dots spaces and underscores", username: "Alice.Smith_dev user", want: "Alice-Smith-dev-user"},
-		{name: "starts with digit", username: "9alice", want: "user-9alice"},
-		{name: "empty", username: "", want: "user-"},
+		{personalpods.KindDisabled, http.StatusConflict},
+		{personalpods.KindConflict, http.StatusConflict},
+		{personalpods.KindNotFound, http.StatusNotFound},
+		{personalpods.KindValidation, http.StatusUnprocessableEntity},
+		{personalpods.KindUpstream, http.StatusBadGateway},
+		{personalpods.KindInternal, http.StatusInternalServerError},
 	}
 
 	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got := personalPodFolderName(tt.username)
-			if got != tt.want {
-				t.Fatalf("personalPodFolderName() = %q, want %q", got, tt.want)
+		t.Run(string(tt.kind), func(t *testing.T) {
+			cause := errors.New("wrapped cause")
+			appErr := &personalpods.Error{
+				Kind:        tt.kind,
+				UserMessage: "safe message",
+				Operation:   "some operation",
+				Err:         cause,
 			}
-			if err := names.ValidateFolder(got); err != nil {
-				t.Fatalf("ValidateFolder(%q) = %v", got, err)
+			got := requestErrorFromPersonalPodsError(appErr)
+			if got.Status != tt.want {
+				t.Fatalf("Status = %d, want %d", got.Status, tt.want)
+			}
+			if got.UserMessage != "safe message" {
+				t.Fatalf("UserMessage = %q, want %q", got.UserMessage, "safe message")
+			}
+			if got.Operation != "some operation" || !errors.Is(got.Err, cause) {
+				t.Fatalf("Operation/Err not preserved: got %+v", got)
 			}
 		})
 	}
-
-	t.Run("truncates long names", func(t *testing.T) {
-		got := personalPodFolderName(longName)
-		if len(got) > 63 {
-			t.Fatalf("len(%q) = %d, want <= 63", got, len(got))
-		}
-		if strings.HasSuffix(got, "-") {
-			t.Fatalf("truncated name %q should not end with hyphen", got)
-		}
-		if err := names.ValidateFolder(got); err != nil {
-			t.Fatalf("ValidateFolder(%q) = %v", got, err)
-		}
-	})
 }
 
-func TestPersonalPodVNetName(t *testing.T) {
-	handler := &PodsHandler{
-		RouterCloneConfig: PodRouterCloneConfig{
-			PersonalVNetPrefix: "pod",
-		},
-	}
-	if got := handler.personalPodVNetName(200); got != "pod200" {
-		t.Fatalf("personalPodVNetName() = %q, want %q", got, "pod200")
-	}
+func TestPersonalPodCreateResultSuccess(t *testing.T) {
+	folderID := uuid.New()
 
-	handler.RouterCloneConfig.PersonalVNetPrefix = "  lab- "
-	if got := handler.personalPodVNetName(200); got != "lab-200" {
-		t.Fatalf("personalPodVNetName() = %q, want %q", got, "lab-200")
+	reqErr, response := personalPodCreateResult(folderID, nil)
+	if reqErr != nil {
+		t.Fatalf("unexpected error: %+v", reqErr)
+	}
+	if response.FolderID != folderID {
+		t.Fatalf("FolderID = %v, want %v", response.FolderID, folderID)
 	}
 }
 
-func TestPersonalPodNetworkMetadata(t *testing.T) {
-	handler := &PodsHandler{
-		RouterCloneConfig: PodRouterCloneConfig{
-			PersonalVNetPrefix: "pod",
-			PersonalWANIPBase:  "172.16.",
-			InternalSubnet:     netip.MustParsePrefix("192.168.1.0/24"),
-		},
+func TestPersonalPodCreateResultTypedError(t *testing.T) {
+	appErr := &personalpods.Error{Kind: personalpods.KindConflict, UserMessage: "personal pod already exists"}
+
+	reqErr, response := personalPodCreateResult(uuid.Nil, appErr)
+	if reqErr == nil {
+		t.Fatal("expected a request error")
+	}
+	if reqErr.Status != http.StatusConflict || reqErr.UserMessage != "personal pod already exists" {
+		t.Fatalf("reqErr = %+v", reqErr)
+	}
+	if response.FolderID != uuid.Nil {
+		t.Fatalf("response should be zero-value on error, got %+v", response)
+	}
+}
+
+func TestPersonalPodCreateResultUntypedErrorFallsBackToInternal(t *testing.T) {
+	reqErr, _ := personalPodCreateResult(uuid.Nil, fmt.Errorf("boom"))
+	if reqErr == nil || reqErr.Status != http.StatusInternalServerError {
+		t.Fatalf("reqErr = %+v, want 500", reqErr)
+	}
+}
+
+func TestPersonalPodNetworkMetadataUsesCloneTarget(t *testing.T) {
+	handler := &PodsHandler{NetworkCatalog: testNetworkCatalog(t)}
+	target := podCloneTarget{
+		Key:        "personal",
+		Label:      "Personal",
+		LANVNet:    "personal",
+		WANBridge:  "personalwan",
+		WANSubnet:  "172.25.0.0/16",
+		NetworkMin: 1,
+		NetworkMax: 94,
+		IsPersonal: true,
 	}
 
-	got, err := handler.personalPodNetworkMetadata(200)
+	got, err := handler.personalPodNetworkMetadata(target, 24)
 	if err != nil {
 		t.Fatalf("personalPodNetworkMetadata() error = %v", err)
 	}
-	if got.Number != 200 || got.VNet != "pod200" {
-		t.Fatalf("network metadata = %#v", got)
+	if got.VNet != "personal" || got.LANVLANTag != 24 {
+		t.Fatalf("metadata = %#v", got)
 	}
-	if got.ExternalSubnet != "172.16.200.0/24" || got.ExternalGateway != "172.16.200.1" {
+	if got.ExternalSubnet != "172.25.24.0/24" || got.ExternalGateway != "172.25.24.1" {
 		t.Fatalf("external metadata = %#v", got)
 	}
-	if got.InternalSubnet != "192.168.1.0/24" || got.InternalGateway != "192.168.1.1" {
-		t.Fatalf("internal metadata = %#v", got)
+	if got.InternalSubnet != "192.168.1.0/24" {
+		t.Fatalf("internal subnet = %q", got.InternalSubnet)
 	}
 }

@@ -29,25 +29,22 @@ var (
 	ErrInventoryItemInUse           = errors.New("inventory item is in use")
 	ErrInventoryInvalidACL          = errors.New("invalid inventory ACL entry")
 	ErrInventoryPrincipalNotFound   = errors.New("principal not found")
+	ErrInventoryDescriptionTooLong  = errors.New("folder description must be 256 characters or less")
 )
+
+const MaxFolderDescriptionLength = 256
 
 const maxProxmoxPoolDepth = 3
 
 type Service struct {
 	db                       *pgxpool.Pool
 	notifier                 *Notifier
-	mirror                   Mirror
 	protectedACLPrincipalIDs map[uuid.UUID]struct{}
-}
-
-type Mirror interface {
-	ScheduleReconcile()
 }
 
 func NewService(
 	db *pgxpool.Pool,
 	notifier *Notifier,
-	mirror Mirror,
 	protectedACLPrincipalIDs []uuid.UUID,
 ) *Service {
 	protectedIDs := make(map[uuid.UUID]struct{}, len(protectedACLPrincipalIDs))
@@ -61,7 +58,6 @@ func NewService(
 	return &Service{
 		db:                       db,
 		notifier:                 notifier,
-		mirror:                   mirror,
 		protectedACLPrincipalIDs: protectedIDs,
 	}
 }
@@ -204,12 +200,6 @@ func (s *Service) notify(ctx context.Context, exec database.DBTX, itemID ...*uui
 	}
 }
 
-func (s *Service) scheduleMirror() {
-	if s.mirror != nil {
-		s.mirror.ScheduleReconcile()
-	}
-}
-
 func normalizeMutationError(err error) error {
 	var pgErr *pgconn.PgError
 	if !errors.As(err, &pgErr) {
@@ -230,4 +220,18 @@ func normalizeMutationError(err error) error {
 	}
 
 	return fmt.Errorf("%w: %s", ErrInventoryInvalidMove, pgErr.Message)
+}
+
+func NormalizeFolderDescription(description *string) (*string, error) {
+	if description == nil {
+		return nil, nil
+	}
+	value := strings.TrimSpace(*description)
+	if value == "" {
+		return nil, nil
+	}
+	if len(value) > MaxFolderDescriptionLength {
+		return nil, ErrInventoryDescriptionTooLong
+	}
+	return &value, nil
 }

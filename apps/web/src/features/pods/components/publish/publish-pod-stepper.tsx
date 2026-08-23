@@ -10,8 +10,11 @@ import {
   AlertDialogCancel,
   AlertDialogFooter,
 } from "@workspace/ui/components/alert-dialog"
-import { Button } from "@workspace/ui/components/button"
-import { Card, CardContent } from "@workspace/ui/components/card"
+import {
+  ActionBar,
+  ActionBarGroup,
+  ActionBarItem,
+} from "@workspace/ui/components/action-bar"
 import {
   StepperIndicator,
   StepperItem,
@@ -40,6 +43,7 @@ export function PublishPodStepper({
   const [publishConfirmOpen, setPublishConfirmOpen] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const stepIndex = steps.findIndex((s) => s.value === step)
+  const currentStep = steps[stepIndex] ?? steps[0]
   const isPublishAction = submitLabel === "Publish"
   const confirmTitle = isPublishAction ? "Publish Pod?" : "Save Changes?"
   const confirmDescription = isPublishAction
@@ -48,62 +52,89 @@ export function PublishPodStepper({
 
   return (
     <>
-      <div className="sticky bottom-6 z-50 mx-auto w-full max-w-500 px-2 lg:px-6">
-        <Card className="bg-muted">
-          <CardContent className="cursor-pointer space-y-6">
-            <StepperList className="w-full">
+      <ActionBar
+        open
+        aria-label="Publish workflow controls"
+        className="w-[calc(100%-1rem)] max-w-5xl px-3 sm:w-[calc(100%-2rem)] sm:px-4"
+        style={{ bottom: "max(1rem, env(safe-area-inset-bottom))" }}
+      >
+        <ActionBarGroup className="grid w-full grid-cols-[auto_minmax(0,1fr)_auto] gap-9">
+          <StepperPrev
+            render={(props) => (
+              <ActionBarItem
+                size="lg"
+                variant="outline"
+                {...props}
+                onSelect={undefined}
+              >
+                <HugeiconsIcon
+                  icon={ArrowLeft01Icon}
+                  data-icon="inline-start"
+                />
+                Previous
+              </ActionBarItem>
+            )}
+          />
+
+          <div className="min-w-0">
+            <div className="flex flex-col items-center justify-center gap-1 text-center text-sm sm:hidden">
+              <span className="truncate font-medium">{currentStep.title}</span>
+              <span className="shrink-0 text-xs text-muted-foreground tabular-nums">
+                {stepIndex + 1} / {steps.length}
+              </span>
+            </div>
+
+            <StepperList
+              aria-label="Publish progress"
+              className="hidden w-full sm:flex"
+            >
               {steps.map((s) => (
-                <StepperItem key={s.value} value={s.value} className="gap-2">
-                  <StepperIndicator className="bg-card" />
-                  <div className="flex flex-col gap-px">
-                    <StepperTitle className="hidden md:block">
-                      {s.title}
-                    </StepperTitle>
-                  </div>
-                  <StepperSeparator className="mx-4" />
+                <StepperItem
+                  key={s.value}
+                  value={s.value}
+                  aria-current={s.value === step ? "step" : undefined}
+                  className="gap-2"
+                >
+                  <StepperIndicator />
+                  <StepperTitle className="hidden lg:block">
+                    {s.title}
+                  </StepperTitle>
+                  <StepperSeparator className="mx-2" />
                 </StepperItem>
               ))}
             </StepperList>
-            <div className="flex items-center justify-between">
-              <StepperPrev
-                render={(props) => (
-                  <Button variant="outline" {...props}>
-                    <HugeiconsIcon
-                      icon={ArrowLeft01Icon}
-                      data-icon="inline-start"
-                    />
-                    Previous
-                  </Button>
-                )}
-              />
-              <div className="text-sm font-medium text-muted-foreground">
-                Step {stepIndex + 1} of {steps.length}
-              </div>
-              {stepIndex === steps.length - 1 ? (
-                <Button
-                  type="button"
-                  onClick={() => setPublishConfirmOpen(true)}
+          </div>
+
+          {stepIndex === steps.length - 1 ? (
+            <ActionBarItem
+              type="button"
+              size="lg"
+              variant="default"
+              onClick={() => setPublishConfirmOpen(true)}
+            >
+              <HugeiconsIcon icon={PackageCheck} data-icon="inline-start" />
+              {submitLabel}
+            </ActionBarItem>
+          ) : (
+            <StepperNext
+              render={(props) => (
+                <ActionBarItem
+                  size="lg"
+                  variant="default"
+                  {...props}
+                  onSelect={undefined}
                 >
-                  <HugeiconsIcon icon={PackageCheck} data-icon="inline-start" />
-                  {submitLabel}
-                </Button>
-              ) : (
-                <StepperNext
-                  render={(props) => (
-                    <Button {...props}>
-                      Next
-                      <HugeiconsIcon
-                        icon={ArrowRight01Icon}
-                        data-icon="inline-end"
-                      />
-                    </Button>
-                  )}
-                />
+                  Next
+                  <HugeiconsIcon
+                    icon={ArrowRight01Icon}
+                    data-icon="inline-end"
+                  />
+                </ActionBarItem>
               )}
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+            />
+          )}
+        </ActionBarGroup>
+      </ActionBar>
 
       <AlertDialog
         open={publishConfirmOpen}
@@ -120,9 +151,7 @@ export function PublishPodStepper({
           description={confirmDescription}
         >
           <AlertDialogFooter>
-            <AlertDialogCancel
-              onClick={() => setPublishConfirmOpen(false)}
-            >
+            <AlertDialogCancel onClick={() => setPublishConfirmOpen(false)}>
               Close
             </AlertDialogCancel>
             <AppActionButton

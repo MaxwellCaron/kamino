@@ -3,27 +3,20 @@
 import { useCallback, useMemo, useState } from "react"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { useNavigate, useRouter } from "@tanstack/react-router"
-import { HugeiconsIcon } from "@hugeicons/react"
+import { toast } from "sonner"
 
-import {
-  Command,
-  CommandDialog,
-  CommandEmpty,
-  CommandGroup,
-  CommandInput,
-  CommandItem,
-  CommandList,
-  CommandSeparator,
-  CommandShortcut,
-} from "@workspace/ui/components/command"
 import { useTheme } from "@workspace/ui/components/theme-provider"
 
 import {
+  buildDocsCommandsForQuery,
   buildSiteCommands,
-  groupLabels,
-  groupOrder,
 } from "./site-command-index"
-import { commandMatchesQuery } from "./site-command-search"
+import { SiteCommandMenu } from "./site-command-menu"
+import {
+  buildCommandSearchIndex,
+  filterIndexedCommands,
+  tokenizeCommandQuery,
+} from "./site-command-search"
 import type { BuildSiteCommandsActions } from "./site-command-index"
 import { authSessionQueryOptions, logout } from "@/features/auth/api/auth-api"
 import {
@@ -31,7 +24,7 @@ import {
   canAccessRequestQueue,
 } from "@/features/auth/utils/management-permissions"
 import { inventoryTreeQueryOptions } from "@/features/inventory/api/inventory-api"
-import { useOptionalInventoryTreeContext } from "@/features/inventory/components/tree/inventory-tree-context"
+import { useOptionalInventoryTreeNavigationContext } from "@/features/inventory/components/tree/inventory-tree-context"
 import {
   groupsQueryOptions,
   usersQueryOptions,
@@ -53,7 +46,7 @@ export function SiteCommandDialog({
   const navigate = useNavigate()
   const router = useRouter()
   const queryClient = useQueryClient()
-  const inventoryTreeContext = useOptionalInventoryTreeContext()
+  const inventoryTreeNavigation = useOptionalInventoryTreeNavigationContext()
   const { setTheme } = useTheme()
   const [searchQuery, setSearchQuery] = useState("")
 
@@ -63,7 +56,9 @@ export function SiteCommandDialog({
       queryClient.clear()
       router.navigate({ to: "/login" })
     },
+    onError: () => toast.error("Log out failed."),
   })
+  const isPending = logoutMutation.isPending
 
   const { data: sessionData, isLoading: isSessionLoading } = useQuery(
     authSessionQueryOptions
@@ -143,8 +138,8 @@ export function SiteCommandDialog({
         navigate({ to, hash })
       },
       navigateToInventoryItem: (itemId: string) => {
-        if (inventoryTreeContext) {
-          inventoryTreeContext.revealAndNavigateToItem(itemId)
+        if (inventoryTreeNavigation) {
+          inventoryTreeNavigation.revealAndNavigateToItem(itemId)
           return
         }
         navigate({
@@ -165,11 +160,11 @@ export function SiteCommandDialog({
       navigateToUsers: () => navigate({ to: "/admin/principals/users" }),
       setTheme,
     }),
-    [close, inventoryTreeContext, logoutMutation, navigate, setTheme]
+    [close, inventoryTreeNavigation, logoutMutation, navigate, setTheme]
   )
 
-  const commands = useMemo(() => {
-    if (!user) return []
+  const baseCommands = useMemo(() => {
+    if (!sessionData?.user) return []
 
     return buildSiteCommands({
       actions: commandActions,
@@ -183,7 +178,6 @@ export function SiteCommandDialog({
       publishedPods,
       users,
       vnets,
-      query: searchQuery,
     })
   }, [
     canAdminister,
@@ -195,40 +189,46 @@ export function SiteCommandDialog({
     pendingRequests,
     podCatalog,
     publishedPods,
-    user,
+    sessionData,
     users,
     vnets,
-    searchQuery,
   ])
+
+  const docsCommands = useMemo(() => {
+    const query = searchQuery.trim()
+    if (!query) return []
+
+    return buildDocsCommandsForQuery(
+      query,
+      { canAdminister, canManage },
+      commandActions
+    )
+  }, [canAdminister, canManage, commandActions, searchQuery])
+
+  const commandSearchIndex = useMemo(
+    () => buildCommandSearchIndex(baseCommands),
+    [baseCommands]
+  )
+
+  const commandQueryTokens = useMemo(
+    () => tokenizeCommandQuery(searchQuery.trim()),
+    [searchQuery]
+  )
 
   const filteredCommands = useMemo(() => {
     const query = searchQuery.trim()
-    if (!query) {
-      return commands
-    }
+    const filteredBase = query
+      ? filterIndexedCommands(commandSearchIndex, commandQueryTokens)
+      : baseCommands
 
-    return commands.filter((command) =>
-      command.group === "docs" ? true : commandMatchesQuery(command, query)
-    )
-  }, [commands, searchQuery])
-
-  const groupedCommands = useMemo(() => {
-    const commandGroups: Array<{
-      group: (typeof groupOrder)[number]
-      commands: typeof filteredCommands
-    }> = []
-
-    for (const group of groupOrder) {
-      const groupCommands = filteredCommands.filter(
-        (command) => command.group === group
-      )
-      if (groupCommands.length > 0) {
-        commandGroups.push({ group, commands: groupCommands })
-      }
-    }
-
-    return commandGroups
-  }, [filteredCommands])
+    return query ? [...filteredBase, ...docsCommands] : filteredBase
+  }, [
+    baseCommands,
+    commandQueryTokens,
+    commandSearchIndex,
+    docsCommands,
+    searchQuery,
+  ])
 
   const isIndexing =
     isSessionLoading ||
@@ -249,68 +249,21 @@ export function SiteCommandDialog({
     isGroupsError ||
     isVnetsError
 
+  const emptyMessage = isIndexing
+    ? "Indexing Kamino..."
+    : hasIndexError
+      ? "Some results could not be loaded."
+      : "No results found."
+
   return (
-    <CommandDialog
+    <SiteCommandMenu
       open={open}
       onOpenChange={onOpenChange}
-      className="top-1/2 max-w-xl! -translate-y-1/2"
-    >
-      <Command shouldFilter={false}>
-        <CommandInput
-          placeholder="Search Kamino..."
-          value={searchQuery}
-          onValueChange={setSearchQuery}
-        />
-        <CommandList className="max-h-[min(70dvh,42rem)]">
-          <CommandEmpty>
-            {isIndexing
-              ? "Indexing Kamino..."
-              : hasIndexError
-                ? "Some results could not be loaded."
-                : "No results found."}
-          </CommandEmpty>
-          {groupedCommands.map(({ group, commands: groupCommands }, index) => (
-            <div key={group}>
-              {index > 0 && <CommandSeparator />}
-              <CommandGroup heading={groupLabels[group]}>
-                {groupCommands.map((command) => {
-                  return (
-                    <CommandItem
-                      key={command.id}
-                      value={`${command.label} ${command.subtitle} ${command.id}`}
-                      keywords={command.keywords}
-                      onSelect={command.onSelect}
-                      variant={command.variant}
-                    >
-                      <HugeiconsIcon icon={command.icon} />
-                      <span className="min-w-0 flex-1">
-                        <span className="block truncate">{command.label}</span>
-                        {command.preview ? (
-                          <>
-                            <span className="block truncate text-xs font-normal text-muted-foreground">
-                              {command.subtitle}
-                            </span>
-                            <span className="mt-1 line-clamp-5 block text-xs font-normal whitespace-pre-line text-muted-foreground/80">
-                              {command.preview}
-                            </span>
-                          </>
-                        ) : (
-                          <span className="block truncate text-xs font-normal text-muted-foreground">
-                            {command.subtitle}
-                          </span>
-                        )}
-                      </span>
-                      {command.shortcut && (
-                        <CommandShortcut>{command.shortcut}</CommandShortcut>
-                      )}
-                    </CommandItem>
-                  )
-                })}
-              </CommandGroup>
-            </div>
-          ))}
-        </CommandList>
-      </Command>
-    </CommandDialog>
+      commands={filteredCommands}
+      emptyMessage={emptyMessage}
+      pending={isPending}
+      searchQuery={searchQuery}
+      onSearchQueryChange={setSearchQuery}
+    />
   )
 }

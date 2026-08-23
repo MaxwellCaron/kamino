@@ -6,14 +6,15 @@ import {
   ChevronsLeftIcon,
   ChevronsRightIcon,
 } from "@hugeicons/core-free-icons"
-import type { Table } from "@tanstack/react-table"
+import type { AppTableFeatures } from "./data-table-types"
+import type { ReactTable, RowData } from "@tanstack/react-table"
 
-interface DataTablePaginationProps<TData> {
-  table: Table<TData>
+interface DataTablePaginationProps<TData extends RowData> {
+  table: ReactTable<AppTableFeatures, TData>
   showSelectionSummary?: boolean
 }
 
-export function DataTablePagination<TData>({
+export function DataTablePagination<TData extends RowData>({
   table,
   showSelectionSummary = true,
 }: DataTablePaginationProps<TData>) {
@@ -28,7 +29,7 @@ export function DataTablePagination<TData>({
         <div />
       )}
       <div className="flex w-25 items-center justify-center text-sm font-medium">
-        Page {table.getState().pagination.pageIndex + 1} of{" "}
+        Page {table.state.pagination.pageIndex + 1} of{" "}
         {table.getPageCount()}
       </div>
       <div className="flex items-center gap-2">

@@ -1,4 +1,4 @@
-import { Suspense, lazy, useCallback, useMemo, useState } from "react"
+import { useCallback, useMemo, useState } from "react"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { Navigate, getRouteApi } from "@tanstack/react-router"
 import { HugeiconsIcon } from "@hugeicons/react"
@@ -8,7 +8,6 @@ import {
   ReloadIcon,
   UserGroupIcon,
 } from "@hugeicons/core-free-icons"
-import { toast } from "sonner"
 import { ActionBarItem } from "@workspace/ui/components/action-bar"
 import { Badge } from "@workspace/ui/components/badge"
 import { Button } from "@workspace/ui/components/button"
@@ -22,6 +21,7 @@ import {
 } from "@workspace/ui/components/card"
 import type { ApiPrincipal } from "@/features/principals/types/principals-types"
 import type { ConfirmConfig } from "@/components/dialogs/confirm-dialog"
+import { ConfirmDialog } from "@/components/dialogs/confirm-dialog"
 import { AppActionButton } from "@/components/actions/app-action-button"
 import {
   ManagementPermissionKeys,
@@ -31,42 +31,21 @@ import {
 import {
   deleteGroup,
   groupsQueryOptions,
-  triggerADSync,
+  principalProviderQueryOptions,
+  triggerPrincipalSync,
 } from "@/features/principals/api/principals-api"
 import { getGroupColumns } from "@/features/principals/components/groups/groups-columns"
-import { formatToastError } from "@/features/shared/utils/format"
+import { GroupDialog } from "@/features/principals/components/groups/group-dialog"
+import { GroupPermissionsDialog } from "@/features/principals/components/groups/group-permissions-dialog"
+import { MembershipDialog } from "@/features/principals/components/membership-dialog"
 import { DataTable } from "@/components/data-table/data-table"
-import { TablePageSkeleton } from "@/components/loading-skeletons"
 import { useItemDialogState } from "@/features/shared/hooks/use-item-dialog-state"
-import { showMutationToast } from "@/components/feedback/mutation-progress-toast"
+import {
+  showSingleMutationToast,
+  showUnitMutationToast,
+} from "@/components/feedback/mutation-progress-toast"
 
 const groupsRouteApi = getRouteApi("/_dashboard/admin/principals/groups")
-const ConfirmDialog = lazy(() =>
-  import("@/components/dialogs/confirm-dialog").then((module) => ({
-    default: module.ConfirmDialog,
-  }))
-)
-const GroupDialog = lazy(() =>
-  import("@/features/principals/components/groups/group-dialog").then(
-    (module) => ({
-      default: module.GroupDialog,
-    })
-  )
-)
-const GroupPermissionsDialog = lazy(() =>
-  import("@/features/principals/components/groups/group-permissions-dialog").then(
-    (module) => ({
-      default: module.GroupPermissionsDialog,
-    })
-  )
-)
-const MembershipDialog = lazy(() =>
-  import("@/features/principals/components/membership-dialog").then(
-    (module) => ({
-      default: module.MembershipDialog,
-    })
-  )
-)
 
 function getGroupLabel(group: ApiPrincipal) {
   return group.name ?? group.external_id
@@ -80,12 +59,19 @@ export function GroupsPage() {
   )
   const {
     data: groups,
-    isLoading,
+    isLoading: isGroupsLoading,
     error,
   } = useQuery({
     ...groupsQueryOptions,
     enabled: canAdminister,
   })
+  const { data: providerCapabilities, isLoading: isProviderLoading } = useQuery(
+    {
+      ...principalProviderQueryOptions,
+      enabled: canAdminister,
+    }
+  )
+  const isLoading = isGroupsLoading || isProviderLoading
   const groupCountLabel = error ? "!" : String(groups?.length ?? 0)
   const [createOpen, setCreateOpen] = useState(false)
   const editDialog = useItemDialogState<ApiPrincipal>()
@@ -102,24 +88,23 @@ export function GroupsPage() {
 
   const showDeleteToast = useCallback(
     (targets: Array<ApiPrincipal>, onAllSucceeded?: () => void) => {
-      const targetIds = targets.map((target) => target.id)
-
-      showMutationToast({
+      showUnitMutationToast({
         title: "Deleting",
-        items: targets.map((target) => ({
-          id: target.id,
-          name: getGroupLabel(target),
-          successDescription: "Deleted",
-          retry: async () => {
+        units: targets.map((target) => ({
+          items: [
+            {
+              id: target.id,
+              name: getGroupLabel(target),
+              successDescription: "Deleted",
+            },
+          ],
+          run: async () => {
             const result = await deleteMutation.mutateAsync([target.id])
-            const failure = result.failed.find((item) => item.id === target.id)
-            if (failure) throw new Error(failure.error)
+            return { failed: result.failed }
           },
         })),
-        runMutation: async () => {
-          const result = await deleteMutation.mutateAsync(targetIds)
+        onSettled: (result) => {
           if (result.failed.length === 0) onAllSucceeded?.()
-          return { succeeded: result.deleted, failed: result.failed }
         },
       })
     },
@@ -127,21 +112,28 @@ export function GroupsPage() {
   )
 
   const syncMutation = useMutation({
-    mutationFn: triggerADSync,
+    mutationFn: triggerPrincipalSync,
     onSuccess: () => {
-      toast.success("Sync complete")
       queryClient.invalidateQueries({ queryKey: ["principals"] })
     },
-    onError: (err) => {
-      toast.error(formatToastError(err))
-    },
   })
+
+  const showSyncToast = useCallback(() => {
+    showSingleMutationToast({
+      title: "Syncing",
+      name: "Principals",
+      promise: () => syncMutation.mutateAsync(),
+      successDescription: "Synced",
+    })
+  }, [syncMutation])
 
   const columns = useMemo(
     () =>
       getGroupColumns({
         canManageGroups: canAdminister,
         canManageAccess: canAdminister,
+        canManageMemberships:
+          providerCapabilities?.can_manage_memberships ?? true,
         onEditClick: editDialog.openWith,
         onEditGroups: membershipDialog.openWith,
         onEditAccess: accessDialog.openWith,
@@ -158,6 +150,7 @@ export function GroupsPage() {
     [
       accessDialog.openWith,
       canAdminister,
+      providerCapabilities?.can_manage_memberships,
       editDialog.openWith,
       membershipDialog.openWith,
       showDeleteToast,
@@ -168,102 +161,111 @@ export function GroupsPage() {
     return <Navigate to="/" />
   }
 
-  if (isLoading) {
-    return <TablePageSkeleton actionCount={2} titleWidth="w-40" />
-  }
-
   return (
-    <div className="@container/main flex flex-1 flex-col gap-2">
-      <div className="flex flex-col gap-4 px-4 py-4 md:gap-6 md:py-6 lg:px-6">
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <HugeiconsIcon
-                icon={UserGroupIcon}
-                className="size-7 text-muted-foreground"
+    <div className="@container/main relative flex flex-1 flex-col gap-2">
+      {!isLoading && (
+        <div className="flex flex-col gap-4 px-4 py-4 md:gap-6 md:py-6 lg:px-6">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <HugeiconsIcon
+                  icon={UserGroupIcon}
+                  className="size-7 text-muted-foreground"
+                />
+                <h1 className="scroll-m-20 text-center text-4xl font-extrabold tracking-tight text-balance">
+                  Groups
+                </h1>
+                <Badge variant="outline" className="tabular-nums">
+                  {groupCountLabel}
+                </Badge>
+              </CardTitle>
+              <CardDescription>
+                List of groups from your principal provider.
+              </CardDescription>
+              <CardAction className="flex items-center gap-2">
+                {canAdminister && providerCapabilities?.can_sync ? (
+                  <AppActionButton
+                    variant="outline"
+                    onClick={() =>
+                      setConfirm({
+                        title: "Sync Principals",
+                        icon: ReloadIcon,
+                        description:
+                          "Kamino will reconcile users, groups, and memberships with the configured principal provider. Principals no longer returned by the provider will be removed from Kamino.",
+                        actionLabel: "Sync",
+                        variant: "default",
+                        onConfirm: () => showSyncToast(),
+                      })
+                    }
+                    pending={syncMutation.isPending}
+                  >
+                    <HugeiconsIcon icon={ReloadIcon} data-icon="inline-start" />
+                    Sync
+                  </AppActionButton>
+                ) : null}
+                {canAdminister && providerCapabilities?.can_create_groups ? (
+                  <Button onClick={() => setCreateOpen(true)}>
+                    <HugeiconsIcon icon={Add01Icon} data-icon="inline-start" />
+                    <span className="hidden lg:block">Create</span>
+                  </Button>
+                ) : null}
+              </CardAction>
+            </CardHeader>
+            <CardContent className="px-0">
+              <DataTable
+                columns={columns}
+                data={groups || []}
+                features={{ loading: isLoading, sorting: true }}
+                initialSorting={[{ id: "created_at", desc: true }]}
+                error={error}
+                searchLabel="Search groups"
+                getRowId={(group: ApiPrincipal) => group.id}
+                selectionActions={
+                  canAdminister
+                    ? ({
+                        clearSelection,
+                        selectedRows,
+                      }: {
+                        clearSelection: () => void
+                        selectedRows: Array<ApiPrincipal>
+                      }) => (
+                        <ActionBarItem
+                          variant="destructive"
+                          onSelect={(event) => event.preventDefault()}
+                          onClick={() =>
+                            setConfirm({
+                              title:
+                                selectedRows.length === 1
+                                  ? "Delete Group"
+                                  : "Delete Groups",
+                              icon: Delete01Icon,
+                              description:
+                                selectedRows.length === 1
+                                  ? `Are you sure you want to delete ${getGroupLabel(selectedRows[0])}? This will permanently remove the group.`
+                                  : `Are you sure you want to delete ${selectedRows.length} groups? This will permanently remove the selected groups.`,
+                              actionLabel: "Delete",
+                              variant: "destructive",
+                              onConfirm: () =>
+                                showDeleteToast(selectedRows, clearSelection),
+                            })
+                          }
+                        >
+                          <HugeiconsIcon
+                            icon={Delete01Icon}
+                            data-icon="inline-start"
+                          />
+                          Delete
+                        </ActionBarItem>
+                      )
+                    : undefined
+                }
               />
-              <h1 className="scroll-m-20 text-center text-4xl font-extrabold tracking-tight text-balance">
-                Groups
-              </h1>
-              <Badge variant="outline" className="tabular-nums">
-                {groupCountLabel}
-              </Badge>
-            </CardTitle>
-            <CardDescription>
-              List of groups from your principal provider.
-            </CardDescription>
-            <CardAction className="flex items-center gap-2">
-              {canAdminister ? (
-                <AppActionButton
-                  variant="outline"
-                  onClick={() => syncMutation.mutate()}
-                  pending={syncMutation.isPending}
-                  pendingLabel="Syncing..."
-                >
-                  <HugeiconsIcon icon={ReloadIcon} data-icon="inline-start" />
-                  Sync
-                </AppActionButton>
-              ) : null}
-              {canAdminister ? (
-                <Button onClick={() => setCreateOpen(true)}>
-                  <HugeiconsIcon icon={Add01Icon} data-icon="inline-start" />
-                  <span className="hidden lg:block">Create</span>
-                </Button>
-              ) : null}
-            </CardAction>
-          </CardHeader>
-          <CardContent className="px-0">
-            <DataTable
-              columns={columns}
-              data={groups || []}
-              isLoading={isLoading}
-              error={error}
-              getRowId={(group: ApiPrincipal) => group.id}
-              selectionActions={
-                canAdminister
-                  ? ({
-                      clearSelection,
-                      selectedRows,
-                    }: {
-                      clearSelection: () => void
-                      selectedRows: Array<ApiPrincipal>
-                    }) => (
-                      <ActionBarItem
-                        variant="destructive"
-                        onSelect={(event) => event.preventDefault()}
-                        onClick={() =>
-                          setConfirm({
-                            title:
-                              selectedRows.length === 1
-                                ? "Delete Group"
-                                : "Delete Groups",
-                            icon: Delete01Icon,
-                            description:
-                              selectedRows.length === 1
-                                ? `Are you sure you want to delete ${getGroupLabel(selectedRows[0])}? This will permanently remove the group.`
-                                : `Are you sure you want to delete ${selectedRows.length} groups? This will permanently remove the selected groups.`,
-                            actionLabel: "Delete",
-                            variant: "destructive",
-                            onConfirm: () =>
-                              showDeleteToast(selectedRows, clearSelection),
-                          })
-                        }
-                      >
-                        <HugeiconsIcon
-                          icon={Delete01Icon}
-                          data-icon="inline-start"
-                        />
-                        Delete
-                      </ActionBarItem>
-                    )
-                  : undefined
-              }
-            />
-          </CardContent>
-        </Card>
-      </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
 
-      <Suspense fallback={null}>
+      <>
         {canAdminister && createOpen ? (
           <GroupDialog open={createOpen} onOpenChange={setCreateOpen} />
         ) : null}
@@ -297,7 +299,7 @@ export function GroupsPage() {
         {confirm && (
           <ConfirmDialog config={confirm} onClose={() => setConfirm(null)} />
         )}
-      </Suspense>
+      </>
     </div>
   )
 }

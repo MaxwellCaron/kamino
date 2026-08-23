@@ -5,6 +5,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react"
 import { createPortal } from "react-dom"
 import { cn } from "@workspace/ui/lib/utils"
 import { useChartConfig } from "../chart-config-context"
+import { chartCssVars } from "../chart-context"
 import type { SpringConfig } from "../chart-config-context"
 import type { RefObject } from "react"
 
@@ -37,8 +38,15 @@ export interface TooltipBoxProps {
   springConfig?: SpringConfig
   /** Animate panel position with a spring. Default: true */
   animate?: boolean
+  /** Fade/scale the panel on show. Default: true */
+  entrance?: boolean
   /** Inline styles for the inner tooltip panel. */
   panelStyle?: React.CSSProperties
+  /**
+   * Tooltip panel background color (CSS variable or color value).
+   * Default: `var(--card)`.
+   */
+  backgroundColor?: string
 }
 
 // Inner-only-on-visible so `useSpring` initializes at the cursor's actual x/y
@@ -73,7 +81,9 @@ function TooltipBoxInner({
   flipped: flippedOverride,
   springConfig,
   animate = true,
+  entrance = true,
   panelStyle,
+  backgroundColor = chartCssVars.tooltipBackground,
   container,
 }: Omit<TooltipBoxProps, "visible" | "containerRef"> & {
   container: HTMLElement
@@ -166,6 +176,36 @@ function TooltipBoxInner({
   const isFlipped = flippedOverride ?? shouldFlipX
   const transformOrigin = isFlipped ? "right top" : "left top"
 
+  const panelClassName = cn(
+    "min-w-[140px] overflow-hidden rounded-3xl px-4 py-3 text-chart-tooltip-foreground shadow-lg",
+    panelStyle?.backgroundColor === undefined &&
+      backgroundColor === chartCssVars.tooltipBackground &&
+      "bg-chart-tooltip-background",
+    panelStyle?.backdropFilter === undefined && "backdrop-blur-md"
+  )
+  const panelStyleResolved = {
+    transformOrigin,
+    ...(panelStyle?.backgroundColor === undefined && {
+      backgroundColor,
+    }),
+    ...panelStyle,
+  }
+
+  if (!entrance) {
+    return createPortal(
+      <div
+        className={cn("pointer-events-none absolute z-50", className)}
+        ref={tooltipRef}
+        style={{ left: staticPosition.left, top: staticPosition.top }}
+      >
+        <div className={panelClassName} style={panelStyleResolved}>
+          {children}
+        </div>
+      </div>,
+      container
+    )
+  }
+
   return createPortal(
     <m.div
       animate={{ opacity: 1 }}
@@ -178,10 +218,10 @@ function TooltipBoxInner({
     >
       <m.div
         animate={{ scale: 1, opacity: 1, x: 0 }}
-        className="min-w-[140px] overflow-hidden rounded-lg text-chart-tooltip-foreground shadow-lg backdrop-blur-md"
+        className={panelClassName}
         initial={{ scale: 0.85, opacity: 0, x: isFlipped ? 20 : -20 }}
         key={flipKey}
-        style={{ transformOrigin, ...panelStyle }}
+        style={panelStyleResolved}
         transition={{ type: "spring", stiffness: 300, damping: 25 }}
       >
         {children}

@@ -7,12 +7,13 @@ import type {
   ApiBulkMembershipResponse,
   ApiGroupMember,
   ApiPrincipal,
+  ApiPrincipalProviderCapabilities,
   CreateGroupInput,
   CreateUserInput,
 } from "../types/principals-types"
 import type { ApiBulkDeleteResponse } from "@/features/shared/types/api-types"
-import { apiFetch } from "@/features/auth/api/auth-api"
 import { normalizeManagementPermissionGrants } from "@/features/auth/utils/management-permissions"
+import { apiJson, apiVoid } from "@/features/shared/api/api-json"
 
 export type ApiGroupManagementAcl = {
   can_edit_bootstrap_only: boolean
@@ -23,32 +24,35 @@ export type ApiGroupManagementAcl = {
   sections: Array<ApiManagementPermissionSection>
 }
 
+export const principalProviderQueryOptions = {
+  queryKey: ["principals", "provider"] as const,
+  queryFn: (): Promise<ApiPrincipalProviderCapabilities> =>
+    apiJson<ApiPrincipalProviderCapabilities>(
+      "/api/v1/principals/provider",
+      "fetch principal provider"
+    ),
+}
+
 export const usersQueryOptions = {
   queryKey: ["principals", "users"] as const,
-  queryFn: async (): Promise<Array<ApiPrincipal>> => {
-    const res = await apiFetch("/api/v1/principals/users")
-    if (!res.ok) throw new Error(`Failed to fetch users: ${res.status}`)
-    return res.json()
-  },
+  queryFn: (): Promise<Array<ApiPrincipal>> =>
+    apiJson<Array<ApiPrincipal>>("/api/v1/principals/users", "fetch users"),
 }
 
 export const groupsQueryOptions = {
   queryKey: ["principals", "groups"] as const,
-  queryFn: async (): Promise<Array<ApiPrincipal>> => {
-    const res = await apiFetch("/api/v1/principals/groups")
-    if (!res.ok) throw new Error(`Failed to fetch groups: ${res.status}`)
-    return res.json()
-  },
+  queryFn: (): Promise<Array<ApiPrincipal>> =>
+    apiJson<Array<ApiPrincipal>>("/api/v1/principals/groups", "fetch groups"),
 }
 
 export function groupMembersQueryOptions(groupId: string) {
   return {
     queryKey: ["principals", "groups", groupId, "members"] as const,
-    queryFn: async (): Promise<Array<ApiGroupMember>> => {
-      const res = await apiFetch(`/api/v1/principals/groups/${groupId}/members`)
-      if (!res.ok) throw new Error(`Failed to fetch members: ${res.status}`)
-      return res.json()
-    },
+    queryFn: (): Promise<Array<ApiGroupMember>> =>
+      apiJson<Array<ApiGroupMember>>(
+        `/api/v1/principals/groups/${groupId}/members`,
+        "fetch members"
+      ),
     enabled: !!groupId,
   }
 }
@@ -56,15 +60,11 @@ export function groupMembersQueryOptions(groupId: string) {
 export function groupManagementAclQueryOptions(groupId: string) {
   return {
     queryKey: ["principals", "groups", groupId, "management-access"] as const,
-    queryFn: async (): Promise<ApiGroupManagementAcl> => {
-      const res = await apiFetch(
-        `/api/v1/principals/groups/${groupId}/management-access`
-      )
-      if (!res.ok) {
-        throw new Error(`Failed to fetch management access: ${res.status}`)
-      }
-      return res.json()
-    },
+    queryFn: (): Promise<ApiGroupManagementAcl> =>
+      apiJson<ApiGroupManagementAcl>(
+        `/api/v1/principals/groups/${groupId}/management-access`,
+        "fetch management access"
+      ),
     enabled: !!groupId,
   }
 }
@@ -73,8 +73,9 @@ export async function updateGroupManagementAcl(
   groupId: string,
   grants: Array<ManagementPermissionKey>
 ): Promise<void> {
-  const res = await apiFetch(
+  await apiVoid(
     `/api/v1/principals/groups/${groupId}/management-access`,
+    "update management access",
     {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
@@ -83,169 +84,166 @@ export async function updateGroupManagementAcl(
       }),
     }
   )
-  if (!res.ok) {
-    const body = await res.json().catch(() => ({}))
-    throw new Error(
-      body.error ?? `Failed to update management access: ${res.status}`
-    )
-  }
 }
 
 export async function createUser(
   params: Array<CreateUserInput>
 ): Promise<ApiBulkCreateResponse> {
-  const res = await apiFetch("/api/v1/principals/users", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(params),
-  })
-  if (!res.ok) {
-    const body = await res.json().catch(() => ({}))
-    throw new Error(body.error ?? `Failed to create user: ${res.status}`)
-  }
-
-  return res.json()
+  return apiJson<ApiBulkCreateResponse>(
+    "/api/v1/principals/users",
+    "create user",
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(params),
+    }
+  )
 }
 
 export async function updateUser(
   id: string,
   params: { username: string; full_name?: string; description?: string }
 ): Promise<void> {
-  const res = await apiFetch(`/api/v1/principals/users/${id}`, {
+  await apiVoid(`/api/v1/principals/users/${id}`, "update user", {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(params),
   })
-  if (!res.ok) {
-    const body = await res.json().catch(() => ({}))
-    throw new Error(body.error ?? `Failed to update user: ${res.status}`)
-  }
 }
 
 export async function deleteUser(
   ids: Array<string>
 ): Promise<ApiBulkDeleteResponse> {
-  const res = await apiFetch("/api/v1/principals/users", {
-    method: "DELETE",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ ids }),
-  })
-  if (!res.ok) {
-    const body = await res.json().catch(() => ({}))
-    throw new Error(body.error ?? `Failed to delete users: ${res.status}`)
-  }
-  return res.json()
+  return apiJson<ApiBulkDeleteResponse>(
+    "/api/v1/principals/users",
+    "delete users",
+    {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ids }),
+    }
+  )
 }
 
 export async function setUserPassword(
   id: string,
   password: string
 ): Promise<void> {
-  const res = await apiFetch(`/api/v1/principals/users/${id}/password`, {
+  await apiVoid(`/api/v1/principals/users/${id}/password`, "set password", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ password }),
   })
-  if (!res.ok) {
-    const body = await res.json().catch(() => ({}))
-    throw new Error(body.error ?? `Failed to set password: ${res.status}`)
-  }
+}
+
+export async function enableUser(id: string): Promise<void> {
+  await apiVoid(`/api/v1/principals/users/${id}/enable`, "enable user", {
+    method: "POST",
+  })
+}
+
+export async function disableUser(id: string): Promise<void> {
+  await apiVoid(`/api/v1/principals/users/${id}/disable`, "disable user", {
+    method: "POST",
+  })
 }
 
 export async function createGroup(
   params: Array<CreateGroupInput>
 ): Promise<ApiBulkCreateResponse> {
-  const res = await apiFetch("/api/v1/principals/groups", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(params),
-  })
-  if (!res.ok) {
-    const body = await res.json().catch(() => ({}))
-    throw new Error(body.error ?? `Failed to create group: ${res.status}`)
-  }
-
-  return res.json()
+  return apiJson<ApiBulkCreateResponse>(
+    "/api/v1/principals/groups",
+    "create group",
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(params),
+    }
+  )
 }
 
 export async function updateGroup(
   id: string,
   params: { name: string; description?: string }
 ): Promise<void> {
-  const res = await apiFetch(`/api/v1/principals/groups/${id}`, {
+  await apiVoid(`/api/v1/principals/groups/${id}`, "update group", {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(params),
   })
-  if (!res.ok) {
-    const body = await res.json().catch(() => ({}))
-    throw new Error(body.error ?? `Failed to update group: ${res.status}`)
-  }
 }
 
 export async function deleteGroup(
   ids: Array<string>
 ): Promise<ApiBulkDeleteResponse> {
-  const res = await apiFetch("/api/v1/principals/groups", {
-    method: "DELETE",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ ids }),
-  })
-  if (!res.ok) {
-    const body = await res.json().catch(() => ({}))
-    throw new Error(body.error ?? `Failed to delete groups: ${res.status}`)
-  }
-  return res.json()
+  return apiJson<ApiBulkDeleteResponse>(
+    "/api/v1/principals/groups",
+    "delete groups",
+    {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ids }),
+    }
+  )
 }
 
 export async function addGroupMember(
   groupId: string,
   memberIds: Array<string>
 ): Promise<ApiBulkMembershipResponse> {
-  const res = await apiFetch(`/api/v1/principals/groups/${groupId}/members`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ member_ids: memberIds }),
-  })
-  if (!res.ok) {
-    const body = await res.json().catch(() => ({}))
-    throw new Error(body.error ?? `Failed to add members: ${res.status}`)
-  }
-  return res.json()
+  return apiJson<ApiBulkMembershipResponse>(
+    `/api/v1/principals/groups/${groupId}/members`,
+    "add members",
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ member_ids: memberIds }),
+    }
+  )
 }
 
 export async function removeGroupMember(
   groupId: string,
   memberIds: Array<string>
 ): Promise<ApiBulkMembershipResponse> {
-  const res = await apiFetch(`/api/v1/principals/groups/${groupId}/members`, {
-    method: "DELETE",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ member_ids: memberIds }),
-  })
-  if (!res.ok) {
-    const body = await res.json().catch(() => ({}))
-    throw new Error(body.error ?? `Failed to remove members: ${res.status}`)
-  }
-  return res.json()
+  return apiJson<ApiBulkMembershipResponse>(
+    `/api/v1/principals/groups/${groupId}/members`,
+    "remove members",
+    {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ member_ids: memberIds }),
+    }
+  )
 }
 
 export function userGroupsQueryOptions(userId: string) {
   return {
     queryKey: ["principals", "users", userId, "groups"] as const,
-    queryFn: async (): Promise<Array<ApiGroupMember>> => {
-      const res = await apiFetch(`/api/v1/principals/users/${userId}/groups`)
-      if (!res.ok) throw new Error(`Failed to fetch user groups: ${res.status}`)
-      return res.json()
-    },
+    queryFn: (): Promise<Array<ApiGroupMember>> =>
+      apiJson<Array<ApiGroupMember>>(
+        `/api/v1/principals/users/${userId}/groups`,
+        "fetch user groups"
+      ),
     enabled: !!userId,
   }
 }
 
-export async function triggerADSync(): Promise<void> {
-  const res = await apiFetch("/api/v1/principals/sync", { method: "POST" })
-  if (!res.ok) {
-    const body = await res.json().catch(() => ({}))
-    throw new Error(body.error ?? `Sync failed: ${res.status}`)
-  }
+export async function setUserGroups(
+  userId: string,
+  groupIds: Array<string>
+): Promise<void> {
+  await apiVoid(
+    `/api/v1/principals/users/${userId}/groups`,
+    "set user groups",
+    {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ group_ids: groupIds }),
+    }
+  )
+}
+
+export async function triggerPrincipalSync(): Promise<void> {
+  await apiVoid("/api/v1/principals/sync", "Sync", { method: "POST" })
 }

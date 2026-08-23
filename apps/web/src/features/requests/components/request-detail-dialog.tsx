@@ -18,7 +18,6 @@ import {
   AlertTitle,
 } from "@workspace/ui/components/alert"
 import { Badge } from "@workspace/ui/components/badge"
-import { Button } from "@workspace/ui/components/button"
 import { Dialog, DialogFooter } from "@workspace/ui/components/dialog"
 import {
   Empty,
@@ -54,11 +53,15 @@ import {
   AppDialogContent,
   AppDialogScrollBody,
 } from "@/components/dialogs/app-dialog"
-import { RequestDetailSkeleton } from "@/features/requests/components/request-detail-skeleton"
+import { PreloadOverlay } from "@/components/loading-overlay"
+import { AppActionButton } from "@/components/actions/app-action-button"
 import { formatVmReference } from "@/features/shared/utils/format"
 
 type RequestDetailDialogProps = {
   canReview: boolean
+  disabled?: boolean
+  approvePending?: boolean
+  denyPending?: boolean
   error: Error | null
   isLoading: boolean
   onApprove: () => void
@@ -70,7 +73,10 @@ type RequestDetailDialogProps = {
 }
 
 export function RequestDetailDialog({
+  approvePending = false,
   canReview,
+  disabled = false,
+  denyPending = false,
   error,
   isLoading,
   onApprove,
@@ -111,10 +117,9 @@ export function RequestDetailDialog({
         title="Review"
         description="Review the request and determine the outcome."
       >
-        <AppDialogScrollBody className="-mb-8 px-4">
-          {isLoading ? (
-            <RequestDetailSkeleton />
-          ) : error ? (
+        <AppDialogScrollBody className="relative -mb-8 min-h-125 px-4">
+          <PreloadOverlay active={isLoading} label="Loading request details" />
+          {isLoading ? null : error ? (
             <Empty className="border border-dashed">
               <EmptyHeader>
                 <EmptyMedia
@@ -311,23 +316,37 @@ export function RequestDetailDialog({
         {request?.status === "pending" && canReview && (
           <DialogFooter>
             <>
-              <Button
+              <AppActionButton
                 variant="destructive"
                 onClick={onDeny}
                 className="w-[50%]"
-                disabled={isLoading || error !== null}
+                pending={denyPending}
+                disabled={
+                  isLoading ||
+                  error !== null ||
+                  approvePending ||
+                  denyPending ||
+                  disabled
+                }
               >
                 <HugeiconsIcon icon={Cancel01Icon} data-icon="inline-start" />
                 Deny
-              </Button>
-              <Button
+              </AppActionButton>
+              <AppActionButton
                 onClick={onApprove}
                 className="w-[50%]"
-                disabled={isLoading || error !== null}
+                pending={approvePending}
+                disabled={
+                  isLoading ||
+                  error !== null ||
+                  approvePending ||
+                  denyPending ||
+                  disabled
+                }
               >
                 <HugeiconsIcon icon={Tick01Icon} data-icon="inline-start" />
                 Approve
-              </Button>
+              </AppActionButton>
             </>
           </DialogFooter>
         )}

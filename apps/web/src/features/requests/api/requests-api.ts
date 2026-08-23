@@ -1,12 +1,12 @@
 import type {
+  ApiManagerRequestStatusCounts,
   ApiRequestActionResponse,
   ApiRequestDetail,
   ApiRequestScope,
-  ApiRequestSummary,
   ApiRequestTablePage,
   ApiRequesterRequestScope,
 } from "../types/request-types"
-import { apiFetch } from "@/features/auth/api/auth-api"
+import { apiJson } from "@/features/shared/api/api-json"
 
 type RequestTableQueryParams = {
   pageIndex: number
@@ -29,14 +29,15 @@ function tableSearchParams(
 
 async function fetchRequestsTablePage(
   scope: ApiRequestScope,
-  params: RequestTableQueryParams
+  params: RequestTableQueryParams,
+  signal?: AbortSignal
 ): Promise<ApiRequestTablePage> {
   const search = tableSearchParams(scope, params)
-  const res = await apiFetch(`/api/v1/requests?${search}`)
-  if (!res.ok) {
-    throw new Error(`Failed to fetch ${scope} requests: ${res.status}`)
-  }
-  return res.json()
+  return apiJson<ApiRequestTablePage>(
+    `/api/v1/requests?${search}`,
+    `fetch ${scope} requests`,
+    { signal }
+  )
 }
 
 export function requestsTableQueryOptions(
@@ -45,59 +46,96 @@ export function requestsTableQueryOptions(
 ) {
   return {
     queryKey: ["requests", scope, "table", params] as const,
-    queryFn: () => fetchRequestsTablePage(scope, params),
+    queryFn: ({ signal }: { signal: AbortSignal }) =>
+      fetchRequestsTablePage(scope, params, signal),
   }
 }
 
-async function fetchRequesterRequestsTablePage(
-  scope: ApiRequesterRequestScope,
-  params: RequestTableQueryParams
-): Promise<ApiRequestTablePage> {
-  const search = tableSearchParams(scope, params)
-  const res = await apiFetch(`/api/v1/requests/mine?${search}`)
-  if (!res.ok) {
-    throw new Error(`Failed to fetch your ${scope} requests: ${res.status}`)
+function requestSummaryPageQueryOptions(scope: ApiRequestScope, rows = 50) {
+  return {
+    queryKey: ["requests", scope, "summaries", { rows }] as const,
+    queryFn: ({ signal }: { signal: AbortSignal }) =>
+      fetchRequestsTablePage(
+        scope,
+        {
+          pageIndex: 0,
+          pageSize: rows,
+          search: "",
+        },
+        signal
+      ),
   }
-  return res.json()
 }
 
 /**
- * Fetches a single bounded page of request summaries and returns only the
- * `items`. For non-table consumers (dashboards, the command palette) that
- * need a small, fixed-size list rather than full table pagination.
+ * Bounded page of request summaries for non-table consumers (dashboards,
+ * command palette). Shares cache with {@link requestSummaryCountQueryOptions}.
  */
-async function fetchRequestSummaries(
-  scope: ApiRequestScope,
-  rows: number
-): Promise<Array<ApiRequestSummary>> {
-  const page = await fetchRequestsTablePage(scope, {
-    pageIndex: 0,
-    pageSize: rows,
-    search: "",
-  })
-  return page.items
-}
-
 export function requestSummariesQueryOptions(
   scope: ApiRequestScope,
   rows = 50
 ) {
   return {
-    queryKey: ["requests", scope, "summaries", { rows }] as const,
-    queryFn: () => fetchRequestSummaries(scope, rows),
+    ...requestSummaryPageQueryOptions(scope, rows),
+    select: (page: ApiRequestTablePage) => page.items,
   }
 }
 
-async function fetchRequesterRequestSummaries(
+/** Authoritative total for a manager request scope summary query. */
+export function requestSummaryCountQueryOptions(
+  scope: ApiRequestScope,
+  rows = 50
+) {
+  return {
+    ...requestSummaryPageQueryOptions(scope, rows),
+    select: (page: ApiRequestTablePage) => page.total,
+  }
+}
+
+async function fetchManagerRequestStatusCounts(): Promise<ApiManagerRequestStatusCounts> {
+  return apiJson<ApiManagerRequestStatusCounts>(
+    "/api/v1/requests/counts",
+    "fetch manager request counts"
+  )
+}
+
+export function managerRequestStatusCountsQueryOptions() {
+  return {
+    queryKey: ["requests", "counts"] as const,
+    queryFn: fetchManagerRequestStatusCounts,
+  }
+}
+
+async function fetchRequesterRequestsTablePage(
   scope: ApiRequesterRequestScope,
-  rows: number
-): Promise<Array<ApiRequestSummary>> {
-  const page = await fetchRequesterRequestsTablePage(scope, {
-    pageIndex: 0,
-    pageSize: rows,
-    search: "",
-  })
-  return page.items
+  params: RequestTableQueryParams,
+  signal?: AbortSignal
+): Promise<ApiRequestTablePage> {
+  const search = tableSearchParams(scope, params)
+  return apiJson<ApiRequestTablePage>(
+    `/api/v1/requests/mine?${search}`,
+    `fetch your ${scope} requests`,
+    { signal }
+  )
+}
+
+function requesterRequestSummaryPageQueryOptions(
+  scope: ApiRequesterRequestScope,
+  rows = 50
+) {
+  return {
+    queryKey: ["requests", "mine", scope, "summaries", { rows }] as const,
+    queryFn: ({ signal }: { signal: AbortSignal }) =>
+      fetchRequesterRequestsTablePage(
+        scope,
+        {
+          pageIndex: 0,
+          pageSize: rows,
+          search: "",
+        },
+        signal
+      ),
+  }
 }
 
 export function requesterRequestSummariesQueryOptions(
@@ -105,21 +143,30 @@ export function requesterRequestSummariesQueryOptions(
   rows = 50
 ) {
   return {
-    queryKey: ["requests", "mine", scope, "summaries", { rows }] as const,
-    queryFn: () => fetchRequesterRequestSummaries(scope, rows),
+    ...requesterRequestSummaryPageQueryOptions(scope, rows),
+    select: (page: ApiRequestTablePage) => page.items,
+  }
+}
+
+/** Authoritative total for a requester scope summary query. */
+export function requesterRequestSummaryCountQueryOptions(
+  scope: ApiRequesterRequestScope,
+  rows = 50
+) {
+  return {
+    ...requesterRequestSummaryPageQueryOptions(scope, rows),
+    select: (page: ApiRequestTablePage) => page.total,
   }
 }
 
 export function requestDetailQueryOptions(requestId: string) {
   return {
     queryKey: ["requests", requestId] as const,
-    queryFn: async (): Promise<ApiRequestDetail> => {
-      const res = await apiFetch(`/api/v1/requests/${requestId}`)
-      if (!res.ok) {
-        throw new Error(`Failed to fetch request: ${res.status}`)
-      }
-      return res.json()
-    },
+    queryFn: (): Promise<ApiRequestDetail> =>
+      apiJson<ApiRequestDetail>(
+        `/api/v1/requests/${requestId}`,
+        "fetch request"
+      ),
     enabled: !!requestId,
   }
 }
@@ -127,31 +174,27 @@ export function requestDetailQueryOptions(requestId: string) {
 export async function approveRequest(
   requestIds: Array<string>
 ): Promise<ApiRequestActionResponse> {
-  const res = await apiFetch(`/api/v1/requests/approve`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ ids: requestIds }),
-  })
-  if (!res.ok) {
-    const body = await res.json().catch(() => ({}))
-    throw new Error(body.error ?? `Failed to approve requests: ${res.status}`)
-  }
-
-  return res.json()
+  return apiJson<ApiRequestActionResponse>(
+    `/api/v1/requests/approve`,
+    "approve requests",
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ids: requestIds }),
+    }
+  )
 }
 
 export async function denyRequest(
   requestIds: Array<string>
 ): Promise<ApiRequestActionResponse> {
-  const res = await apiFetch(`/api/v1/requests/deny`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ ids: requestIds }),
-  })
-  if (!res.ok) {
-    const body = await res.json().catch(() => ({}))
-    throw new Error(body.error ?? `Failed to deny requests: ${res.status}`)
-  }
-
-  return res.json()
+  return apiJson<ApiRequestActionResponse>(
+    `/api/v1/requests/deny`,
+    "deny requests",
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ids: requestIds }),
+    }
+  )
 }

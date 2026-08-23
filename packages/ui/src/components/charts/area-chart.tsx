@@ -2,11 +2,10 @@
 
 import { ParentSize } from "@visx/responsive";
 import {
-  
   Children,
-  
   isValidElement,
   useCallback,
+  useId,
   useMemo,
   useRef,
   useState
@@ -157,13 +156,14 @@ function ChartInner({
   onPhaseChange,
 }: ChartInnerProps) {
   const lines = useMemo(() => extractAreaConfigs(children), [children]);
+  const clipPathId = useId().replace(/:/g, "");
 
   return (
     <TimeSeriesChartInner
       animationDuration={animationDuration}
       animationEasing={animationEasing}
       chartStatus={chartStatus}
-      clipPathId="chart-area-grow-clip"
+      clipPathId={clipPathId}
       containerRef={containerRef}
       data={data}
       enterTransition={enterTransition}

@@ -16,10 +16,16 @@ import {
 import { CountedTextareaField } from "@/components/forms/counted-textarea-field"
 
 type UserDialogEditFormProps = {
+  canRenameUsers: boolean
+  canSetPasswords: boolean
   form: UserFormApi
 }
 
-export function UserDialogEditForm({ form }: UserDialogEditFormProps) {
+export function UserDialogEditForm({
+  canRenameUsers,
+  canSetPasswords,
+  form,
+}: UserDialogEditFormProps) {
   return (
     <FieldGroup>
       <form.Field
@@ -38,15 +44,25 @@ export function UserDialogEditForm({ form }: UserDialogEditFormProps) {
               <FieldContent>
                 <Input
                   id="username"
+                  autoComplete="username"
                   maxLength={20}
                   value={field.state.value}
                   onChange={(event) => field.handleChange(event.target.value)}
                   onBlur={field.handleBlur}
                   placeholder="jdoe"
                   aria-invalid={isInvalid}
+                  aria-errormessage={
+                    isInvalid ? "edit-username-error" : undefined
+                  }
+                  disabled={!canRenameUsers}
                 />
               </FieldContent>
-              {isInvalid && <FieldError errors={field.state.meta.errors} />}
+              {isInvalid && (
+                <FieldError
+                  id="edit-username-error"
+                  errors={field.state.meta.errors}
+                />
+              )}
             </Field>
           )
         }}
@@ -68,48 +84,68 @@ export function UserDialogEditForm({ form }: UserDialogEditFormProps) {
               <FieldContent>
                 <Input
                   id="full-name"
+                  autoComplete="name"
                   value={field.state.value}
                   onChange={(event) => field.handleChange(event.target.value)}
                   onBlur={field.handleBlur}
                   placeholder="Maxwell Caron"
                   aria-invalid={isInvalid}
+                  aria-errormessage={
+                    isInvalid ? "edit-full-name-error" : undefined
+                  }
                 />
               </FieldContent>
-              {isInvalid && <FieldError errors={field.state.meta.errors} />}
+              {isInvalid && (
+                <FieldError
+                  id="edit-full-name-error"
+                  errors={field.state.meta.errors}
+                />
+              )}
             </Field>
           )
         }}
       </form.Field>
 
-      <form.Field
-        name="password"
-        validators={{
-          onSubmit: optionalPasswordSchema,
-        }}
-      >
-        {(field) => {
-          const isInvalid =
-            field.state.meta.isTouched && !field.state.meta.isValid
+      {canSetPasswords ? (
+        <form.Field
+          name="password"
+          validators={{
+            onSubmit: optionalPasswordSchema,
+          }}
+        >
+          {(field) => {
+            const isInvalid =
+              field.state.meta.isTouched && !field.state.meta.isValid
 
-          return (
-            <Field data-invalid={isInvalid}>
-              <FieldLabel htmlFor="password">New Password</FieldLabel>
-              <FieldContent>
-                <Input
-                  id="password"
-                  type="password"
-                  value={field.state.value}
-                  onChange={(event) => field.handleChange(event.target.value)}
-                  onBlur={field.handleBlur}
-                  placeholder="Leave blank to keep unchanged"
-                  aria-invalid={isInvalid}
-                />
-              </FieldContent>
-              {isInvalid && <FieldError errors={field.state.meta.errors} />}
-            </Field>
-          )
-        }}
-      </form.Field>
+            return (
+              <Field data-invalid={isInvalid}>
+                <FieldLabel htmlFor="password">New Password</FieldLabel>
+                <FieldContent>
+                  <Input
+                    id="password"
+                    type="password"
+                    autoComplete="new-password"
+                    value={field.state.value}
+                    onChange={(event) => field.handleChange(event.target.value)}
+                    onBlur={field.handleBlur}
+                    placeholder="Leave blank to keep unchanged"
+                    aria-invalid={isInvalid}
+                    aria-errormessage={
+                      isInvalid ? "edit-password-error" : undefined
+                    }
+                  />
+                </FieldContent>
+                {isInvalid && (
+                  <FieldError
+                    id="edit-password-error"
+                    errors={field.state.meta.errors}
+                  />
+                )}
+              </Field>
+            )
+          }}
+        </form.Field>
+      ) : null}
 
       <form.Field
         name="description"

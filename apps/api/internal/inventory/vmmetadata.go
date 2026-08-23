@@ -39,7 +39,6 @@ func (s *Service) UpdateInventoryVMNotes(ctx context.Context, itemID uuid.UUID, 
 	}
 
 	s.notify(ctx, nil)
-	s.scheduleMirror()
 	return nil
 }
 
@@ -106,6 +105,7 @@ func (s *Service) RegisterProxmoxVM(
 		InventoryItemID: itemID,
 		Node:            node,
 		Vmid:            vmid,
+		GuestType:       "qemu",
 		UpstreamUuid:    upstreamUUID,
 		IsTemplate:      isTemplate,
 	}); err != nil {
@@ -118,18 +118,15 @@ func (s *Service) RegisterProxmoxVM(
 		return uuid.Nil, err
 	}
 
-	s.scheduleMirror()
 	return itemID, nil
 }
 
 func (s *Service) NotifyInventoryChanged(ctx context.Context, itemID uuid.UUID) {
 	s.notify(ctx, nil, &itemID)
-	s.scheduleMirror()
 }
 
-// NotifyInventoryTreeChanged broadcasts a tree-level inventory change and
-// schedules a mirror reconcile without targeting a specific item.
+// NotifyInventoryTreeChanged broadcasts a tree-level inventory change without
+// targeting a specific item.
 func (s *Service) NotifyInventoryTreeChanged(ctx context.Context) {
 	s.notify(ctx, nil)
-	s.scheduleMirror()
 }

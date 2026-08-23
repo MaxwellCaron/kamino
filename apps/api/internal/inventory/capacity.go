@@ -148,11 +148,16 @@ func (s *Service) ReserveFolderVMCapacity(ctx context.Context, folderID uuid.UUI
 
 	resID := res.ID
 	release := func(ctx context.Context) error {
-		return database.New(s.db).ReleaseFolderVMCapacityReservation(ctx, resID)
+		return database.New(s.db).ReleaseFolderVMCapacityReservation(context.WithoutCancel(ctx), resID)
 	}
 
 	return &ReservationResult{
 		ReservationID: resID,
 		Release:       release,
 	}, nil
+}
+
+// SweepExpiredFolderVMCapacityReservations deletes reservations past their TTL
+func (s *Service) SweepExpiredFolderVMCapacityReservations(ctx context.Context) (int64, error) {
+	return database.New(s.db).DeleteExpiredFolderVMCapacityReservations(ctx)
 }

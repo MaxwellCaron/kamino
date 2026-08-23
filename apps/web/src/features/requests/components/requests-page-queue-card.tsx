@@ -19,6 +19,7 @@ import type {
 } from "@/features/requests/types/request-types"
 import type { ConfirmConfig } from "@/components/dialogs/confirm-dialog"
 import type { ColumnDef } from "@tanstack/react-table"
+import type { AppTableFeatures } from "@/components/data-table/data-table-types"
 import type { DataTableServerPagination } from "@/components/data-table/data-table"
 import { formatRequestScope } from "@/features/requests/utils/request-presenters"
 import { DataTable } from "@/components/data-table/data-table"
@@ -28,7 +29,7 @@ type RequestsPageQueueCardProps = {
   onScopeChange: (scope: ApiRequestScope) => void
   pendingCount: number
   completedCount: number | null
-  columns: Array<ColumnDef<ApiRequestSummary>>
+  columns: Array<ColumnDef<AppTableFeatures, ApiRequestSummary>>
   activeRequests: Array<ApiRequestSummary>
   isActiveLoading: boolean
   activeError: Error | null
@@ -117,8 +118,9 @@ export function RequestsPageQueueCard({
         <DataTable
           columns={columns}
           data={activeRequests}
-          isLoading={isActiveLoading}
+          features={{ loading: isActiveLoading }}
           error={activeError}
+          searchLabel="Search requests"
           getRowId={(request: ApiRequestSummary) => request.id}
           serverPagination={serverPagination}
           selectionActions={

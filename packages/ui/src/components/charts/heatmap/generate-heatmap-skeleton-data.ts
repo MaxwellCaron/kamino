@@ -1,4 +1,4 @@
-import type { HeatmapColumn } from "./heatmap-context"
+import type { HeatmapColumn } from "./heatmap-context";
 
 /** Placeholder grid with the same week/day shape as target data (all empty cells). */
 export function generateHeatmapSkeletonFromTarget(
@@ -11,5 +11,5 @@ export function generateHeatmapSkeletonFromTarget(
       count: 0,
       date: bin.date,
     })),
-  }))
+  }));
 }

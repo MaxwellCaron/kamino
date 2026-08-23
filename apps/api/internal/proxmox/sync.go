@@ -12,6 +12,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"golang.org/x/sync/errgroup"
 )
 
 // InventoryImporter syncs Proxmox pools and VMs into the inventory database.
@@ -21,8 +22,9 @@ type InventoryImporter struct {
 }
 
 const (
-	singleVMSyncTimeout      = 15 * time.Second
-	singleVMSyncPollInterval = 1 * time.Second
+	singleVMSyncTimeout        = 15 * time.Second
+	singleVMSyncPollInterval   = 1 * time.Second
+	initialVMImportConcurrency = 4
 )
 
 func NewInventoryImporter(db *pgxpool.Pool, client *Client) *InventoryImporter {
@@ -36,21 +38,21 @@ func (s *InventoryImporter) SyncVM(
 	parentID uuid.UUID,
 	node string,
 	vmid int,
+	gt GuestType,
 ) (uuid.UUID, error) {
 	syncCtx, cancel := context.WithTimeout(ctx, singleVMSyncTimeout)
 	defer cancel()
 
-	summary, err := s.waitForVMConfigSummary(syncCtx, node, vmid)
+	summary, err := s.waitForVMConfigSummary(syncCtx, gt, node, vmid)
 	if err != nil {
 		return uuid.Nil, err
 	}
 
-	q := database.New(s.db)
-	if err := syncVMConfigSummary(syncCtx, q, parentID, node, vmid, summary); err != nil {
-		return uuid.Nil, fmt.Errorf("syncing vm %d on node %s: %w", vmid, node, err)
+	if err := s.syncVMConfigSummaryInTx(syncCtx, parentID, node, vmid, gt, summary); err != nil {
+		return uuid.Nil, err
 	}
 
-	row, err := q.GetProxmoxVMByUpstreamUUID(syncCtx, summary.UpstreamUUID)
+	row, err := database.New(s.db).GetProxmoxVMByUpstreamUUID(syncCtx, summary.UpstreamUUID)
 	if err != nil {
 		return uuid.Nil, fmt.Errorf("loading synced vm %d on node %s: %w", vmid, node, err)
 	}
@@ -58,7 +60,7 @@ func (s *InventoryImporter) SyncVM(
 	return row.InventoryItemID, nil
 }
 
-// Run performs a full sync of pools (as folders) and VMs from Proxmox.
+// Run imports Proxmox pools as folders (adopting existing structure/comments), then imports VMs into them.
 func (s *InventoryImporter) Run(ctx context.Context) error {
 	log.Println("Starting Proxmox inventory sync")
 
@@ -80,58 +82,135 @@ func (s *InventoryImporter) Run(ctx context.Context) error {
 		return fmt.Errorf("ensuring root folder: %w", err)
 	}
 
-	// Sync pools as child folders under root
-	poolFolders := make(map[string]uuid.UUID, len(pools))
-	for _, pool := range pools {
-		folderID, err := ensureFolderPath(ctx, q, rootID, decodePoolPath(pool.PoolID))
-		if err != nil {
-			return fmt.Errorf("ensuring folder for pool %q: %w", pool.PoolID, err)
-		}
-		poolFolders[pool.PoolID] = folderID
+	poolFolders, err := adoptProxmoxPools(ctx, q, rootID, pools)
+	if err != nil {
+		return fmt.Errorf("adopting proxmox pools: %w", err)
 	}
 
-	// Sync VMs
-	syncedCount := 0
-	for _, vm := range vms {
-		if vm.Type != "qemu" {
-			continue
-		}
+	// Sync VMs, bounded to a small number of concurrent imports.
+	results := runBoundedVMImports(ctx, vms, initialVMImportConcurrency, func(ctx context.Context, vm VM) error {
+		gt := GuestTypeFromVMType(vm.Type)
 
-		parentID := rootID
-		if vm.Pool != "" {
-			if id, ok := poolFolders[vm.Pool]; ok {
-				parentID = id
-			}
-		}
-
-		summary, err := s.ensureVMConfigSummary(ctx, vm.Node, vm.VMID)
+		parentID, err := importedVMParent(rootID, poolFolders, vm)
 		if err != nil {
-			log.Printf("Warning: failed to load config summary for VM %d on node %s: %v", vm.VMID, vm.Node, err)
-			continue
+			return err
 		}
 
-		if err := syncVMConfigSummary(ctx, q, parentID, vm.Node, vm.VMID, summary); err != nil {
-			log.Printf("Warning: failed to sync VM %d on node %s: %v", vm.VMID, vm.Node, err)
+		summary, err := s.ensureVMConfigSummary(ctx, gt, vm.Node, vm.VMID)
+		if err != nil {
+			return fmt.Errorf("loading config summary for VM %d on node %s: %w", vm.VMID, vm.Node, err)
+		}
+
+		return s.syncVMConfigSummaryInTx(ctx, parentID, vm.Node, vm.VMID, gt, summary)
+	})
+
+	syncedCount := 0
+	var syncErrs []error
+	for _, result := range results {
+		if !result.Attempted {
+			continue
+		}
+		if result.Err != nil {
+			log.Printf("Warning: %v", result.Err)
+			syncErrs = append(syncErrs, result.Err)
 			continue
 		}
 		syncedCount++
 	}
 
 	log.Printf("Proxmox sync complete: %d pools, %d/%d VMs", len(pools), syncedCount, len(vms))
-	return nil
+	return errors.Join(syncErrs...)
 }
 
-func ensureRootFolder(ctx context.Context, q *database.Queries) (uuid.UUID, error) {
-	rows, err := q.GetAllInventoryItems(ctx)
-	if err != nil {
-		return uuid.Nil, err
+// vmImportResult holds one VM import outcome at its original slice index.
+type vmImportResult struct {
+	Attempted bool
+	Err       error
+}
+
+// runBoundedVMImports runs syncOne for each supported VM with at most limit callbacks active concurrently.
+func runBoundedVMImports(
+	ctx context.Context,
+	vms []VM,
+	limit int,
+	syncOne func(ctx context.Context, vm VM) error,
+) []vmImportResult {
+	results := make([]vmImportResult, len(vms))
+	if len(vms) == 0 {
+		return results
 	}
 
-	if rootID := findManagedRootFolderID(rows); rootID != nil {
-		return *rootID, nil
+	group := new(errgroup.Group)
+	if limit > 0 {
+		group.SetLimit(limit)
 	}
 
-	return q.CreateRootFolder(ctx, proxmoxRootFolderName)
+	for index, vm := range vms {
+		if vm.Type != "qemu" && vm.Type != "lxc" {
+			continue
+		}
+
+		index, vm := index, vm
+		results[index].Attempted = true
+		group.Go(func() error {
+			results[index].Err = syncOne(ctx, vm)
+			return nil
+		})
+	}
+
+	_ = group.Wait()
+	return results
+}
+
+func importedVMParent(rootID uuid.UUID, poolFolders map[string]uuid.UUID, vm VM) (uuid.UUID, error) {
+	if vm.Pool == "" {
+		return rootID, nil
+	}
+
+	folderID, ok := poolFolders[vm.Pool]
+	if !ok {
+		return uuid.Nil, fmt.Errorf(
+			"VM %d on node %s references pool %q missing from the Proxmox pool snapshot",
+			vm.VMID,
+			vm.Node,
+			vm.Pool,
+		)
+	}
+
+	return folderID, nil
+}
+
+// adoptProxmoxPools ensures a matching folder exists for every live Proxmox pool, importing its comment as the description.
+func adoptProxmoxPools(ctx context.Context, q *database.Queries, rootID uuid.UUID, pools []Pool) (map[string]uuid.UUID, error) {
+	poolFolders := make(map[string]uuid.UUID, len(pools))
+	for _, pool := range pools {
+		folderID, err := ensureFolderPath(ctx, q, rootID, decodePoolPath(pool.PoolID))
+		if err != nil {
+			return nil, fmt.Errorf("ensuring folder for pool %q: %w", pool.PoolID, err)
+		}
+		if err := applyImportedPoolDescription(ctx, q, pool.PoolID, pool.Comment, folderID); err != nil {
+			return nil, fmt.Errorf("importing pool %q comment: %w", pool.PoolID, err)
+		}
+		poolFolders[pool.PoolID] = folderID
+	}
+	return poolFolders, nil
+}
+
+func ensureFolderPath(ctx context.Context, q *database.Queries, rootID uuid.UUID, path []string) (uuid.UUID, error) {
+	currentID := rootID
+	for _, segment := range path {
+		if segment == "" {
+			continue
+		}
+
+		nextID, err := ensureChildFolder(ctx, q, currentID, segment)
+		if err != nil {
+			return uuid.Nil, err
+		}
+		currentID = nextID
+	}
+
+	return currentID, nil
 }
 
 func ensureChildFolder(ctx context.Context, q *database.Queries, parentID uuid.UUID, name string) (uuid.UUID, error) {
@@ -151,12 +230,92 @@ func ensureChildFolder(ctx context.Context, q *database.Queries, parentID uuid.U
 	})
 }
 
+const maxImportedPoolCommentLength = 256
+
+func normalizeImportedPoolDescription(comment string) *string {
+	value := strings.TrimSpace(comment)
+	if value == "" {
+		return nil
+	}
+	return &value
+}
+
+func applyImportedPoolDescription(ctx context.Context, q *database.Queries, poolID, comment string, folderID uuid.UUID) error {
+	description := normalizeImportedPoolDescription(comment)
+	if description != nil && len(*description) > maxImportedPoolCommentLength {
+		log.Printf(
+			"Warning: skipping pool %q comment import (%d characters exceeds %d limit)",
+			poolID,
+			len(*description),
+			maxImportedPoolCommentLength,
+		)
+		return nil
+	}
+
+	return q.UpdateInventoryFolderDescription(ctx, database.UpdateInventoryFolderDescriptionParams{
+		Description: description,
+		ID:          folderID,
+	})
+}
+
+func ensureRootFolder(ctx context.Context, q *database.Queries) (uuid.UUID, error) {
+	rows, err := q.GetAllInventoryItems(ctx)
+	if err != nil {
+		return uuid.Nil, err
+	}
+
+	if rootID := FindManagedRootFolderID(rows); rootID != nil {
+		return *rootID, nil
+	}
+
+	id, err := q.CreateRootFolder(ctx, proxmoxRootFolderName)
+	if err != nil {
+		return uuid.Nil, err
+	}
+
+	if err := q.UpdateInventoryFolderDescription(ctx, database.UpdateInventoryFolderDescriptionParams{
+		Description: new(RootFolderDescription),
+		ID:          id,
+	}); err != nil {
+		return uuid.Nil, err
+	}
+
+	return id, nil
+}
+
+func (s *InventoryImporter) syncVMConfigSummaryInTx(
+	ctx context.Context,
+	parentID uuid.UUID,
+	node string,
+	vmid int,
+	gt GuestType,
+	summary *VMConfigSummary,
+) error {
+	tx, err := s.db.Begin(ctx)
+	if err != nil {
+		return fmt.Errorf("beginning sync tx for vm %d on node %s: %w", vmid, node, err)
+	}
+	defer tx.Rollback(ctx)
+
+	q := database.New(s.db).WithTx(tx)
+	if err := syncVMConfigSummary(ctx, q, parentID, node, vmid, gt, summary); err != nil {
+		return fmt.Errorf("syncing vm %d on node %s: %w", vmid, node, err)
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return fmt.Errorf("committing sync for vm %d on node %s: %w", vmid, node, err)
+	}
+
+	return nil
+}
+
 func syncVMConfigSummary(
 	ctx context.Context,
 	q *database.Queries,
 	parentID uuid.UUID,
 	node string,
 	vmid int,
+	gt GuestType,
 	summary *VMConfigSummary,
 ) error {
 	if summary == nil {
@@ -209,16 +368,21 @@ func syncVMConfigSummary(
 			return fmt.Errorf("creating inventory item: %w", err)
 		}
 
-		return q.InsertProxmoxVM(ctx, database.InsertProxmoxVMParams{
+		if err := q.InsertProxmoxVM(ctx, database.InsertProxmoxVMParams{
 			InventoryItemID: itemID,
 			Node:            node,
 			Vmid:            int32(vmid),
+			GuestType:       string(gt),
 			UpstreamUuid:    summary.UpstreamUUID,
 			IsTemplate:      summary.IsTemplate,
 			CpuCount:        &summary.CPUCount,
 			MemoryMb:        &summary.MemoryMB,
 			DiskGb:          &summary.DiskGB,
-		})
+		}); err != nil {
+			return fmt.Errorf("inserting proxmox_vms: %w", err)
+		}
+
+		return applyImportedVMNotes(ctx, q, itemID, summary.Notes)
 	}
 
 	existing := existingByUUID
@@ -240,6 +404,7 @@ func syncVMConfigSummary(
 		InventoryItemID: existing.InventoryItemID,
 		Node:            node,
 		Vmid:            int32(vmid),
+		GuestType:       string(gt),
 		UpstreamUuid:    summary.UpstreamUUID,
 		IsTemplate:      summary.IsTemplate,
 		CpuCount:        &summary.CPUCount,
@@ -267,28 +432,26 @@ func syncVMConfigSummary(
 		}
 	}
 
-	return nil
+	return applyImportedVMNotes(ctx, q, existing.InventoryItemID, summary.Notes)
 }
 
 func (s *InventoryImporter) ensureVMConfigSummary(
 	ctx context.Context,
+	gt GuestType,
 	node string,
 	vmid int,
 ) (*VMConfigSummary, error) {
-	if _, err := s.client.EnsureVMUpstreamUUID(ctx, node, vmid); err != nil {
-		return nil, err
-	}
-
-	return s.client.GetVMConfigSummary(ctx, node, vmid)
+	return s.client.GetEnsuredVMConfigSummary(ctx, gt, node, vmid)
 }
 
 func (s *InventoryImporter) waitForVMConfigSummary(
 	ctx context.Context,
+	gt GuestType,
 	node string,
 	vmid int,
 ) (*VMConfigSummary, error) {
 	for {
-		summary, err := s.ensureVMConfigSummary(ctx, node, vmid)
+		summary, err := s.ensureVMConfigSummary(ctx, gt, node, vmid)
 		if err == nil {
 			return summary, nil
 		}
@@ -306,27 +469,21 @@ func (s *InventoryImporter) waitForVMConfigSummary(
 	}
 }
 
-func ensureFolderPath(ctx context.Context, q *database.Queries, rootID uuid.UUID, path []string) (uuid.UUID, error) {
-	currentID := rootID
-	if len(path) == 0 {
-		return currentID, nil
-	}
-
-	for _, segment := range path {
-		if segment == "" {
-			continue
-		}
-
-		nextID, err := ensureChildFolder(ctx, q, currentID, segment)
-		if err != nil {
-			return uuid.Nil, err
-		}
-		currentID = nextID
-	}
-
-	return currentID, nil
-}
-
 func decodePoolPath(poolID string) []string {
 	return strings.Split(poolID, "/")
+}
+
+func applyImportedVMNotes(
+	ctx context.Context,
+	q *database.Queries,
+	itemID uuid.UUID,
+	notes string,
+) error {
+	if err := q.UpdateProxmoxVMNotesByItemID(ctx, database.UpdateProxmoxVMNotesByItemIDParams{
+		Notes:           &notes,
+		InventoryItemID: itemID,
+	}); err != nil {
+		return fmt.Errorf("updating imported proxmox_vms notes for item %s: %w", itemID, err)
+	}
+	return nil
 }

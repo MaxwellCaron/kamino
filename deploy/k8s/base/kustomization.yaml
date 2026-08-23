@@ -3,5 +3,6 @@ kind: Kustomization
 resources:
   - api-deployment.yaml
   - api-service.yaml
+  - api-networkpolicy.yaml
   - web-deployment.yaml
   - web-service.yaml

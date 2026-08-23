@@ -15,8 +15,63 @@ export type PodAudiencePrincipal = {
 export type PodAudience = Array<PodAudiencePrincipal>
 export type PodCreator = PodAudiencePrincipal
 
-// Cloneable catalog/template metadata.
+// Public catalog list summary. Returned by GET /pods/catalog.
+export interface PodCatalogSummary {
+  id: UUID
+  title: string
+  slug: string
+  description: string
+  image: string
+  creators: Array<PodCreator>
+  created_at: string
+  clone_count: number
+}
+
+// Public pod detail. Returned by GET /pods/catalog/:slug.
 export interface Pod {
+  id: UUID
+  title: string
+  slug: string
+  description: string
+  image: string
+  creators: Array<PodCreator>
+  created_at: string
+  clone_count: number
+  tasks: Array<PodTask>
+}
+
+export interface PublishedPodVirtualMachine {
+  id: UUID
+  name: string
+  cpuCount: number
+  memoryGb: number
+  storageGb: number
+  is_router?: boolean
+  segment_key?: string | null
+  host_octet?: number | null
+  permissions: {
+    allowMask: number
+    denyMask: number
+  }
+}
+
+export interface PublishedPodTaskQuestion {
+  id: UUID
+  title: string
+  answerOutline: string
+  description?: string
+  hint?: string
+}
+
+export interface PublishedPodTask {
+  id: UUID
+  title: string
+  content: string
+  questions: Array<PublishedPodTaskQuestion>
+}
+
+// Manager catalog/editing entry. Returned by /pods/published endpoints.
+export interface PublishedPodCatalogEntry {
   id: UUID
   title: string
   slug: string
@@ -27,23 +82,9 @@ export interface Pod {
   clone_count: number
   status: PodStatus
   audience: PodAudience
-  tasks?: Array<PodTask>
-}
-
-export interface PublishedPodVirtualMachine {
-  id: UUID
-  name: string
-  cpuCount: number
-  memoryGb: number
-  storageGb: number
-  permissions: {
-    allowMask: number
-    denyMask: number
-  }
-}
-
-export interface PublishedPodCatalogEntry extends Pod {
+  tasks?: Array<PublishedPodTask>
   source_folder: string
+  clone_target_key: string
   virtual_machines: Array<PublishedPodVirtualMachine>
 }
 
@@ -53,6 +94,12 @@ export interface PodVM {
   status: string
   resources: VmResources
   uptime?: number
+  cpu_count?: number
+  memory_mb?: number
+  disk_gb?: number
+  host_octet?: number
+  is_router?: boolean
+  segment_key?: string | null
   inventory: {
     itemId: string
   }
@@ -60,12 +107,36 @@ export interface PodVM {
 
 export type ClonedPodStatus = "running" | "stopped" | "partial"
 
-export interface ClonedPodNetwork {
+export type PodPowerResult = {
+  action: "start" | "shutdown"
+  status: "succeeded" | "partial" | "failed"
+}
+
+export interface ClonedPodNetworkPrefixNAT {
+  external: string
+  internal: string
+}
+
+interface ClonedPodNetworkBase {
   number: number
   vnet: string
   external_subnet: string
+  external_gateway?: string
   internal_subnet: string
+  internal_gateway?: string
+  lan_vlan_tag?: number
+  prefix_nat?: ClonedPodNetworkPrefixNAT
 }
+
+export type ClonedPodNetwork =
+  | (ClonedPodNetworkBase & { profile_key: "lan-router-v1" })
+  | (ClonedPodNetworkBase & {
+      profile_key: "lan-dmz-router-v1"
+      dmz_vnet: string
+      dmz_subnet: string
+      dmz_gateway?: string
+      dmz_vlan_tag?: number
+    })
 
 // User-owned runtime instance of a pod.
 export interface ClonedPod {
@@ -76,14 +147,15 @@ export interface ClonedPod {
   status: ClonedPodStatus
   network: ClonedPodNetwork
   vms: Array<PodVM>
-  task_summary: ClonedPodTaskSummary
+  question_summary: ClonedPodQuestionSummary
   task_states: Array<ClonedPodTaskState>
   question_answers: Array<PodTaskQuestionAnswer>
+  power_result?: PodPowerResult
 }
 
-export interface ClonedPodTaskSummary {
+export interface ClonedPodQuestionSummary {
   total: number
-  completed: number
+  answered: number
   progress: number
 }
 
@@ -103,7 +175,7 @@ export interface PodTask {
 export interface PodTaskQuestion {
   id: UUID
   title: string
-  answerOutline?: string
+  answerMask?: string
   description?: string
   hint?: string
 }
@@ -137,5 +209,6 @@ export interface PublishedPodCloneSummary {
   status: ClonedPodStatus
   network: ClonedPodNetwork
   vm_count: number
-  task_summary: ClonedPodTaskSummary
+  question_summary: ClonedPodQuestionSummary
+  power_result?: PodPowerResult
 }

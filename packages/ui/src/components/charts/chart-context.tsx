@@ -19,10 +19,14 @@ import type { ReferenceAreaConfig } from "./reference-area-config";
 import type { ChartSelection } from "./use-chart-interaction";
 import type { YDomain } from "./y-domain-utils";
 
-type ScaleLinear<TOutput = number> = ReturnType<typeof scaleLinear<TOutput>>;
-type ScaleTime<TOutput = number> = ReturnType<typeof scaleTime<TOutput>>;
-type ScaleBand<TDomain extends { toString: () => string }> = ReturnType<
-  typeof scaleBand<TDomain>
+type ScaleLinear<Output, _Input = number> = ReturnType<
+  typeof scaleLinear<Output>
+>;
+type ScaleTime<Output, _Input = Date | number> = ReturnType<
+  typeof scaleTime<Output>
+>;
+type ScaleBand<Domain extends { toString: () => string }> = ReturnType<
+  typeof scaleBand<Domain>
 >;
 
 // CSS variable references for theming
@@ -45,16 +49,8 @@ export const chartCssVars = {
   segmentBackground: "var(--chart-segment-background)",
   segmentLine: "var(--chart-segment-line)",
   brushBorder: "var(--chart-brush-border)",
+  tooltipBackground: "var(--card)",
 };
-
-/** Default scatter series colors from the chart palette (`--chart-1` … `--chart-5`). */
-export const defaultScatterColors = [
-  "var(--chart-1)",
-  "var(--chart-2)",
-  "var(--chart-3)",
-  "var(--chart-4)",
-  "var(--chart-5)",
-] as const;
 
 export interface Margin {
   top: number;
@@ -120,11 +116,11 @@ export interface ChartContextValue extends ChartHoverContextValue {
   renderData: Array<Record<string, unknown>>;
 
   // Scales
-  xScale: ScaleTime<number>;
+  xScale: ScaleTime<number, number>;
   /** Primary (left) y-scale — alias for `yScales[DEFAULT_Y_AXIS_ID]`. */
-  yScale: ScaleLinear<number>;
+  yScale: ScaleLinear<number, number>;
   /** Per-axis y-scales keyed by `yAxisId`. */
-  yScales: Record<string, ScaleLinear<number>>;
+  yScales: Record<string, ScaleLinear<number, number>>;
 
   // Dimensions
   width: number;
@@ -193,6 +189,8 @@ export interface ChartContextValue extends ChartHoverContextValue {
   stacked?: boolean;
   /** Stack offsets: Map of data index -> Map of dataKey -> cumulative offset */
   stackOffsets?: Map<number, Map<string, number>>;
+  /** Squares variant — snap tooltip to top square and size ring dots. */
+  squareSnap?: { squareGap: number; groupGap?: number; fit?: boolean };
 
   // ComposedChart + SeriesBar (optional)
   /** `SeriesBar` dataKeys in tree order, for grouped columns at each x */
@@ -381,7 +379,7 @@ export function useChartStable(): ChartStableContextValue {
 /** Y-scale for a series axis (`yAxisId` on Line / Area / YAxis). */
 export function useYScale(
   yAxisId?: string | number
-): ScaleLinear<number> {
+): ScaleLinear<number, number> {
   const { yScales, yScale } = useChartStable();
   const id =
     yAxisId == null || yAxisId === "" ? DEFAULT_Y_AXIS_ID : String(yAxisId);
@@ -418,5 +416,3 @@ export function useChart(): ChartContextValue {
   // re-rendering on hover.
   return { ...stable, ...hover };
 }
-
-export default ChartStableContext;

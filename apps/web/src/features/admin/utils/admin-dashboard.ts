@@ -101,12 +101,112 @@ export function statusBadgeVariant(status: string): "default" | "destructive" {
   return status === "online" ? "default" : "destructive"
 }
 
-function sumStorage(storages: Array<ApiStorage> | undefined): Capacity {
+export type SharedStorageCapacity = Capacity & {
+  storage: string
+  type: string
+  nodes: Array<string>
+}
+
+type SharedStorageAccumulator = {
+  storage: string
+  type: string
+  nodes: Set<string>
+  total: number
+  used: number
+}
+
+export type DashboardStorageSummary = {
+  localByNode: Map<string, Capacity>
+  shared: Array<SharedStorageCapacity>
+  localTotal: Capacity
+  sharedTotal: Capacity
+  clusterTotal: Capacity
+}
+
+const SHARED_STORAGE_TYPES = new Set([
+  "nfs",
+  "cifs",
+  "cephfs",
+  "rbd",
+  "iscsi",
+  "iscsidirect",
+  "glusterfs",
+])
+
+function sharedStorageKey(storage: ApiStorage) {
+  return `${storage.type.toLowerCase()}:${storage.storage}`
+}
+
+export function sharedStorageHistoryKey(storage: {
+  type: string
+  storage: string
+}) {
+  return `${storage.type.toLowerCase()}:${storage.storage}`
+}
+
+export function isSharedStorage(
+  storage: ApiStorage,
+  sharedStorageNames: ReadonlySet<string> = new Set()
+) {
+  if (storage.kamino_shared !== undefined) {
+    return storage.kamino_shared
+  }
+  if (sharedStorageNames.size > 0) {
+    return sharedStorageNames.has(storage.storage)
+  }
+  if (storage.shared === 1) {
+    return true
+  }
+  return SHARED_STORAGE_TYPES.has(storage.type.toLowerCase())
+}
+
+function wouldBeSharedStorageByHeuristic(storage: ApiStorage) {
+  if (storage.shared === 1) {
+    return true
+  }
+  return SHARED_STORAGE_TYPES.has(storage.type.toLowerCase())
+}
+
+export function isExcludedStorage(
+  storage: ApiStorage,
+  sharedStorageNames: ReadonlySet<string> = new Set()
+) {
+  if (storage.kamino_excluded !== undefined) {
+    return storage.kamino_excluded
+  }
+  if (sharedStorageNames.size === 0) {
+    return false
+  }
+  if (sharedStorageNames.has(storage.storage)) {
+    return false
+  }
+  return wouldBeSharedStorageByHeuristic(storage)
+}
+
+function isNodeLocalStorage(
+  storage: ApiStorage,
+  sharedStorageNames: ReadonlySet<string>
+) {
+  return (
+    !isSharedStorage(storage, sharedStorageNames) &&
+    !isExcludedStorage(storage, sharedStorageNames)
+  )
+}
+
+function sumLocalStorage(
+  storages: Array<ApiStorage> | undefined,
+  sharedStorageNames: ReadonlySet<string>
+): Capacity {
   return (storages ?? []).reduce<Capacity>(
-    (capacity, storage) => ({
-      total: capacity.total + storage.total,
-      used: capacity.used + storage.used,
-    }),
+    (capacity, storage) => {
+      if (!isNodeLocalStorage(storage, sharedStorageNames)) {
+        return capacity
+      }
+      return {
+        total: capacity.total + storage.total,
+        used: capacity.used + storage.used,
+      }
+    },
     { total: 0, used: 0 }
   )
 }
@@ -123,29 +223,79 @@ function sumCapacities(capacities: Iterable<Capacity>): Capacity {
   return { total, used }
 }
 
-export function buildStorageByNode(
+export function buildStorageSummary(
   nodes: Array<ApiNode>,
-  storagesByNode: Array<Array<ApiStorage> | undefined>
-) {
-  const result = new Map<string, Capacity>()
+  storagesByNode: Array<Array<ApiStorage> | undefined>,
+  sharedStorageNames: ReadonlySet<string> = new Set()
+): DashboardStorageSummary {
+  const localByNode = new Map<string, Capacity>()
+  const sharedByKey = new Map<string, SharedStorageAccumulator>()
 
   nodes.forEach((node, index) => {
-    result.set(node.node, sumStorage(storagesByNode[index]))
+    localByNode.set(
+      node.node,
+      sumLocalStorage(storagesByNode[index], sharedStorageNames)
+    )
+
+    for (const storage of storagesByNode[index] ?? []) {
+      if (!isSharedStorage(storage, sharedStorageNames)) {
+        continue
+      }
+
+      const key = sharedStorageKey(storage)
+      const existing = sharedByKey.get(key)
+      if (!existing) {
+        sharedByKey.set(key, {
+          storage: storage.storage,
+          type: storage.type,
+          nodes: new Set([node.node]),
+          total: storage.total,
+          used: storage.used,
+        })
+        continue
+      }
+
+      existing.nodes.add(node.node)
+      existing.total = Math.max(existing.total, storage.total)
+      existing.used = Math.max(existing.used, storage.used)
+    }
   })
 
-  return result
+  const shared = [...sharedByKey.values()]
+    .map((entry) => ({
+      storage: entry.storage,
+      type: entry.type,
+      nodes: [...entry.nodes],
+      total: entry.total,
+      used: entry.used,
+    }))
+    .toSorted((left, right) => left.storage.localeCompare(right.storage))
+  const localTotal = sumCapacities(localByNode.values())
+  const sharedTotal = sumCapacities(shared)
+  const clusterTotal = {
+    total: localTotal.total + sharedTotal.total,
+    used: localTotal.used + sharedTotal.used,
+  }
+
+  return {
+    localByNode,
+    shared,
+    localTotal,
+    sharedTotal,
+    clusterTotal,
+  }
 }
 
 export function getClusterCapacitySummary(
   nodes: Array<ApiNode>,
-  storageByNode: Map<string, Capacity>
+  storageSummary: DashboardStorageSummary
 ) {
   return {
     cpuTotal: nodes.reduce((total, node) => total + node.maxcpu, 0),
     cpuUsed: nodes.reduce((total, node) => total + node.cpu * node.maxcpu, 0),
     memoryTotal: nodes.reduce((total, node) => total + node.maxmem, 0),
     memoryUsed: nodes.reduce((total, node) => total + node.mem, 0),
-    storage: sumCapacities(storageByNode.values()),
+    storage: storageSummary.clusterTotal,
   }
 }
 

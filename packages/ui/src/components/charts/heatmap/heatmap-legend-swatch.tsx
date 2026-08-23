@@ -1,37 +1,40 @@
-import { memo } from "react"
-import { renderPatternPreset } from "../pattern-preset"
+"use client";
+
+import { memo } from "react";
+import { renderPatternPreset } from "../pattern-preset";
 import {
+  
   heatmapLevelPatternId,
   heatmapLevelPatternRenderOptions,
-  isHeatmapLevelPattern,
-} from "./heatmap-colors"
-import type { HeatmapLevelStyle } from "./heatmap-colors"
+  isHeatmapLevelPattern
+} from "./heatmap-colors";
+import type {HeatmapLevelStyle} from "./heatmap-colors";
 
-export const HeatmapLegendSwatch = memo(function HeatmapLegendSwatchComponent({
+export const HeatmapLegendSwatch = memo(function HeatmapLegendSwatch({
   level,
   style,
   cellSize,
   cornerRadius,
 }: {
-  level: number
-  style: HeatmapLevelStyle
-  cellSize: number
-  cornerRadius: number
+  level: number;
+  style: HeatmapLevelStyle;
+  cellSize: number;
+  cornerRadius: number;
 }) {
   const shellStyle = {
     width: cellSize,
     height: cellSize,
     borderRadius: cornerRadius,
-  }
+  };
 
   if (isHeatmapLevelPattern(style) && style.pattern) {
-    const patternId = heatmapLevelPatternId(level)
+    const patternId = heatmapLevelPatternId(level);
     const patternNode = renderPatternPreset(
       style.pattern,
       patternId,
       heatmapLevelPatternRenderOptions(style)
-    )
-    const opacity = style.patternOpacity ?? 1
+    );
+    const opacity = style.patternOpacity ?? 1;
 
     return (
       <span
@@ -54,7 +57,7 @@ export const HeatmapLegendSwatch = memo(function HeatmapLegendSwatchComponent({
           />
         </svg>
       </span>
-    )
+    );
   }
 
   return (
@@ -68,7 +71,7 @@ export const HeatmapLegendSwatch = memo(function HeatmapLegendSwatchComponent({
         boxSizing: "border-box",
       }}
     />
-  )
-})
+  );
+});
 
-HeatmapLegendSwatch.displayName = "HeatmapLegendSwatch"
+HeatmapLegendSwatch.displayName = "HeatmapLegendSwatch";

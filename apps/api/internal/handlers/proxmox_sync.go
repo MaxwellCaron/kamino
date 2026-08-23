@@ -21,7 +21,7 @@ type ProxmoxSyncHandler struct {
 func (h *ProxmoxSyncHandler) requireAdmin(c *gin.Context) bool {
 	principalID, ok := currentPrincipalID(c)
 	if !ok {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "authentication required"})
+		writeUnauthorized(c)
 		return false
 	}
 	return requireManagementPermission(c, h.Authz, principalID, authorization.ManagementPermissionAdministrator)
@@ -50,9 +50,7 @@ type syncApplyResponse struct {
 	Skipped int                       `json:"skipped"`
 }
 
-// Apply re-derives the live diff, applies the selected changes, then notifies
-// the inventory tree and schedules a mirror reconcile.
-// POST /api/v1/admin/proxmox/sync/apply
+// Apply imports selected live Proxmox changes into Kamino.
 func (h *ProxmoxSyncHandler) Apply(c *gin.Context) {
 	if !h.requireAdmin(c) {
 		return

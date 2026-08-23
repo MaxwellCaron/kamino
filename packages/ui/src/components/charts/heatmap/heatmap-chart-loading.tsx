@@ -1,27 +1,29 @@
-import { useMemo } from "react"
-import { generateHeatmapSkeletonFromTarget } from "./generate-heatmap-skeleton-data"
-import { HeatmapCells } from "./heatmap-cells"
-import { HeatmapChart } from "./heatmap-chart"
-import { HeatmapXAxis } from "./heatmap-x-axis"
-import { HeatmapYAxis } from "./heatmap-y-axis"
-import type { Margin } from "../chart-context"
-import type { HeatmapColumn } from "./heatmap-context"
+"use client";
+
+import { useMemo } from "react";
+import { generateHeatmapSkeletonFromTarget } from "./generate-heatmap-skeleton-data";
+import { HeatmapCells } from "./heatmap-cells";
+import { HeatmapChart } from "./heatmap-chart";
+import { HeatmapXAxis } from "./heatmap-x-axis";
+import { HeatmapYAxis } from "./heatmap-y-axis";
+import type { HeatmapColumn } from "./heatmap-context";
+import type { Margin } from "../chart-context";
 
 export interface HeatmapChartLoadingProps {
   /** Target column data used to size the skeleton grid. */
-  data: Array<HeatmapColumn>
+  data: Array<HeatmapColumn>;
   /** Visible time range — filters week columns that overlap the domain. */
-  xDomain?: [Date, Date]
+  xDomain?: [Date, Date];
   /** Chart margins */
-  margin?: Partial<Margin>
+  margin?: Partial<Margin>;
   /** Gap between cells in pixels. Default: 2 */
-  gap?: number
+  gap?: number;
   /** Corner radius for each cell. Default: 2 */
-  cornerRadius?: number
+  cornerRadius?: number;
   /** Centered shimmer label text. Default: "Loading" */
-  label?: string
+  label?: string;
   /** Additional class name for the container */
-  className?: string
+  className?: string;
 }
 
 export function HeatmapChartLoading({
@@ -36,7 +38,7 @@ export function HeatmapChartLoading({
   const skeletonData = useMemo(
     () => generateHeatmapSkeletonFromTarget(data),
     [data]
-  )
+  );
 
   return (
     <HeatmapChart
@@ -52,7 +54,7 @@ export function HeatmapChartLoading({
       <HeatmapXAxis />
       <HeatmapYAxis />
     </HeatmapChart>
-  )
+  );
 }
 
-export default HeatmapChartLoading
+export default HeatmapChartLoading;

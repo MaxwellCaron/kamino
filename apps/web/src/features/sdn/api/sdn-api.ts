@@ -1,42 +1,100 @@
-import type { ApiSDNZone, ApiVNet } from "../types/sdn-types"
+import type {
+  ApiCreateVNetsResponse,
+  ApiSDNZone,
+  ApiVNet,
+  CreateVNetInput,
+} from "../types/sdn-types"
 import type { ApiBulkDeleteResponse } from "@/features/shared/types/api-types"
-import { apiFetch } from "@/features/auth/api/auth-api"
+import { apiJson, apiVoid } from "@/features/shared/api/api-json"
+
+export const BULK_CREATE_VNETS_CHUNK_SIZE = 50
+
+function chunkCreateVNetInputs(
+  params: Array<CreateVNetInput>
+): Array<Array<CreateVNetInput>> {
+  const chunks: Array<Array<CreateVNetInput>> = []
+  for (
+    let index = 0;
+    index < params.length;
+    index += BULK_CREATE_VNETS_CHUNK_SIZE
+  ) {
+    chunks.push(params.slice(index, index + BULK_CREATE_VNETS_CHUNK_SIZE))
+  }
+  return chunks
+}
+
+function applySearchParam(options?: { apply?: boolean }) {
+  return options?.apply === false ? "?apply=false" : ""
+}
 
 export const vnetsQueryOptions = {
   queryKey: ["sdn", "vnets"] as const,
-  queryFn: async (): Promise<Array<ApiVNet>> => {
-    const res = await apiFetch("/api/v1/sdn/vnets")
-    if (!res.ok) throw new Error(`Failed to fetch VNets: ${res.status}`)
-    return res.json()
-  },
+  queryFn: (): Promise<Array<ApiVNet>> =>
+    apiJson<Array<ApiVNet>>("/api/v1/sdn/vnets", "fetch VNets"),
 }
 
 export const sdnZonesQueryOptions = {
   queryKey: ["sdn", "zones"] as const,
-  queryFn: async (): Promise<Array<ApiSDNZone>> => {
-    const res = await apiFetch("/api/v1/sdn/zones")
-    if (!res.ok) throw new Error(`Failed to fetch SDN zones: ${res.status}`)
-    return res.json()
-  },
+  queryFn: (): Promise<Array<ApiSDNZone>> =>
+    apiJson<Array<ApiSDNZone>>("/api/v1/sdn/zones", "fetch SDN zones"),
 }
 
-export async function createVNet(params: {
-  vnet: string
-  zone: string
-  tag?: number
-  alias?: string
-  vlanaware?: boolean
-  isolate_ports?: boolean
-}): Promise<void> {
-  const res = await apiFetch("/api/v1/sdn/vnets", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(params),
-  })
-  if (!res.ok) {
-    const body = await res.json().catch(() => ({}))
-    throw new Error(body.error ?? `Failed to create VNet: ${res.status}`)
+export async function createVNet(
+  params: CreateVNetInput,
+  options?: { apply?: boolean }
+): Promise<void> {
+  await apiVoid(
+    `/api/v1/sdn/vnets${applySearchParam(options)}`,
+    "create VNet",
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(params),
+    }
+  )
+}
+
+export async function createVNets(
+  params: Array<CreateVNetInput>,
+  options?: { apply?: boolean }
+): Promise<ApiCreateVNetsResponse> {
+  return apiJson<ApiCreateVNetsResponse>(
+    `/api/v1/sdn/vnets/bulk${applySearchParam(options)}`,
+    "create VNets",
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ vnets: params }),
+    }
+  )
+}
+
+export async function createVNetsInChunks(
+  params: Array<CreateVNetInput>,
+  options?: { apply?: boolean },
+  onChunkResult?: (
+    chunk: Array<CreateVNetInput>,
+    result: ApiCreateVNetsResponse
+  ) => void
+): Promise<ApiCreateVNetsResponse> {
+  const results = await Promise.all(
+    chunkCreateVNetInputs(params).map(async (chunk) => {
+      const result = await createVNets(chunk, options)
+      onChunkResult?.(chunk, result)
+      return result
+    })
+  )
+
+  return {
+    created: results.flatMap((result) => result.created),
+    failed: results.flatMap((result) => result.failed),
   }
+}
+
+export async function applySDN(): Promise<void> {
+  await apiVoid("/api/v1/sdn/apply", "apply SDN configuration", {
+    method: "POST",
+  })
 }
 
 export async function updateVNet(
@@ -49,28 +107,24 @@ export async function updateVNet(
     isolate_ports?: boolean
   }
 ): Promise<void> {
-  const res = await apiFetch(`/api/v1/sdn/vnets/${vnet}`, {
+  await apiVoid(`/api/v1/sdn/vnets/${vnet}`, "update VNet", {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(params),
   })
-  if (!res.ok) {
-    const body = await res.json().catch(() => ({}))
-    throw new Error(body.error ?? `Failed to update VNet: ${res.status}`)
-  }
 }
 
 export async function deleteVNet(
-  vnets: Array<string>
+  vnets: Array<string>,
+  options?: { apply?: boolean }
 ): Promise<ApiBulkDeleteResponse> {
-  const res = await apiFetch("/api/v1/sdn/vnets", {
-    method: "DELETE",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ vnets }),
-  })
-  if (!res.ok) {
-    const body = await res.json().catch(() => ({}))
-    throw new Error(body.error ?? `Failed to delete VNets: ${res.status}`)
-  }
-  return res.json()
+  return apiJson<ApiBulkDeleteResponse>(
+    `/api/v1/sdn/vnets${applySearchParam(options)}`,
+    "delete VNets",
+    {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ vnets }),
+    }
+  )
 }

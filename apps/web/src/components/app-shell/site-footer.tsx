@@ -14,6 +14,7 @@ export function SiteFooter() {
             <a
               href="https://github.com/MaxwellCaron"
               target="_blank"
+              rel="noreferrer"
               className={`${buttonVariants({ variant: "link" })} px-1! text-foreground!`}
             >
               MaxwellCaron
@@ -22,6 +23,7 @@ export function SiteFooter() {
         </div>
         <Image
           src="/kamino.svg"
+          alt=""
           height={175}
           width={175}
           className="absolute -right-14 -bottom-20 hidden opacity-50 xl:block"

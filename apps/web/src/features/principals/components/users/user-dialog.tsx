@@ -1,23 +1,35 @@
 import * as React from "react"
 import { useForm } from "@tanstack/react-form"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import { Add01Icon, PencilEdit01Icon } from "@hugeicons/core-free-icons"
+import {
+  Add01Icon,
+  NotebookIcon,
+  PencilEdit01Icon,
+  RegexIcon,
+  UserIcon,
+} from "@hugeicons/core-free-icons"
+import { HugeiconsIcon } from "@hugeicons/react"
 import { DialogFooter } from "@workspace/ui/components/dialog"
+import { FieldError } from "@workspace/ui/components/field"
+import { Tabs, TabsTrigger } from "@workspace/ui/components/tabs"
 import type {
   ApiBulkCreateResponse,
   ApiPrincipal,
+  ApiPrincipalProviderCapabilities,
   CreateUserInput,
 } from "@/features/principals/types/principals-types"
 import type { CreateMode } from "@/features/principals/components/users/user-dialog-utils"
 import { formatPrincipalReference } from "@/components/principals/principal-label"
 import {
   AppDialog,
+  AppDialogHeaderTabs,
   AppDialogPrimaryButton,
+  AppDialogScrollBody,
   nestedDialogAnimationClassName,
 } from "@/components/dialogs/app-dialog"
 import {
-  showMutationToast,
   showSingleMutationToast,
+  showUnitMutationToast,
 } from "@/components/feedback/mutation-progress-toast"
 import { BulkCreateResultsSummary } from "@/features/principals/components/create-results-summary"
 import {
@@ -36,15 +48,20 @@ import {
 } from "@/features/principals/components/users/user-dialog-utils"
 
 export function UserDialog({
+  capabilities,
   user,
   open,
   onOpenChange,
 }: {
+  capabilities?: ApiPrincipalProviderCapabilities
   user?: ApiPrincipal
   open: boolean
   onOpenChange: (open: boolean) => void
 }) {
   const isEdit = !!user
+  const requireCreatePassword = capabilities?.user_password_on_create ?? true
+  const canSetPasswords = capabilities?.can_set_passwords ?? true
+  const canRenameUsers = capabilities?.can_rename_users ?? true
   const queryClient = useQueryClient()
   const { data: groups } = useQuery(groupsQueryOptions)
   const [mode, setMode] = React.useState<CreateMode>("single")
@@ -77,7 +94,7 @@ export function UserDialog({
           full_name: parsed.fullName,
           description: normalizeDescription(parsed.description ?? ""),
         })
-        if (parsed.password) {
+        if (parsed.password && canSetPasswords) {
           await setUserPassword(user.id, parsed.password)
         }
         return null
@@ -97,7 +114,7 @@ export function UserDialog({
 
       await invalidatePrincipals
       if (result.failures.length > 0) {
-        setResultSummary(result)
+        setResultSummary(() => result)
       }
     },
   })
@@ -118,7 +135,12 @@ export function UserDialog({
         return
       }
 
-      const payload = buildCreateUsers(mode, value, selectedGroupIds)
+      const payload = buildCreateUsers(
+        mode,
+        value,
+        selectedGroupIds,
+        requireCreatePassword
+      )
       const createUsers = async (inputs: Array<CreateUserInput>) => {
         const result = await mutation.mutateAsync(inputs)
         if (result === null) {
@@ -131,44 +153,24 @@ export function UserDialog({
         input,
       }))
 
-      showMutationToast({
+      showUnitMutationToast({
         title: "Creating users",
-        items: userItems.map(({ id, input }) => ({
-          id,
-          name: input.username,
-          successDescription: "Created",
-          retry: async () => {
+        units: userItems.map(({ id, input }) => ({
+          items: [
+            {
+              id,
+              name: input.username,
+              successDescription: "Created",
+            },
+          ],
+          run: async () => {
             const result = await createUsers([input])
             const failure = result.failures.at(0)
-            if (failure !== undefined) throw new Error(failure.error)
+            if (failure) {
+              return { failed: [{ id, error: failure.error }] }
+            }
           },
         })),
-        runMutation: async () => {
-          const result = await createUsers(payload)
-          const errorsByUsername = new Map<string, Array<string>>()
-
-          for (const failure of result.failures) {
-            const errors = errorsByUsername.get(failure.name) ?? []
-            errors.push(failure.error)
-            errorsByUsername.set(failure.name, errors)
-          }
-
-          const succeeded: Array<string> = []
-          const failed: Array<{ id: string; error: string }> = []
-
-          for (const { id, input } of userItems) {
-            const errors = errorsByUsername.get(input.username)
-            const error = errors?.shift()
-
-            if (error) {
-              failed.push({ id, error })
-            } else {
-              succeeded.push(id)
-            }
-          }
-
-          return { succeeded, failed }
-        },
       })
     },
   })
@@ -184,66 +186,116 @@ export function UserDialog({
     setResultSummary(null)
   }, [resetFields])
 
-  return (
-    <AppDialog
-      open={open}
-      onOpenChange={onOpenChange}
-      onClosed={resetDialog}
-      initialFocus={false}
-      className={nestedDialogAnimationClassName}
-      icon={isEdit ? PencilEdit01Icon : Add01Icon}
-      title={isEdit ? "Edit User" : "Create Users"}
-      description={
-        isEdit
-          ? `Update the user account details for ${formatPrincipalReference(user)}.`
-          : "Create one or more user accounts in Kamino."
-      }
+  const dialogProps = {
+    open,
+    onOpenChange,
+    onClosed: resetDialog,
+    className: nestedDialogAnimationClassName,
+    icon: isEdit ? PencilEdit01Icon : Add01Icon,
+    title: isEdit ? "Edit User" : "Create Users",
+    description: isEdit
+      ? `Update the user account details for ${formatPrincipalReference(user)}.`
+      : "Create one or more user accounts in Kamino.",
+  }
+
+  const formContent = (
+    <form
+      action={() => {
+        void form.handleSubmit()
+      }}
     >
-      <form
-        action={() => {
-          void form.handleSubmit()
-        }}
-      >
+      <AppDialogScrollBody>
         {isEdit ? (
-          <UserDialogEditForm form={form} />
+          <UserDialogEditForm
+            canRenameUsers={canRenameUsers}
+            canSetPasswords={canSetPasswords}
+            form={form}
+          />
         ) : (
           <UserDialogCreateForm
             form={form}
             groupItems={groupItems}
             groupOptionMap={groupOptionMap}
             mode={mode}
+            requirePassword={requireCreatePassword}
             selectedGroupIds={selectedGroupIds}
-            setMode={setMode}
             setSelectedGroupIds={setSelectedGroupIds}
           />
         )}
+      </AppDialogScrollBody>
 
-        <DialogFooter className="mt-6">
-          <form.Subscribe selector={(state) => state.isSubmitting}>
-            {(isSubmitting) => (
-              <AppDialogPrimaryButton
-                pending={isSubmitting}
-                pendingLabel={isEdit ? "Saving..." : "Creating..."}
-              >
-                {isEdit ? "Save" : "Create"}
-              </AppDialogPrimaryButton>
-            )}
-          </form.Subscribe>
-        </DialogFooter>
-      </form>
+      <form.Subscribe selector={(state) => state.canSubmit}>
+        {(canSubmit) =>
+          canSubmit ? null : (
+            <FieldError>Correct the highlighted fields to continue.</FieldError>
+          )
+        }
+      </form.Subscribe>
 
-      {resultSummary ? (
-        <BulkCreateResultsSummary
-          entityLabel="user"
-          open={true}
-          onOpenChange={(nextOpen) => {
-            if (!nextOpen) {
-              setResultSummary(null)
-            }
-          }}
-          result={resultSummary}
-        />
-      ) : null}
-    </AppDialog>
+      <DialogFooter>
+        <form.Subscribe selector={(state) => state.isSubmitting}>
+          {(isSubmitting) => (
+            <AppDialogPrimaryButton pending={isSubmitting}>
+              {isEdit ? "Save" : "Create"}
+            </AppDialogPrimaryButton>
+          )}
+        </form.Subscribe>
+      </DialogFooter>
+    </form>
+  )
+
+  const resultSummaryDialog = resultSummary ? (
+    <BulkCreateResultsSummary
+      entityLabel="user"
+      open={true}
+      onOpenChange={(nextOpen) => {
+        if (!nextOpen) {
+          setResultSummary(null)
+        }
+      }}
+      result={resultSummary}
+    />
+  ) : null
+
+  if (isEdit) {
+    return (
+      <>
+        <AppDialog {...dialogProps}>{formContent}</AppDialog>
+        {resultSummaryDialog}
+      </>
+    )
+  }
+
+  return (
+    <>
+      <Tabs
+        value={mode}
+        onValueChange={(value) => setMode(value as CreateMode)}
+        className="gap-0"
+      >
+        <AppDialog
+          {...dialogProps}
+          headerAfter={
+            <AppDialogHeaderTabs>
+              <TabsTrigger value="single">
+                <HugeiconsIcon icon={UserIcon} />
+                Single
+              </TabsTrigger>
+              <TabsTrigger value="list">
+                <HugeiconsIcon icon={NotebookIcon} />
+                List
+              </TabsTrigger>
+              <TabsTrigger value="prefix">
+                <HugeiconsIcon icon={RegexIcon} />
+                Prefix
+              </TabsTrigger>
+            </AppDialogHeaderTabs>
+          }
+        >
+          {formContent}
+        </AppDialog>
+      </Tabs>
+      {resultSummaryDialog}
+    </>
   )
 }

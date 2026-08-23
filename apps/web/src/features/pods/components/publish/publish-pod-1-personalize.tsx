@@ -89,9 +89,13 @@ export function PublishPodPersonalizeStep({
                         }
                         maxLength={32}
                         aria-invalid={isInvalid || undefined}
+                        aria-errormessage={
+                          isInvalid ? "publish-pod-title-error" : undefined
+                        }
                         placeholder="e.g. Modern Web Development"
                       />
                       <FieldError
+                        id="publish-pod-title-error"
                         errors={showValidation ? field.state.meta.errors : []}
                       />
                     </FieldContent>
@@ -224,7 +228,7 @@ export function PublishPodPersonalizeStep({
                             field.handleChange(event.target.value)
                           }
                           aria-invalid={isInvalid || undefined}
-                          placeholder="https://images.unsplash.com/..."
+                          placeholder="https://i.imgur.com/..."
                         />
                       </InputGroup>
                       <FieldError

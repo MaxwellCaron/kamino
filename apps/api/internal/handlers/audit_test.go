@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"context"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -8,10 +9,25 @@ import (
 
 	"github.com/MaxwellCaron/kamino/database"
 	"github.com/MaxwellCaron/kamino/internal/audit"
+	"github.com/MaxwellCaron/kamino/internal/authorization"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
 )
+
+// fakeAuditAuthz records the requested management permission and returns a
+// configured error, so tests can assert the exact grant without a database.
+type fakeAuditAuthz struct {
+	requireErr          error
+	requestedPermission authorization.ManagementPermission
+}
+
+func (f *fakeAuditAuthz) RequireManagement(_ context.Context, _ uuid.UUID, required authorization.ManagementPermission) error {
+	f.requestedPermission = required
+	return f.requireErr
+}
+
+var _ auditAuthz = (*fakeAuditAuthz)(nil)
 
 func setupAuditTestRouter(handler *AuditHandler, withUser bool) *gin.Engine {
 	gin.SetMode(gin.TestMode)
@@ -41,18 +57,51 @@ func TestAuditListRequiresAuth(t *testing.T) {
 	}
 }
 
-func TestAuditListRequiresUser(t *testing.T) {
+func TestAuditListRequiresAdministrator(t *testing.T) {
+	authz := &fakeAuditAuthz{requireErr: authorization.ErrForbidden}
 	handler := &AuditHandler{
 		Audit: &audit.Service{},
+		Authz: authz,
 	}
-	router := setupAuditTestRouter(handler, false)
+	router := setupAuditTestRouter(handler, true)
 
 	w := httptest.NewRecorder()
 	req, _ := http.NewRequest("GET", "/api/v1/admin/audit/actions", nil)
 	router.ServeHTTP(w, req)
 
-	if w.Code != http.StatusUnauthorized {
-		t.Errorf("expected 401 when no user context, got %d", w.Code)
+	if w.Code != http.StatusForbidden {
+		t.Errorf("expected 403, got %d", w.Code)
+	}
+	if authz.requestedPermission != authorization.ManagementPermissionAdministrator {
+		t.Errorf("expected Administrator to be requested, got %q", authz.requestedPermission)
+	}
+}
+
+func TestAuditRequireAdministratorGrantsOnAdministrator(t *testing.T) {
+	authz := &fakeAuditAuthz{}
+	handler := &AuditHandler{Authz: authz}
+
+	gin.SetMode(gin.TestMode)
+	r := gin.New()
+	r.Use(func(c *gin.Context) {
+		c.Set("userID", uuid.New())
+		c.Next()
+	})
+
+	var allowed bool
+	r.GET("/api/v1/admin/audit/actions", func(c *gin.Context) {
+		allowed = handler.requireAdministrator(c)
+	})
+
+	w := httptest.NewRecorder()
+	req, _ := http.NewRequest("GET", "/api/v1/admin/audit/actions", nil)
+	r.ServeHTTP(w, req)
+
+	if !allowed {
+		t.Fatal("expected requireAdministrator to return true when authz grants access")
+	}
+	if authz.requestedPermission != authorization.ManagementPermissionAdministrator {
+		t.Errorf("expected Administrator to be requested, got %q", authz.requestedPermission)
 	}
 }
 

@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -25,6 +26,7 @@ var publishedPodProgress = newPublishPodProgressStore()
 type publishPodProgressSnapshot struct {
 	Type      string    `json:"type"`
 	ID        string    `json:"id"`
+	BatchID   string    `json:"batch_id,omitempty"`
 	State     string    `json:"state"`
 	StepID    int       `json:"step_id"`
 	Message   string    `json:"message"`
@@ -50,6 +52,27 @@ func (s *publishPodProgressStore) get(id string) (publishPodProgressSnapshot, bo
 
 	snapshot, ok := s.items[id]
 	return snapshot, ok
+}
+
+func (s *publishPodProgressStore) getBatch(batchID string) []publishPodProgressSnapshot {
+	batchID = strings.TrimSpace(batchID)
+	if batchID == "" {
+		return []publishPodProgressSnapshot{}
+	}
+
+	s.mu.RLock()
+	result := make([]publishPodProgressSnapshot, 0)
+	for _, snapshot := range s.items {
+		if snapshot.BatchID == batchID {
+			result = append(result, snapshot)
+		}
+	}
+	s.mu.RUnlock()
+
+	sort.Slice(result, func(i, j int) bool {
+		return result[i].ID < result[j].ID
+	})
+	return result
 }
 
 func (s *publishPodProgressStore) set(snapshot publishPodProgressSnapshot) {

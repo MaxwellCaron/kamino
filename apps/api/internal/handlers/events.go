@@ -1,13 +1,14 @@
 package handlers
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log"
 	"net/http"
 	"time"
 
-	"github.com/MaxwellCaron/kamino/internal/authorization"
 	"github.com/MaxwellCaron/kamino/internal/inventory"
 	"github.com/MaxwellCaron/kamino/internal/proxmox/vmstatus"
 	requestqueue "github.com/MaxwellCaron/kamino/internal/requests"
@@ -15,11 +16,24 @@ import (
 	"github.com/google/uuid"
 )
 
+// eventsAuthz is the narrow authorization seam EventsHandler depends on.
+type eventsAuthz interface {
+	IsManager(ctx context.Context, principalID uuid.UUID) (bool, error)
+	FilterVisibleStatuses(ctx context.Context, principalID uuid.UUID, statuses map[int]string) (map[int]string, error)
+}
+
+// eventsRequestService is the narrow request-queue seam EventsHandler depends on.
+type eventsRequestService interface {
+	EnsureQueueAccess(ctx context.Context, principalID uuid.UUID) error
+	Subscribe() (<-chan requestqueue.Event, func())
+}
+
 type EventsHandler struct {
 	InventoryNotifier *inventory.Notifier
 	VMNotifier        *vmstatus.Notifier
-	Requests          *requestqueue.Service
-	Authz             *authorization.Service
+	Requests          eventsRequestService
+	Authz             eventsAuthz
+	Sessions          liveSessionValidator
 }
 
 // Stream pushes dashboard-wide server events over a single authenticated SSE
@@ -27,7 +41,16 @@ type EventsHandler struct {
 func (h *EventsHandler) Stream(c *gin.Context) {
 	principalID, ok := currentPrincipalID(c)
 	if !ok {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "authentication required"})
+		writeUnauthorized(c)
+		return
+	}
+	sessionID, ok := currentSessionID(c)
+	if !ok {
+		writeUnauthorized(c)
+		return
+	}
+	if h.Sessions == nil {
+		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "events unavailable"})
 		return
 	}
 
@@ -79,17 +102,7 @@ func (h *EventsHandler) Stream(c *gin.Context) {
 	}
 
 	var requestEvents <-chan requestqueue.Event
-	canReviewRequests := false
 	if h.Requests != nil {
-		if err := h.Requests.EnsureQueueAccess(c.Request.Context(), principalID); err != nil {
-			if !errors.Is(err, requestqueue.ErrRequestForbidden) {
-				writeRequestServiceError(c, err, "authorize request event stream")
-				return
-			}
-		} else {
-			canReviewRequests = true
-		}
-
 		events, unsubscribe := h.Requests.Subscribe()
 		defer unsubscribe()
 		requestEvents = events
@@ -97,16 +110,9 @@ func (h *EventsHandler) Stream(c *gin.Context) {
 
 	var publishProgressEvents <-chan publishPodProgressSnapshot
 	if h.Authz != nil {
-		canManagePods, err := h.Authz.IsManager(c.Request.Context(), principalID)
-		if err != nil {
-			writeLoggedError(c, http.StatusInternalServerError, "authorization failed", "authorize publish progress event stream", err)
-			return
-		}
-		if canManagePods {
-			events, unsubscribe := publishedPodProgress.subscribe()
-			defer unsubscribe()
-			publishProgressEvents = events
-		}
+		events, unsubscribe := publishedPodProgress.subscribe()
+		defer unsubscribe()
+		publishProgressEvents = events
 	}
 
 	c.Header("Content-Type", "text/event-stream")
@@ -122,9 +128,24 @@ func (h *EventsHandler) Stream(c *gin.Context) {
 	}
 	flusher.Flush()
 
-	heartbeat := time.NewTicker(20 * time.Second)
+	heartbeat := time.NewTicker(liveCheckInterval)
 	defer heartbeat.Stop()
 
+	h.streamLoop(c, principalID, sessionID, flusher, inventoryEvents, vmEvents, requestEvents, publishProgressEvents, heartbeat.C)
+}
+
+// streamLoop is Stream's event pump, extracted so tests can inject fake channels.
+func (h *EventsHandler) streamLoop(
+	c *gin.Context,
+	principalID uuid.UUID,
+	sessionID uuid.UUID,
+	flusher http.Flusher,
+	inventoryEvents <-chan inventory.Event,
+	vmEvents <-chan vmstatus.Event,
+	requestEvents <-chan requestqueue.Event,
+	publishProgressEvents <-chan publishPodProgressSnapshot,
+	heartbeatTick <-chan time.Time,
+) {
 	for {
 		select {
 		case <-c.Request.Context().Done():
@@ -145,7 +166,7 @@ func (h *EventsHandler) Stream(c *gin.Context) {
 				continue
 			}
 
-			filteredStatuses, err := h.Authz.FilterVisibleStatuses(c.Request.Context(), principalID, event.Statuses)
+			filteredStatuses, err := h.filterVMStatuses(c.Request.Context(), principalID, event.Statuses)
 			if err != nil {
 				return
 			}
@@ -164,7 +185,12 @@ func (h *EventsHandler) Stream(c *gin.Context) {
 				requestEvents = nil
 				continue
 			}
-			if !canReceiveRequestEvent(principalID, canReviewRequests, event) {
+			send, err := h.authorizeRequestEvent(c.Request.Context(), principalID, event)
+			if err != nil {
+				log.Printf("sse request event authorization failed: %v", err)
+				return
+			}
+			if !send {
 				continue
 			}
 			if event.Type == "" {
@@ -179,31 +205,68 @@ func (h *EventsHandler) Stream(c *gin.Context) {
 				publishProgressEvents = nil
 				continue
 			}
+			isManager, err := h.authorizePublishProgressEvent(c.Request.Context(), principalID)
+			if err != nil {
+				log.Printf("sse publish progress authorization failed: %v", err)
+				return
+			}
+			if !isManager {
+				continue
+			}
 			if err := writeSSEvent(c.Writer, publishProgressEventType, event); err != nil {
 				return
 			}
 			flusher.Flush()
-		case <-heartbeat.C:
+		case <-heartbeatTick:
+			if err := h.Sessions.ValidateLiveSession(c.Request.Context(), sessionID, principalID); err != nil {
+				return
+			}
 			fmt.Fprint(c.Writer, ": heartbeat\n\n")
 			flusher.Flush()
 		}
 	}
 }
 
-func canReceiveRequestEvent(
+// authorizeRequestEvent reports whether to send event; a non-nil error means close the stream instead of skipping it.
+func (h *EventsHandler) authorizeRequestEvent(
+	ctx context.Context,
 	principalID uuid.UUID,
-	canReviewRequests bool,
 	event requestqueue.Event,
-) bool {
+) (send bool, err error) {
 	if event.RequestID == nil || event.RequesterPrincipalID == nil {
-		return false
+		return false, nil
 	}
-
 	if *event.RequesterPrincipalID == principalID {
-		return true
+		return true, nil
+	}
+	if h.Requests == nil {
+		return false, nil
 	}
 
-	return canReviewRequests
+	if qErr := h.Requests.EnsureQueueAccess(freshAuthzContext(ctx), principalID); qErr != nil {
+		if errors.Is(qErr, requestqueue.ErrRequestForbidden) {
+			return false, nil
+		}
+		return false, qErr
+	}
+	return true, nil
+}
+
+// filterVMStatuses recomputes visible VM statuses with a fresh principal cache each call.
+func (h *EventsHandler) filterVMStatuses(
+	ctx context.Context,
+	principalID uuid.UUID,
+	statuses map[int]string,
+) (map[int]string, error) {
+	return h.Authz.FilterVisibleStatuses(freshAuthzContext(ctx), principalID, statuses)
+}
+
+// authorizePublishProgressEvent rechecks Manager status fresh for every progress event.
+func (h *EventsHandler) authorizePublishProgressEvent(
+	ctx context.Context,
+	principalID uuid.UUID,
+) (bool, error) {
+	return h.Authz.IsManager(freshAuthzContext(ctx), principalID)
 }
 
 func writeSSEvent(w http.ResponseWriter, eventType string, event any) error {

@@ -5,6 +5,7 @@ import { RelativeTimeCard } from "@workspace/ui/components/relative-time-card"
 import { SnapshotTableRowActions } from "./snapshot-table-row-actions"
 import type { SnapshotTableRowActionsProps } from "./snapshot-table-row-actions"
 import type { ApiSnapshot } from "@/features/vms/types/vm-types"
+import type { AppTableFeatures } from "@/components/data-table/data-table-types"
 import type { ColumnDef } from "@tanstack/react-table"
 
 type SnapshotTableColumnsOptions = Omit<
@@ -14,7 +15,7 @@ type SnapshotTableColumnsOptions = Omit<
 
 export function getSnapshotTableColumns(
   options: SnapshotTableColumnsOptions
-): Array<ColumnDef<ApiSnapshot>> {
+): Array<ColumnDef<AppTableFeatures, ApiSnapshot>> {
   return [
     {
       accessorKey: "name",

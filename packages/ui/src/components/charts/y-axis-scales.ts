@@ -30,36 +30,14 @@ type YScale = ReturnType<typeof scaleLinear<number>>;
 
 export function getPrimaryYScale(
   yScales: Record<string, YScale>,
-  _fallback: YScale
+  fallback: YScale
 ): YScale {
-  return yScales[DEFAULT_Y_AXIS_ID];
-}
-
-export function buildYScalesForLines({
-  lines,
-  innerHeight,
-  resolveDomain,
-}: {
-  lines: Array<LineConfig>;
-  /** Passed by callers; domain is resolved via `resolveDomain`. */
-  data?: Array<Record<string, unknown>>;
-  innerHeight: number;
-  resolveDomain: (dataKeys: Array<string>) => [number, number];
-}): Record<string, YScale> {
-  const groups = groupLinesByYAxisId(lines);
-  const scales: Record<string, YScale> = {};
-
-  for (const [axisId, axisLines] of groups) {
-    const dataKeys = axisLines.map((line) => line.dataKey);
-    const domain = resolveDomain(dataKeys);
-    scales[axisId] = scaleLinear({
-      range: [innerHeight, 0],
-      domain,
-      nice: true,
-    });
+  const primary = yScales[DEFAULT_Y_AXIS_ID];
+  if (primary) {
+    return primary;
   }
-
-  return scales;
+  const first = Object.values(yScales)[0];
+  return first ?? fallback;
 }
 
 /** Build y-scales from pre-computed (already nice'd) domain endpoints. */
@@ -76,10 +54,20 @@ export function buildYScalesFromDomains({
   const scales: Record<string, YScale> = {};
 
   for (const [axisId] of groups) {
-    const domain = domainsByAxis[axisId] ?? domainsByAxis[DEFAULT_Y_AXIS_ID];
+    const domain =
+      domainsByAxis[axisId] ??
+      domainsByAxis[DEFAULT_Y_AXIS_ID] ??
+      ([0, 100] as [number, number]);
     scales[axisId] = scaleLinear({
       range: [innerHeight, 0],
       domain,
+    });
+  }
+
+  if (!scales[DEFAULT_Y_AXIS_ID]) {
+    scales[DEFAULT_Y_AXIS_ID] = scaleLinear({
+      range: [innerHeight, 0],
+      domain: domainsByAxis[DEFAULT_Y_AXIS_ID] ?? [0, 100],
     });
   }
 

@@ -21,26 +21,37 @@ hostname, image repositories, and the independently configured cluster secrets.
 - PostgreSQL is reachable from the cluster and the Kamino schema has been
   initialized.
 - Proxmox is reachable on TCP 8006 and AD is reachable on TCP 636.
+- Workstations that use **Download SPICE config** can reach the Proxmox SPICE
+  proxy on TCP 3128. By default Kamino uses the hostname from `PROXMOX_URL`;
+  set `PROXMOX_SPICE_PROXY_HOST` when workstations need a different
+  client-reachable address (host only, no scheme or port).
 
-The API requires only normal pod egress. If the namespace later receives a
-default-deny NetworkPolicy, explicitly allow cluster DNS, PostgreSQL, Proxmox,
-and AD.
+The API ships with an ingress NetworkPolicy restricting TCP 8080 to pods
+labeled `istio: ingressgateway` in the `istio-system` namespace, so direct
+API access from other cluster pods is blocked by default. This pairs with
+`TRUSTED_PROXY_CIDRS` below: forwarded headers are only honored from the
+gateway's measured source range, and the policy stops other pods from
+reaching the API to forge them. The API requires only normal pod egress. If
+the namespace later receives a default-deny egress NetworkPolicy, explicitly
+allow cluster DNS, PostgreSQL, Proxmox, and AD.
 
 ## Production deployment
 
 ### Configure the production origin
 
-The shared manifests contain only `placeholder.invalid`. Create a local Argo
-CD Application file and replace that placeholder with this cluster's hostname:
+The shared manifests contain only `placeholder.invalid` and
+`REPLACE_WITH_ISTIO_SOURCE_CIDRS`. Create a local Argo CD Application file and
+replace both placeholders with values measured from this cluster:
 
 ```bash
 cp deploy/argocd/kamino-application.example.yaml \
   deploy/argocd/kamino-application.yaml
 
-# Edit deploy/argocd/kamino-application.yaml and replace placeholder.invalid.
+# Edit deploy/argocd/kamino-application.yaml and replace placeholder.invalid
+# and REPLACE_WITH_ISTIO_SOURCE_CIDRS.
 ```
 
-`kamino-application.yaml` is ignored by Git. It can contain a different hostname
+`kamino-application.yaml` is ignored by Git. It can contain different values
 for every installation without modifying the shared repository. Its Kustomize
 patch sets `PUBLIC_HOST`, and the production overlay propagates that single
 value to the Gateway server hosts, the VirtualService host, and the API's
@@ -48,6 +59,39 @@ HTTPS `FRONTEND_URL`.
 
 `FRONTEND_URL` must be the exact HTTPS origin because it controls CORS, secure
 authentication cookies, and VNC WebSocket origin validation.
+
+### Configure trusted proxy CIDRs
+
+The API sits behind the Istio ingress gateway, so it must be told which source
+addresses are the gateway itself — otherwise every caller's `ClientIP()`
+resolves to the gateway, collapsing the login rate limiter into one shared
+bucket and recording the gateway's address instead of the client's in session
+metadata. `TRUSTED_PROXY_CIDRS` defaults to empty (trust nothing) so a directly
+rendered overlay never trusts forwarded headers.
+
+Measure the actual gateway-to-API source range before setting it:
+
+```bash
+kubectl -n istio-system get pods -l istio=ingressgateway -o wide
+kubectl get nodes -o custom-columns=NAME:.metadata.name,POD_CIDR:.spec.podCIDR,POD_CIDRS:.spec.podCIDRs
+```
+
+Trigger one authenticated request through the public hostname and confirm the
+immediate source address in the API's request log matches the gateway's
+networking, not the external client. Replace `REPLACE_WITH_ISTIO_SOURCE_CIDRS`
+in the Argo CD Application patch with the narrowest stable CIDR (or
+comma-separated CIDRs) that contains every possible gateway-to-API source
+address. Applying an unedited example file fails API startup instead of
+silently trusting the wrong range.
+
+Hard rules:
+
+- Never use `0.0.0.0/0` or `::/0`.
+- Do not trust forwarded headers unless the ingress NetworkPolicy (below) is
+  enforced — otherwise any pod that can reach the API directly can forge its
+  address.
+- Include every legitimate ingress source range, including IPv6 when enabled.
+- Revalidate the value after any CNI, Istio gateway, or cluster-network change.
 
 ### Initialize PostgreSQL
 
@@ -85,8 +129,12 @@ kubectl -n kamino create secret generic kamino-secrets \
 `deploy/k8s/kamino-secrets.env` is ignored by Git. Keep it local to the
 installation and do not force-add it.
 
-Production authentication requires the LDAP settings. If `LDAP_URL` is not
-configured, the API does not install authentication middleware.
+Authentication is always configured for the API; `PRINCIPAL_PROVIDER` selects
+how. `PRINCIPAL_PROVIDER=active_directory` requires the LDAP settings below.
+`PRINCIPAL_PROVIDER=proxmox` authenticates through the configured Proxmox
+provider and must not be combined with LDAP settings. Omitting required
+settings for the selected provider is a startup configuration error, not an
+unauthenticated operating mode.
 
 The Gateway references the certificate through Istio SDS (`credentialName`),
 which requires the Secret to live in the same namespace as the ingress
@@ -120,8 +168,10 @@ kubectl apply -f deploy/argocd/kamino-application.yaml
 
 The application creates resources in the `kamino` namespace. The API uses one
 replica with a `Recreate` rollout because startup reconciliation and VNC session
-handoffs are process-local. The web tier uses two replicas with normal rolling
-updates.
+handoffs are process-local. The web tier uses two replicas with `Recreate`
+updates so a page shell and its content-hashed assets cannot come from different
+releases. Istio also retries a missing hashed asset once against another web pod
+to tolerate a stale or independently replaced replica.
 
 Argo CD Image Updater follows the digest behind each public `latest` tag. The
 workloads use `Always`, so every newly created or restarted pod checks GHCR for
@@ -160,7 +210,10 @@ cp deploy/argocd/kamino-dev-application.example.yaml \
   deploy/argocd/kamino-dev-application.yaml
 
 # Edit deploy/argocd/kamino-dev-application.yaml and replace dev.placeholder.invalid
-# with the actual development hostname.
+# with the actual development hostname, and REPLACE_WITH_ISTIO_SOURCE_CIDRS
+# with the measured gateway-to-API source CIDR(s) — see "Configure trusted
+# proxy CIDRs" above. Development networking may differ from production, so
+# remeasure rather than reusing the production value.
 ```
 
 `kamino-dev-application.yaml` is ignored by Git.
@@ -177,19 +230,20 @@ psql "$DEV_DATABASE_URL" -v ON_ERROR_STOP=1 \
 
 ### 5. Create development cluster secrets
 
-> **Isolation warning**: The development API performs the same startup
-> reconciliation as production, including Proxmox mirror reconciliation that is
-> not disabled by `PROXMOX_INITIAL_SYNC_ENABLED`. Development **must** use:
+> **Isolation warning**: `PROXMOX_INITIAL_SYNC_ENABLED=false` disables only the
+> startup Proxmox importer. It does not disable authenticated API operations,
+> status reads, or later operator-triggered actions against the configured
+> Proxmox cluster — the development API can still mutate whatever Proxmox
+> cluster it points at. Development **must** use:
 >
 > - A **separate Postgres database** with the schema initialized independently.
-> - A **non-production Proxmox cluster or scope** and a dedicated token — simply
->   disabling `PROXMOX_INITIAL_SYNC_ENABLED` does not prevent mirror
->   reconciliation side effects.
+> - A **non-production Proxmox cluster or scope** and a dedicated token,
+>   regardless of the `PROXMOX_INITIAL_SYNC_ENABLED` setting.
 > - A **distinct `JWT_SECRET`** so development sessions cannot be replayed
 >   against production.
-> - **Test AD OUs and service credentials** when LDAP is enabled. When `LDAP_URL`
->   is omitted the API installs no authentication middleware, so an
->   unauthenticated development deployment must not be publicly reachable.
+> - Test identities and credentials for the configured `PRINCIPAL_PROVIDER` —
+>   test AD OUs and service credentials for `active_directory`, or a dedicated
+>   Proxmox realm/token for `proxmox`.
 
 ```bash
 kubectl create namespace kamino-dev \

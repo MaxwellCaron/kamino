@@ -1,42 +1,18 @@
-import { Checkbox } from "@workspace/ui/components/checkbox"
 import { Badge } from "@workspace/ui/components/badge"
 import { DetailsCell, KindBadge } from "./sync-diff-cells"
 import type { ColumnDef } from "@tanstack/react-table"
+import type { AppTableFeatures } from "@/components/data-table/data-table-types"
 import type { SyncChange } from "@/features/proxmox-sync/api/proxmox-sync-api"
+import { createRowSelectionColumn } from "@/components/data-table/data-table-row-selection-column"
 
-export function getSyncDiffColumns(): Array<ColumnDef<SyncChange>> {
+export function getSyncDiffColumns(): Array<
+  ColumnDef<AppTableFeatures, SyncChange>
+> {
   return [
-    {
-      id: "select",
-      meta: { className: "w-0" },
-      header: ({ table }) => (
-        <div className="pl-4">
-          <Checkbox
-            checked={table.getIsAllPageRowsSelected()}
-            indeterminate={table.getIsSomePageRowsSelected()}
-            onCheckedChange={(value) =>
-              table.toggleAllPageRowsSelected(!!value)
-            }
-            aria-label="Select all"
-          />
-        </div>
-      ),
-      cell: ({ row }) => {
-        const isBlocked =
-          row.original.kind === "remove" && row.original.removable === false
-        return (
-          <div className="pl-4">
-            <Checkbox
-              checked={row.getIsSelected()}
-              onCheckedChange={(value) => row.toggleSelected(!!value)}
-              disabled={isBlocked}
-              aria-label="Select row"
-            />
-          </div>
-        )
-      },
-      enableSorting: false,
-    },
+    createRowSelectionColumn<SyncChange>((change) => change.name, {
+      isRowDisabled: (change) =>
+        change.kind === "remove" && change.removable === false,
+    }),
     {
       id: "kind",
       header: "Change",
@@ -47,7 +23,12 @@ export function getSyncDiffColumns(): Array<ColumnDef<SyncChange>> {
       accessorKey: "name",
       header: "Name",
       cell: ({ row }) => (
-        <span className="font-medium">{row.original.name}</span>
+        <span className="flex items-center gap-2 font-medium">
+          {row.original.name}
+          {row.original.guest_type === "lxc" ? (
+            <Badge variant="secondary">CT</Badge>
+          ) : null}
+        </span>
       ),
     },
     {

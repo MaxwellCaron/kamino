@@ -8,6 +8,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"log"
 	"strings"
 	"time"
 
@@ -19,6 +20,14 @@ import (
 )
 
 var ErrInvalidSession = errors.New("invalid session")
+var ErrRefreshCollision = errors.New("refresh collision")
+
+const (
+	sessionCleanupInterval    = 24 * time.Hour
+	sessionCleanupGracePeriod = 24 * time.Hour
+	minimumRefreshRotationAge = 5 * time.Minute
+	refreshCollisionWindow    = 5 * time.Second
+)
 
 // sessionStore is the seam SessionManager uses to talk to the database
 type sessionStore interface {
@@ -74,7 +83,8 @@ func (m *SessionManager) CreateSession(
 	return rawToken, session, nil
 }
 
-func (m *SessionManager) RotateSession(
+// RefreshSession touches a young token in place, rotates an older one, and revokes the family on any non-collision replay.
+func (m *SessionManager) RefreshSession(
 	ctx context.Context,
 	rawToken string,
 	userAgent string,
@@ -112,11 +122,11 @@ func (m *SessionManager) RotateSession(
 		return "", Session{}, ErrInvalidSession
 	}
 	if current.RevokedAt.Valid {
-		if current.ReplacedBySessionID != nil {
+		if current.ReplacedBySessionID != nil && isRefreshCollision(current, now, userAgent, ipAddress) {
 			if err := tx.Commit(ctx); err != nil {
-				return "", Session{}, fmt.Errorf("commit rotated auth session replay: %w", err)
+				return "", Session{}, fmt.Errorf("commit refresh collision: %w", err)
 			}
-			return "", Session{}, ErrInvalidSession
+			return "", Session{}, ErrRefreshCollision
 		}
 
 		if _, revokeErr := q.RevokeAuthSessionFamily(ctx, current.FamilyID); revokeErr != nil {
@@ -126,6 +136,20 @@ func (m *SessionManager) RotateSession(
 			return "", Session{}, fmt.Errorf("commit replayed auth session family revoke: %w", err)
 		}
 		return "", Session{}, ErrInvalidSession
+	}
+
+	if current.CreatedAt.Valid && now.Sub(current.CreatedAt.Time) < minimumRefreshRotationAge {
+		if err := q.UpdateAuthSessionLastUsed(ctx, current.ID); err != nil {
+			return "", Session{}, fmt.Errorf("touch auth session: %w", err)
+		}
+		if err := tx.Commit(ctx); err != nil {
+			return "", Session{}, fmt.Errorf("commit auth session touch: %w", err)
+		}
+		return rawToken, Session{
+			ID:          current.ID,
+			PrincipalID: current.PrincipalID,
+			ExpiresAt:   current.ExpiresAt.Time,
+		}, nil
 	}
 
 	newToken, newHash, err := generateOpaqueToken()
@@ -151,9 +175,12 @@ func (m *SessionManager) RotateSession(
 		return "", Session{}, fmt.Errorf("create rotated auth session: %w", err)
 	}
 
+	// Fingerprint the predecessor with this request's UA/IP, not its original issuance metadata.
 	if err := q.RotateAuthSession(ctx, database.RotateAuthSessionParams{
 		ID:                  current.ID,
 		ReplacedBySessionID: &session.ID,
+		UserAgent:           optionalText(userAgent),
+		IpAddress:           optionalText(ipAddress),
 	}); err != nil {
 		return "", Session{}, fmt.Errorf("rotate auth session: %w", err)
 	}
@@ -163,6 +190,24 @@ func (m *SessionManager) RotateSession(
 	}
 
 	return newToken, session, nil
+}
+
+// isRefreshCollision reports whether a replay looks like a same-client race rather than a stolen-token reuse.
+func isRefreshCollision(current database.AuthSessions, now time.Time, userAgent, ipAddress string) bool {
+	if !current.RevokedAt.Valid || now.Sub(current.RevokedAt.Time) > refreshCollisionWindow {
+		return false
+	}
+
+	var storedUserAgent, storedIPAddress string
+	if current.UserAgent != nil {
+		storedUserAgent = *current.UserAgent
+	}
+	if current.IpAddress != nil {
+		storedIPAddress = *current.IpAddress
+	}
+
+	return storedUserAgent == strings.TrimSpace(userAgent) &&
+		storedIPAddress == strings.TrimSpace(ipAddress)
 }
 
 func (m *SessionManager) RevokeSession(ctx context.Context, rawToken string) error {
@@ -196,6 +241,95 @@ func (m *SessionManager) RevokeSession(ctx context.Context, rawToken string) err
 	}
 
 	return nil
+}
+
+func (m *SessionManager) ValidateAccessSession(
+	ctx context.Context,
+	sessionID uuid.UUID,
+	principalID uuid.UUID,
+) error {
+	q := database.New(m.store)
+	active, err := q.IsAuthSessionActive(ctx, database.IsAuthSessionActiveParams{
+		ID:          sessionID,
+		PrincipalID: principalID,
+	})
+	if err != nil {
+		return fmt.Errorf("validate auth session: %w", err)
+	}
+	if !active {
+		return ErrInvalidSession
+	}
+	return nil
+}
+
+// ValidateLiveSession reports whether sessionID's family still has an active member for principalID.
+func (m *SessionManager) ValidateLiveSession(
+	ctx context.Context,
+	sessionID uuid.UUID,
+	principalID uuid.UUID,
+) error {
+	q := database.New(m.store)
+	active, err := q.IsAuthSessionFamilyActiveForSession(ctx, database.IsAuthSessionFamilyActiveForSessionParams{
+		ID:          sessionID,
+		PrincipalID: principalID,
+	})
+	if err != nil {
+		return fmt.Errorf("validate live auth session: %w", err)
+	}
+	if !active {
+		return ErrInvalidSession
+	}
+	return nil
+}
+
+func (m *SessionManager) RevokePrincipalSessions(ctx context.Context, principalID uuid.UUID) error {
+	q := database.New(m.store)
+	if _, err := q.RevokeAuthSessionsForPrincipal(ctx, principalID); err != nil {
+		return fmt.Errorf("revoke auth sessions for principal: %w", err)
+	}
+	return nil
+}
+
+// DeleteExpiredSessions deletes individual rows whose expiry is more than gracePeriod in the past, regardless of sibling rows in the same family.
+func (m *SessionManager) DeleteExpiredSessions(ctx context.Context, gracePeriod time.Duration) (int64, error) {
+	expiredBefore := time.Now().UTC().Add(-gracePeriod)
+	q := database.New(m.store)
+	deleted, err := q.DeleteExpiredAuthSessions(ctx, timestamptz(expiredBefore))
+	if err != nil {
+		return 0, fmt.Errorf("delete expired auth sessions: %w", err)
+	}
+	return deleted, nil
+}
+
+// StartCleanup runs the expired-session sweep immediately, then once per sessionCleanupInterval until ctx is canceled.
+func (m *SessionManager) StartCleanup(ctx context.Context) {
+	m.startCleanup(ctx, sessionCleanupInterval, sessionCleanupGracePeriod)
+}
+
+func (m *SessionManager) startCleanup(ctx context.Context, interval, gracePeriod time.Duration) {
+	ticker := time.NewTicker(interval)
+	defer ticker.Stop()
+
+	m.runCleanupSweep(ctx, gracePeriod)
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			m.runCleanupSweep(ctx, gracePeriod)
+		}
+	}
+}
+
+func (m *SessionManager) runCleanupSweep(ctx context.Context, gracePeriod time.Duration) {
+	deleted, err := m.DeleteExpiredSessions(ctx, gracePeriod)
+	if err != nil && ctx.Err() == nil {
+		log.Printf("auth session cleanup sweep failed: %v", err)
+		return
+	}
+	if deleted > 0 {
+		log.Printf("auth session cleanup sweep deleted %d expired session(s)", deleted)
+	}
 }
 
 func generateOpaqueToken() (rawToken string, tokenHash string, err error) {

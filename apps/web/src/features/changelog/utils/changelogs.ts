@@ -10,8 +10,208 @@ interface Release {
 
 export const RELEASES: Array<Release> = [
   {
-    date: "Jul 2, 2026",
+    date: "Aug 9, 2026",
     highlight: true,
+    groups: [
+      {
+        tag: "New",
+        tone: "emerald",
+        items: [
+          "Replaced per-pod generated Proxmox VNets with a shared, VLAN-aware networking model: pods are now isolated by an inner VLAN tag applied to each NIC instead of a dedicated VNet per pod.",
+          "Added a Pod Clone Target system in Admin → SDN for configuring WAN subnets and CIDR ranges, router cloud-init snippet keys and storage, network allocation ranges, and default and personal role assignments for published, development, and personal pods, replacing per-network environment variables.",
+          "Added a command generator and snippet storage directory field to the clone target dialog that outputs the exact command to create the required router cloud-init snippets.",
+          "Moved clone target selection to pod creation so managers choose network allocation up front.",
+          "Enforced the pod's allocated VLAN tag on every VM NIC created inside a pod folder; only managers and admins can retag a NIC afterward, from the hardware editor.",
+          "Added an optional fourth network octet that pod creators can assign so cloned VMs display a fixed host address to users.",
+          "Added descriptions to personal pods.",
+          "Added configured IP addresses to folder and VM dashboard pages for pods published with a static host address.",
+          "Restricted VM and pod template selection to a configured template library folder, with separate overrides for personal pods and Create VM.",
+        ],
+      },
+      {
+        tag: "Improved",
+        tone: "indigo",
+        items: [
+          "Redesigned the SDN page with dedicated VNets and clone targets cards.",
+          "Converted principal selection comboboxes to searchable tables across the membership, manager clone, and bulk group dialogs.",
+          "Split personal pods out of the published pods page into their own dashboard card with refreshed visuals.",
+          "Standardized template selection dropdowns in the create-pod and create-VM forms.",
+          "Combined multiple VM dashboard API requests into a single overview request.",
+          "Split cloned pod status into a badge and hover card.",
+          "Made Proxmox the source of truth for resource pool structure and comments on import; mirror reconcile now only creates missing pools instead of deleting them.",
+          "Improved the safety of resource pool and folder subtree deletions with additional authorization checks.",
+          "Clarified principal search placeholders and the add-principal control in the permissions dialog.",
+          "Clarified pod deletion messaging to reflect that deleting a published pod removes its source folder, VMs, and templates from Proxmox.",
+          "Stopped VNC sessions from re-fetching VM resources while a console is open, and made the console focus on click.",
+        ],
+      },
+      {
+        tag: "Fixed",
+        tone: "amber",
+        items: [
+          "Fixed personal pod cloning erroring when no DMZ VNet was configured for the personal clone target.",
+          "Fixed clone target validation incorrectly failing when a DMZ VNet name was blank.",
+          "Fixed the manager clone router dialog to use the new inner VLAN tagging system.",
+          "Fixed NIC labels on the VM dashboard header showing swapped LAN, WAN, and DMZ names for pod-configured VMs.",
+          "Fixed enable and disable account actions being unavailable depending on principal provider.",
+          "Fixed group membership updates overwriting a user's existing Proxmox groups instead of adding to them.",
+          "Fixed provider sync being able to write changes back to Proxmox or Active Directory instead of only reading.",
+          "Fixed vnet combobox search in the VM hardware menu.",
+          "Fixed the app sidebar icon rail not scrolling.",
+          "Fixed user dashboard stat cards not filling their container height.",
+          "Fixed pod networking diagrams not loading until scrolled into view.",
+          "Fixed the rename dialog not focusing its input on open.",
+        ],
+      },
+      {
+        tag: "Removed",
+        tone: "rose",
+        items: [
+          "Removed the per-network environment variable configuration for pod clone networking in favor of database-managed clone targets.",
+        ],
+      },
+    ],
+  },
+  {
+    date: "Jul 20, 2026",
+    highlight: true,
+    groups: [
+      {
+        tag: "New",
+        tone: "emerald",
+        items: [
+          "Added an optional Download SPICE config action on VM consoles for native remote-viewer clients.",
+        ],
+      },
+    ],
+  },
+  {
+    date: "Jul 17, 2026",
+    highlight: true,
+    groups: [
+      {
+        tag: "New",
+        tone: "emerald",
+        items: [
+          "Added end-to-end Proxmox LXC container support across sync, inventory, permissions, actions, snapshots, and consoles.",
+          "Added Proxmox as a principal provider alongside Active Directory, including native user and group synchronization.",
+          "Added admin controls for enabling and disabling user accounts, including disabled-account sync and session revocation.",
+          "Added editable descriptions to inventory folders.",
+          "Added shared-storage usage to admin cluster statistics.",
+          "Added a Sync All action to the Proxmox synchronization page.",
+          "Added LAN and DMZ router profiles to pod creation with network topology diagrams.",
+          "Added manual pod-router cloning for managers and admins with unified VNet reservations.",
+          "Added persistent VNC sessions that remain connected while navigating between VM pages.",
+          "Added configurable large mock inventories for frontend development and testing.",
+        ],
+      },
+      {
+        tag: "Improved",
+        tone: "indigo",
+        items: [
+          "Redesigned the VNet and SDN admin dashboard and improved admin data tables.",
+          "Improved admin resource charts with shared-storage allow-list aggregation, relative totals, updated heatmaps, and cleaner loading states.",
+          "Reorganized the create-pod form, router choices, validation, provisioning cleanup, and default pod image.",
+          "Improved pod detail and networking sections, dashboard and catalog cards, and the manager clone dialog.",
+          "Standardized VM rows across folder and pod pages with clearer actions, consistent resource formatting, and decimal values.",
+          "Improved VM and pod power actions with dependency-aware sequencing, parallel execution, shared concurrency limits, and per-item progress.",
+          "Improved pod clone, re-clone, delete, and provisioning workflows with operation claims, bounded concurrency, task-aware cleanup, and concurrent template cloning.",
+          "Added live per-item progress for bulk VM power, pod clone and delete, and VNet create and delete operations.",
+          "Improved VNC connection lifecycle, idle expiry, navigation persistence, layout stability, and WebSocket cleanup.",
+          "Made Proxmox synchronization transactional and simplified inventory mirroring and reconciliation.",
+          "Improved Proxmox metrics collection, runtime hydration, and target-node selection when nodes or metrics are unavailable.",
+          "Improved API reliability with bounded external calls, preserved response statuses, centralized retry behavior, and query refresh after event reconnects.",
+          "Hardened CSRF handling, trusted-proxy configuration, CORS preflights, and nginx security headers.",
+          "Virtualized the site command palette and inventory tree for large inventories, with improved loading and accessibility behavior.",
+          "Improved table search with debouncing, cancellation, accessible labels, and announced result counts.",
+          "Updated and expanded user documentation with an in-page table of contents.",
+          "Expanded automated coverage for Proxmox sync, VM creation, pod cloning and routing, operation concurrency, and VNC sessions.",
+          "Updated Go to 1.26.5, refreshed Bun dependencies, and added side-by-side TypeScript 6 and 7 checks.",
+        ],
+      },
+      {
+        tag: "Fixed",
+        tone: "amber",
+        items: [
+          "Fixed shared-storage allow-list handling and incomplete admin chart renders.",
+          "Fixed metrics collection stalling when a node or individual metric is unreachable.",
+          "Fixed interrupted operations permanently consuming folder capacity.",
+          "Fixed Active Directory creation timestamps being overwritten during sync and locale-dependent time formatting during render.",
+          "Fixed disabled Active Directory accounts retaining active Kamino sessions.",
+          "Fixed phantom Proxmox sync differences, missing folder and pool deletions, unsynchronized VM notes, and warnings being treated as failures.",
+          "Fixed inventory updates being dropped during in-flight tree fetches, resize-bar snapping, virtualization gaps, and keyboard accessibility warnings.",
+          "Fixed dialogs extending outside smaller or zoomed browser viewports and inconsistent dashboard and VM header heights.",
+          "Fixed stale VM action claims and approved requests executing concurrently.",
+          "Fixed request totals being limited to the current page.",
+          "Fixed VNC duplicate loaders, half-open WebSocket bridges, and console views shifting while connecting or changing pages.",
+          "Fixed pod clone claim type errors, failing pod power actions, bulk-clone VMID collisions, and misleading progress reports.",
+          "Fixed bulk cloning adding unwanted name prefixes and suffixes.",
+          "Fixed LAN router profiles retaining an unused second network interface.",
+          "Fixed cloned-pod catalog reveals flashing and published-pod cache updates becoming stale.",
+          "Fixed unstable command-palette indexes and stale table-search responses.",
+          "Fixed area charts rendering before their animation state was ready and compacted chart tooltip spacing.",
+          "Fixed frontend API errors losing their original status codes and inconsistent mutation error responses.",
+        ],
+      },
+      {
+        tag: "Removed",
+        tone: "rose",
+        items: [
+          "Replaced route-level skeletons on access-gated pages with a consistent loading overlay.",
+          "Removed automatic managed-by comments from Proxmox principals.",
+          "Removed obsolete chart modules, shared UI components, dependencies, backend paths, and generated query sources.",
+        ],
+      },
+    ],
+  },
+  {
+    date: "Jul 7, 2026",
+    highlight: false,
+    groups: [
+      {
+        tag: "New",
+        tone: "emerald",
+        items: [
+          "Added configurable startup syncs for Proxmox inventory and Active Directory principals.",
+          "Added separate full-name fields and columns while preserving principal logon names.",
+          "Added an action dropdown to inventory folder pages.",
+          "Added a development deployment build and Kubernetes overlay.",
+        ],
+      },
+      {
+        tag: "Improved",
+        tone: "indigo",
+        items: [
+          "Rebuilt the inventory tree with virtualization, lazy mounting, native scrolling, search, and horizontal resizing.",
+          "Improved inventory routing, selection, and automatic scrolling to the active item.",
+          "Improved VMID allocation with configurable ranges, centralized reservations, and concurrency protection.",
+          "Improved mutation toasts for bulk inventory, pod, request, principal, SDN, and Proxmox sync actions.",
+          "Migrated Kubernetes ingress from Traefik to Istio.",
+          "Standardized fixed changelog entries on the amber status tone.",
+          "Improved personal pod component visuals",
+        ],
+      },
+      {
+        tag: "Fixed",
+        tone: "amber",
+        items: [
+          "Fixed initial inventory and principal sync failures caused by schema, pool, and disk edge cases.",
+          "Fixed Active Directory users syncing display names instead of logon names.",
+          "Fixed generated pod clone names when a user's name begins with a number.",
+          "Fixed pagination across data tables.",
+          "Fixed inventory tree double-click jumps, bounce, folder visuals, virtualized content sizing, and scrollbar sizing.",
+          "Fixed VMID reservation 595 errors and polling through the wrong Proxmox node.",
+          "Fixed overly restrictive pod VNet prefix validation.",
+          "Fixed the create-pod form resetting after selecting Try Again.",
+          "Fixed asynchronous bulk mutation toast updates.",
+          "Updated quic-go to address GO-2026-5676.",
+        ],
+      },
+    ],
+  },
+  {
+    date: "Jul 2, 2026",
+    highlight: false,
     groups: [
       {
         tag: "New",
@@ -35,7 +235,7 @@ export const RELEASES: Array<Release> = [
       },
       {
         tag: "Fixed",
-        tone: "rose",
+        tone: "amber",
         items: [
           "Fixed array index used as a React key.",
           "Fixed imagePullPolicy configuration.",
@@ -79,7 +279,7 @@ export const RELEASES: Array<Release> = [
       },
       {
         tag: "Fixed",
-        tone: "rose",
+        tone: "amber",
         items: [
           "Fixed permanently stranded requests and managers approving their own requests.",
           "Fixed routers using incorrect configurations and clone-of-clone.",
@@ -116,7 +316,7 @@ export const RELEASES: Array<Release> = [
       },
       {
         tag: "Fixed",
-        tone: "rose",
+        tone: "amber",
         items: [
           "Fixed pods cloned for groups not displaying for users.",
           "Fixed broken search bar in published pod catalog.",
@@ -148,7 +348,7 @@ export const RELEASES: Array<Release> = [
       },
       {
         tag: "Fixed",
-        tone: "rose",
+        tone: "amber",
         items: [
           "Fixed inventory permission edits visibility.",
           "Fixed incorrect sidebar width on pods endpoints.",
@@ -169,7 +369,7 @@ export const RELEASES: Array<Release> = [
       },
       {
         tag: "Fixed",
-        tone: "rose",
+        tone: "amber",
         items: ["Fixed VNC console hang."],
       },
     ],
@@ -180,7 +380,7 @@ export const RELEASES: Array<Release> = [
     groups: [
       {
         tag: "Fixed",
-        tone: "rose",
+        tone: "amber",
         items: [
           "Hardened login with rate limiting and post-login redirect validation.",
           "Fixed membership dialog infinite loop and duplicate-key bugs.",
@@ -217,7 +417,7 @@ export const RELEASES: Array<Release> = [
       },
       {
         tag: "Fixed",
-        tone: "rose",
+        tone: "amber",
         items: [
           "Fixed scrollbar margin and pod/inventory tree VM mismatch.",
           "Fixed 404 on misconfiguration.",
@@ -254,7 +454,7 @@ export const RELEASES: Array<Release> = [
       },
       {
         tag: "Fixed",
-        tone: "rose",
+        tone: "amber",
         items: [
           "Fixed redundant descriptions.",
           "Fixed dialog flashing.",

@@ -46,6 +46,20 @@ type VM struct {
 // IsTemplate returns true if the VM is a Proxmox template.
 func (v VM) IsTemplate() bool { return v.Template == 1 }
 
+type GuestType string
+
+const (
+	GuestQEMU GuestType = "qemu"
+	GuestLXC  GuestType = "lxc"
+)
+
+func GuestTypeFromVMType(t string) GuestType {
+	if t == "lxc" {
+		return GuestLXC
+	}
+	return GuestQEMU
+}
+
 // Node represents a cluster node from the Proxmox API.
 type Node struct {
 	Node   string  `json:"node"`
@@ -64,6 +78,13 @@ type Storage struct {
 	Avail   int64  `json:"avail"`
 	Total   int64  `json:"total"`
 	Used    int64  `json:"used"`
+	Shared  *int   `json:"shared,omitempty"`
+}
+
+type StorageWithClassification struct {
+	Storage
+	KaminoShared   bool `json:"kamino_shared"`
+	KaminoExcluded bool `json:"kamino_excluded"`
 }
 
 // ISOContent represents an ISO file in a storage.
@@ -118,6 +139,7 @@ type VMHardwareNetwork struct {
 	Model      string `json:"model"`
 	VLANTag    *int   `json:"vlan_tag,omitempty"`
 	Firewall   bool   `json:"firewall"`
+	LinkDown   bool   `json:"link_down,omitempty"`
 	MACAddress string `json:"mac_address,omitempty"`
 }
 
@@ -134,6 +156,7 @@ type VMHardwareConfig struct {
 	DiskDevice string              `json:"disk_device,omitempty"`
 	Storage    string              `json:"storage"`
 	DiskSize   int                 `json:"disk_size"`
+	Display    string              `json:"display"`
 	Networks   []VMHardwareNetwork `json:"networks"`
 }
 
@@ -152,6 +175,7 @@ type VMConfigSummary struct {
 	CPUCount     int32
 	MemoryMB     int32
 	DiskGB       float64
+	Notes        string
 }
 
 type GuestExecStatus struct {

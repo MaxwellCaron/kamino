@@ -4,7 +4,6 @@ import { PodPage } from "@/features/pods/components/pod-page"
 import { podCatalogEntryQueryOptions } from "@/features/pods/api/publish-pod-api"
 import { clonedPodQueryOptions } from "@/features/pods/api/clone-pod-api"
 import { isApiErrorStatus } from "@/features/auth/api/auth-api"
-import { PreloadOverlay } from "@/components/loading-overlay"
 
 const podSlugRouteApi = getRouteApi("/_pods/pods/$podSlug")
 export function PodSlugPage() {
@@ -45,8 +44,7 @@ export function PodSlugPage() {
   const clonedPod = clonedPodData ?? null
   return (
     <div className="relative flex h-full flex-1 flex-col">
-      <PreloadOverlay active={isPreloading} />
-      {pod && (
+      {!isPreloading && pod && (
         <PodPage pod={pod} clonedPod={clonedPod} username={user.username} />
       )}
     </div>

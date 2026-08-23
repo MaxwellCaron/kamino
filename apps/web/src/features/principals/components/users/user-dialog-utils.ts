@@ -100,6 +100,7 @@ function buildCreateUserInput(args: {
   description: string
   groupIds: Array<string>
   password: string
+  requirePassword: boolean
   username: string
 }): CreateUserInput {
   const usernameResult = usernameSchema.safeParse(args.username.trim())
@@ -109,11 +110,15 @@ function buildCreateUserInput(args: {
     )
   }
 
-  const passwordResult = requiredPasswordSchema.safeParse(args.password.trim())
-  if (!passwordResult.success) {
-    throw new Error(
-      `${args.context}: ${passwordResult.error.issues[0].message}`
-    )
+  let password: string | undefined
+  if (args.requirePassword) {
+    const passwordResult = requiredPasswordSchema.safeParse(args.password.trim())
+    if (!passwordResult.success) {
+      throw new Error(
+        `${args.context}: ${passwordResult.error.issues[0].message}`
+      )
+    }
+    password = passwordResult.data
   }
 
   const description = normalizeDescription(args.description)
@@ -126,7 +131,7 @@ function buildCreateUserInput(args: {
 
   return {
     username: usernameResult.data,
-    password: passwordResult.data,
+    ...(password ? { password } : {}),
     description: descriptionResult.data,
     group_ids: args.groupIds,
   }
@@ -135,7 +140,8 @@ function buildCreateUserInput(args: {
 export function buildCreateUsers(
   mode: CreateMode,
   values: UserFormValues,
-  selectedGroupIds: Array<string>
+  selectedGroupIds: Array<string>,
+  requirePassword = true
 ): Array<CreateUserInput> {
   if (mode === "single") {
     return [
@@ -145,6 +151,7 @@ export function buildCreateUsers(
         password: values.password,
         description: values.description,
         groupIds: selectedGroupIds,
+        requirePassword,
       }),
     ]
   }
@@ -158,18 +165,22 @@ export function buildCreateUsers(
 
     return lines.map((line, index) => {
       const parts = line.split(",")
-      if (parts.length < 2) {
+      if (requirePassword && parts.length < 2) {
         throw new Error(
           `Line ${index + 1}: expected username,password,description`
         )
+      }
+      if (!requirePassword && parts.length < 1) {
+        throw new Error(`Line ${index + 1}: expected username,description`)
       }
 
       return buildCreateUserInput({
         context: `Line ${index + 1}`,
         username: parts[0] ?? "",
-        password: parts[1] ?? "",
-        description: parts.slice(2).join(","),
+        password: requirePassword ? (parts[1] ?? "") : "",
+        description: requirePassword ? parts.slice(2).join(",") : parts.slice(1).join(","),
         groupIds: selectedGroupIds,
+        requirePassword,
       })
     })
   }
@@ -191,6 +202,7 @@ export function buildCreateUsers(
       password: values.sharedPassword,
       description: values.prefixDescription,
       groupIds: selectedGroupIds,
+      requirePassword,
     })
   })
 }

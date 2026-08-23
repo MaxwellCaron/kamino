@@ -19,6 +19,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@workspace/ui/components/select"
+import type { ApiScopedNetwork } from "@/features/vms/api/proxmox-options-api"
 import type { NetworkOption } from "@/features/vms/components/hardware/hardware-section-utils"
 import { getSelectOptionLabel } from "@/features/vms/components/hardware/hardware-section-utils"
 import { formatFieldError } from "@/features/vms/components/create/create-vm-step-utils"
@@ -26,8 +27,11 @@ import { parseOptionalNumberInput } from "@/features/vms/components/create/creat
 import { nicModels } from "@/features/vms/components/hardware/hardware-options"
 import { VmHardwareNetworkCard } from "@/features/vms/components/hardware/hardware-sections"
 import { VmHardwareNetworkBridgeCombobox } from "@/features/vms/components/hardware/vm-hardware-network-bridge-combobox"
+import { isScopedNetworkBridgeLocked } from "@/features/vms/utils/vm-network-scope"
+import { uuid } from "@/features/shared/utils/uuid"
 
 type NetworkInterfaceValue = {
+  id: string
   device?: string
   mac_address?: string
   bridge: string
@@ -49,7 +53,9 @@ type VmHardwareNetworksFieldProps = {
   fieldIdPrefix?: string
   resolveCardTitle?: (network: NetworkInterfaceValue, index: number) => string
   resolveCardDescription?: (network: NetworkInterfaceValue) => string
-  resolveCardKey?: (network: NetworkInterfaceValue, index: number) => string
+  resolveCardKey?: (network: NetworkInterfaceValue) => string
+  createNetworkValue?: () => NetworkInterfaceValue
+  scopedNetwork?: ApiScopedNetwork
 }
 
 export function VmHardwareNetworksField({
@@ -64,8 +70,27 @@ export function VmHardwareNetworksField({
     network.mac_address
       ? `MAC ${network.mac_address}`
       : "Configure connectivity for this interface.",
-  resolveCardKey = (network, index) => network.device ?? `network-${index}`,
+  resolveCardKey = (network) => network.id,
+  scopedNetwork,
+  createNetworkValue = () =>
+    scopedNetwork
+      ? {
+          id: uuid(),
+          bridge: scopedNetwork.bridge,
+          model: "virtio",
+          vlan_tag: scopedNetwork.vlan_tag,
+          firewall: true,
+        }
+      : {
+          id: uuid(),
+          bridge: "vmbr0",
+          model: "virtio",
+          firewall: true,
+        },
 }: VmHardwareNetworksFieldProps) {
+  const bridgeLocked = scopedNetwork
+    ? isScopedNetworkBridgeLocked(scopedNetwork)
+    : false
   return (
     <form.Field name="networks" mode="array">
       {(networksField: {
@@ -76,7 +101,7 @@ export function VmHardwareNetworksField({
         <div className="flex flex-col gap-4">
           {networksField.state.value.map((network, index) => (
             <VmHardwareNetworkCard
-              key={resolveCardKey(network, index)}
+              key={resolveCardKey(network)}
               title={resolveCardTitle(network, index)}
               description={resolveCardDescription(network)}
               removeAction={
@@ -114,18 +139,31 @@ export function VmHardwareNetworksField({
                         data-invalid={
                           field.state.meta.errors.length > 0 || undefined
                         }
+                        data-disabled={bridgeLocked || undefined}
                       >
-                        <FieldLabel>Bridge / VNet</FieldLabel>
+                        <FieldLabel
+                          htmlFor={`${fieldIdPrefix}-bridge-${network.id}`}
+                        >
+                          Bridge / VNet
+                        </FieldLabel>
                         <VmHardwareNetworkBridgeCombobox
+                          id={`${fieldIdPrefix}-bridge-${network.id}`}
+                          errorId={`${fieldIdPrefix}-bridge-${network.id}-error`}
                           bridgeOptions={bridgeOptions}
                           vnetOptions={vnetOptions}
                           networkOptions={networkOptions}
                           value={field.state.value}
                           invalid={field.state.meta.errors.length > 0}
+                          disabled={bridgeLocked}
                           onBlur={field.handleBlur}
                           onValueChange={field.handleChange}
                         />
-                        <FieldError>
+                        {scopedNetwork ? (
+                          <FieldDescription>Managed by pod.</FieldDescription>
+                        ) : null}
+                        <FieldError
+                          id={`${fieldIdPrefix}-bridge-${network.id}-error`}
+                        >
                           {formatFieldError(field.state.meta.errors[0])}
                         </FieldError>
                       </Field>
@@ -138,14 +176,20 @@ export function VmHardwareNetworksField({
                       handleChange: (value: string) => void
                     }) => (
                       <Field>
-                        <FieldLabel>Model</FieldLabel>
+                        <FieldLabel
+                          htmlFor={`${fieldIdPrefix}-model-${network.id}`}
+                        >
+                          Model
+                        </FieldLabel>
                         <Select
                           value={field.state.value}
                           onValueChange={(value) =>
                             field.handleChange(value ?? "virtio")
                           }
                         >
-                          <SelectTrigger>
+                          <SelectTrigger
+                            id={`${fieldIdPrefix}-model-${network.id}`}
+                          >
                             <SelectValue>
                               {getSelectOptionLabel(
                                 nicModels,
@@ -184,15 +228,19 @@ export function VmHardwareNetworksField({
                       data-invalid={
                         field.state.meta.errors.length > 0 || undefined
                       }
+                      data-disabled={Boolean(scopedNetwork) || undefined}
                     >
-                      <FieldLabel htmlFor={`${fieldIdPrefix}-vlan-${index}`}>
+                      <FieldLabel
+                        htmlFor={`${fieldIdPrefix}-vlan-${network.id}`}
+                      >
                         VLAN Tag
                       </FieldLabel>
                       <Input
-                        id={`${fieldIdPrefix}-vlan-${index}`}
+                        id={`${fieldIdPrefix}-vlan-${network.id}`}
                         type="number"
                         placeholder="Optional"
                         value={field.state.value ?? ""}
+                        disabled={Boolean(scopedNetwork)}
                         onBlur={field.handleBlur}
                         onChange={(event) =>
                           field.handleChange(
@@ -202,8 +250,18 @@ export function VmHardwareNetworksField({
                         aria-invalid={
                           field.state.meta.errors.length > 0 || undefined
                         }
+                        aria-errormessage={
+                          field.state.meta.errors.length > 0
+                            ? `${fieldIdPrefix}-vlan-${network.id}-error`
+                            : undefined
+                        }
                       />
-                      <FieldError>
+                      {scopedNetwork ? (
+                        <FieldDescription>Managed by pod.</FieldDescription>
+                      ) : null}
+                      <FieldError
+                        id={`${fieldIdPrefix}-vlan-${network.id}-error`}
+                      >
                         {formatFieldError(field.state.meta.errors[0])}
                       </FieldError>
                     </Field>
@@ -217,7 +275,7 @@ export function VmHardwareNetworksField({
                   }) => (
                     <Field orientation="horizontal">
                       <Checkbox
-                        id={`${fieldIdPrefix}-firewall-${index}`}
+                        id={`${fieldIdPrefix}-firewall-${network.id}`}
                         checked={field.state.value}
                         onCheckedChange={(checked) =>
                           field.handleChange(Boolean(checked))
@@ -225,7 +283,7 @@ export function VmHardwareNetworksField({
                       />
                       <FieldContent>
                         <FieldLabel
-                          htmlFor={`${fieldIdPrefix}-firewall-${index}`}
+                          htmlFor={`${fieldIdPrefix}-firewall-${network.id}`}
                         >
                           Firewall
                         </FieldLabel>
@@ -244,13 +302,7 @@ export function VmHardwareNetworksField({
             <Button
               type="button"
               variant="outline"
-              onClick={() =>
-                networksField.pushValue({
-                  bridge: "vmbr0",
-                  model: "virtio",
-                  firewall: true,
-                })
-              }
+              onClick={() => networksField.pushValue(createNetworkValue())}
             >
               <HugeiconsIcon icon={Add01Icon} data-icon="inline-start" />
               Add Network Interface

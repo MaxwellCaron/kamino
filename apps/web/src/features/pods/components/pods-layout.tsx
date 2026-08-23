@@ -1,9 +1,14 @@
 import { Outlet, getRouteApi } from "@tanstack/react-router"
-import { SidebarProvider } from "@workspace/ui/components/sidebar"
+import {
+  Sidebar,
+  SidebarProvider,
+  SidebarTrigger,
+} from "@workspace/ui/components/sidebar"
+import { Separator } from "@workspace/ui/components/separator"
 import type { CSSProperties } from "react"
 import { SiteHeader } from "@/components/app-shell/site-header"
-import { AppSidebarIconRail } from "@/components/app-shell/app-sidebar"
-import { CommandManyItems } from "@/components/app-shell/site-command"
+import { AppSidebarIconRailContent } from "@/components/app-shell/app-sidebar"
+import { SiteCommandTrigger } from "@/components/app-shell/site-command"
 import { DashboardEvents } from "@/features/dashboard/components/dashboard-events"
 import { InventoryDialogsProvider } from "@/features/inventory/components/inventory-dialogs-provider"
 import { SiteLayoutInset } from "@/components/app-shell/site-layout-inset"
@@ -13,7 +18,7 @@ const podsRouteApi = getRouteApi("/_pods")
 const keepSidebarCollapsed = () => {}
 
 const podIconRailMobileWidth = "calc(var(--spacing) * 16 + 2px)"
-const commandManyItemsElement = <CommandManyItems />
+const siteCommandTrigger = <SiteCommandTrigger />
 
 export function PodsLayout() {
   const { user } = podsRouteApi.useRouteContext()
@@ -33,16 +38,27 @@ export function PodsLayout() {
     >
       <DashboardEvents />
       <InventoryDialogsProvider>
-        <AppSidebarIconRail
-          user={user}
+        <Sidebar
+          collapsible="icon"
+          className="overflow-hidden"
           variant="inset"
           mobileWidth={podIconRailMobileWidth}
-        />
+        >
+          <AppSidebarIconRailContent user={user} />
+        </Sidebar>
         <SiteLayoutInset
           header={
             <SiteHeader
-              command={commandManyItemsElement}
-              sidebarTrigger="mobile"
+              command={siteCommandTrigger}
+              sidebarControl={
+                <>
+                  <SidebarTrigger className="-ml-1 md:hidden" />
+                  <Separator
+                    orientation="vertical"
+                    className="mx-2 h-4 md:hidden data-vertical:self-auto"
+                  />
+                </>
+              }
             />
           }
         >

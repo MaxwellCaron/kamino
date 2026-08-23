@@ -19,9 +19,9 @@ export interface TooltipContentProps {
 export function TooltipContent({ title, rows, children }: TooltipContentProps) {
   return (
     <div className="overflow-hidden">
-      <div className="px-3 py-2.5">
+      <div>
         {title && (
-          <div className="mb-2 text-xs font-medium text-muted-foreground">
+          <div className="mb-2 text-left text-xs font-medium text-chart-tooltip-foreground">
             {title}
           </div>
         )}
@@ -40,7 +40,7 @@ export function TooltipContent({ title, rows, children }: TooltipContentProps) {
                   {row.label}
                 </span>
               </div>
-              <span className="text-sm font-medium text-foreground tabular-nums">
+              <span className="text-sm font-medium text-chart-tooltip-foreground tabular-nums">
                 {typeof row.value === "number" ? intFmt(row.value) : row.value}
               </span>
             </div>

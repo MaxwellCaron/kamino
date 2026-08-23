@@ -2,29 +2,13 @@ package proxmox
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"slices"
+	"time"
 )
 
-func ManagedPoolComment(path []string) string {
-	if len(path) == 0 {
-		return kaminoManagedPoolCommentTag
-	}
-
-	return kaminoManagedPoolCommentTag + ": " + joinPath(path)
-}
-
-func joinPath(path []string) string {
-	if len(path) == 0 {
-		return ""
-	}
-
-	result := path[0]
-	for _, segment := range path[1:] {
-		result += "/" + segment
-	}
-	return result
-}
+const poolMembershipRestoreTimeout = 15 * time.Second
 
 func (c *Client) EnsurePool(ctx context.Context, poolID string, path []string) error {
 	if poolID == "" {
@@ -42,27 +26,33 @@ func (c *Client) EnsurePool(ctx context.Context, poolID string, path []string) e
 	for i := range path {
 		currentPath := path[:i+1]
 		currentPoolID := EncodePoolPath(currentPath)
-		expectedComment := ManagedPoolComment(currentPath)
-		index := slices.IndexFunc(pools, func(pool Pool) bool {
+		if slices.ContainsFunc(pools, func(pool Pool) bool {
 			return pool.PoolID == currentPoolID
-		})
+		}) {
+			continue
+		}
 
-		if index == -1 {
-			if err := c.CreatePool(ctx, currentPoolID, expectedComment); err != nil {
-				return fmt.Errorf("creating pool %q: %w", currentPoolID, err)
+		if createErr := c.CreatePool(ctx, currentPoolID, nil); createErr != nil {
+			// Another workflow may have created the pool after the initial list.
+			refreshedPools, refreshErr := c.GetPools(ctx)
+			if refreshErr != nil {
+				return fmt.Errorf(
+					"creating pool %q: %w (verifying pool existence: %v)",
+					currentPoolID,
+					createErr,
+					refreshErr,
+				)
 			}
-			pools = append(pools, Pool{PoolID: currentPoolID, Comment: expectedComment})
+			if !slices.ContainsFunc(refreshedPools, func(pool Pool) bool {
+				return pool.PoolID == currentPoolID
+			}) {
+				return fmt.Errorf("creating pool %q: %w", currentPoolID, createErr)
+			}
+			pools = refreshedPools
 			continue
 		}
 
-		if pools[index].Comment == expectedComment {
-			continue
-		}
-
-		if err := c.UpdatePoolComment(ctx, currentPoolID, expectedComment); err != nil {
-			return fmt.Errorf("updating pool %q: %w", currentPoolID, err)
-		}
-		pools[index].Comment = expectedComment
+		pools = append(pools, Pool{PoolID: currentPoolID})
 	}
 
 	return nil
@@ -109,7 +99,20 @@ func (c *Client) SyncVMPoolMembership(
 	}
 
 	if err := c.AddVMToPool(ctx, desiredPool, vmid); err != nil {
-		return fmt.Errorf("adding VM %d to pool %q: %w", vmid, desiredPool, err)
+		addErr := fmt.Errorf("adding VM %d to pool %q: %w", vmid, desiredPool, err)
+		if currentPool == "" {
+			return addErr
+		}
+
+		restoreCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), poolMembershipRestoreTimeout)
+		defer cancel()
+		if restoreErr := c.AddVMToPool(restoreCtx, currentPool, vmid); restoreErr != nil {
+			return errors.Join(
+				addErr,
+				fmt.Errorf("restoring VM %d to original pool %q: %w", vmid, currentPool, restoreErr),
+			)
+		}
+		return fmt.Errorf("%w (restored original pool %q)", addErr, currentPool)
 	}
 
 	return nil

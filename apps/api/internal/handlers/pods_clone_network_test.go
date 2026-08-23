@@ -1,0 +1,563 @@
+package handlers
+
+import (
+	"context"
+	"net/http"
+	"net/http/httptest"
+	"strings"
+	"sync"
+	"sync/atomic"
+	"testing"
+	"time"
+
+	"github.com/MaxwellCaron/kamino/database"
+	"github.com/MaxwellCaron/kamino/internal/podnetwork"
+	"github.com/MaxwellCaron/kamino/internal/proxmox"
+	"github.com/MaxwellCaron/kamino/internal/vmactions"
+	"github.com/google/uuid"
+)
+
+func TestBuildPodNetworkMetadata(t *testing.T) {
+	catalog := testNetworkCatalog(t)
+
+	tests := []struct {
+		name           string
+		target         podCloneTarget
+		clone          database.ClonedPods
+		wantVNet       string
+		wantTag        int
+		wantExtSubnet  string
+		wantExtGateway string
+	}{
+		{"published clone", testCloneTarget(), database.ClonedPods{NetworkNumber: 24, NetworkProfileKey: podnetwork.ProfileLANRouterV1}, "pod", 24, "172.16.24.0/24", "172.16.24.1"},
+		{"development", testCloneTarget(), database.ClonedPods{NetworkNumber: 199, NetworkProfileKey: podnetwork.ProfileLANRouterV1}, "pod", 199, "172.16.199.0/24", "172.16.199.1"},
+		{
+			"secondary clone target",
+			podCloneTarget{Key: "lab2", LANVNet: "pod2", DMZVNet: "dmz2", WANBridge: "vmbr1", WANSubnet: "172.30.0.0/16"},
+			database.ClonedPods{NetworkNumber: 24, NetworkProfileKey: podnetwork.ProfileLANRouterV1},
+			"pod2", 24, "172.30.24.0/24", "172.30.24.1",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			handler := &PodsHandler{NetworkCatalog: catalog}
+
+			got, err := handler.buildPodNetworkMetadata(tt.target, tt.clone.NetworkProfileKey, tt.clone.NetworkNumber)
+			if err != nil {
+				t.Fatalf("buildPodNetworkMetadata() error = %v", err)
+			}
+			if got.Number != tt.clone.NetworkNumber || got.VNet != tt.wantVNet {
+				t.Fatalf("metadata identity = %#v", got)
+			}
+			if got.CloneTargetKey != tt.target.Key {
+				t.Fatalf("clone target key = %q, want %q", got.CloneTargetKey, tt.target.Key)
+			}
+			if got.LANVLANTag != tt.wantTag {
+				t.Fatalf("LAN VLAN tag = %d, want %d", got.LANVLANTag, tt.wantTag)
+			}
+			if got.ExternalSubnet != tt.wantExtSubnet || got.ExternalGateway != tt.wantExtGateway {
+				t.Fatalf("external metadata = %#v", got)
+			}
+			if got.InternalSubnet != "192.168.1.0/24" {
+				t.Fatalf("internal subnet = %q, want 192.168.1.0/24", got.InternalSubnet)
+			}
+			if got.InternalGateway != "192.168.1.1" {
+				t.Fatalf("internal gateway = %q, want 192.168.1.1", got.InternalGateway)
+			}
+		})
+	}
+}
+
+func TestIsPublishedPodRouterVM(t *testing.T) {
+	if !isPublishedPodRouterVM(database.ListPublishedPodVMsForCloneRow{IsRouter: true, Name: "workstation"}) {
+		t.Fatal("expected is_router=true to identify router")
+	}
+	if isPublishedPodRouterVM(database.ListPublishedPodVMsForCloneRow{Name: "router"}) {
+		t.Fatal("expected workload named router without is_router to remain a workload")
+	}
+}
+
+func TestPublishedPodVMTemplateItemID(t *testing.T) {
+	publishedTemplateID := uuid.New()
+	routerTemplateID := uuid.New()
+
+	t.Run("router uses configured source template", func(t *testing.T) {
+		got, err := publishedPodVMTemplateItemID(database.ListPublishedPodVMsForCloneRow{
+			IsRouter:              true,
+			SourceInventoryItemID: publishedTemplateID,
+		}, routerTemplateID)
+		if err != nil {
+			t.Fatalf("publishedPodVMTemplateItemID() error = %v", err)
+		}
+		if got != routerTemplateID {
+			t.Fatalf("template ID = %s, want %s", got, routerTemplateID)
+		}
+	})
+
+	t.Run("non-router uses published template", func(t *testing.T) {
+		got, err := publishedPodVMTemplateItemID(database.ListPublishedPodVMsForCloneRow{
+			SourceInventoryItemID: publishedTemplateID,
+		}, routerTemplateID)
+		if err != nil {
+			t.Fatalf("publishedPodVMTemplateItemID() error = %v", err)
+		}
+		if got != publishedTemplateID {
+			t.Fatalf("template ID = %s, want %s", got, publishedTemplateID)
+		}
+	})
+
+	t.Run("router requires configured template", func(t *testing.T) {
+		if _, err := publishedPodVMTemplateItemID(database.ListPublishedPodVMsForCloneRow{IsRouter: true}, uuid.Nil); err == nil {
+			t.Fatal("expected missing router template error")
+		}
+	})
+}
+
+func TestPodNetworkTargetsFromCloneResults(t *testing.T) {
+	results := []clonePublishedVMResult{
+		{
+			published: database.ListPublishedPodVMsForCloneRow{Name: "router"},
+			clone:     clonedVM{VMID: 100},
+			router:    true,
+		},
+		{
+			published: database.ListPublishedPodVMsForCloneRow{Name: "workstation"},
+			clone:     clonedVM{VMID: 101},
+			router:    false,
+		},
+	}
+	targets := podNetworkTargetsFromCloneResults(results)
+	if len(targets) != 2 {
+		t.Fatalf("len = %d, want 2", len(targets))
+	}
+	if targets[0].name != "router" || !targets[0].router {
+		t.Errorf("target[0] = %+v", targets[0])
+	}
+	if targets[1].name != "workstation" || targets[1].router {
+		t.Errorf("target[1] = %+v", targets[1])
+	}
+}
+
+const (
+	testRouterNode      = "node1"
+	testRouterVMID      = 101
+	testBlockedPowerVM  = 200
+	routerStartUPID     = "UPID:node1:00000000:00000000:00000000:qmstart:101:user@pve:"
+	blockedPowerStartUP = "UPID:node1:00000000:00000000:00000000:qmstart:200:user@pve:"
+)
+
+type routerCloudInitTestState struct {
+	mu            sync.Mutex
+	runtimeStatus string
+	startPosts    int
+}
+
+func (s *routerCloudInitTestState) setRuntimeStatus(status string) {
+	s.mu.Lock()
+	s.runtimeStatus = status
+	s.mu.Unlock()
+}
+
+func (s *routerCloudInitTestState) runtimeStatusValue() string {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.runtimeStatus
+}
+
+func (s *routerCloudInitTestState) recordStartPost() int {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.startPosts++
+	return s.startPosts
+}
+
+func (s *routerCloudInitTestState) startPostCount() int {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.startPosts
+}
+
+func newRouterCloudInitTestHandler(
+	client *proxmox.Client,
+	executor *vmactions.Executor,
+) *PodsHandler {
+	return &PodsHandler{
+		PX:      client,
+		Actions: executor,
+		RouterCloneConfig: PodRouterCloneConfig{
+			RouterWaitTimeout: 3 * time.Second,
+		},
+	}
+}
+
+func testRouterCloudInitTargets() []podNetworkVMTarget {
+	return []podNetworkVMTarget{{
+		name:   "router",
+		router: true,
+		clone: clonedVM{
+			InventoryItemID: uuid.New(),
+			TargetNode:      testRouterNode,
+			VMID:            testRouterVMID,
+		},
+	}}
+}
+
+func testRouterCloudInitConfig() *clonedRouterCloudInitConfig {
+	return &clonedRouterCloudInitConfig{
+		Storage:     "local",
+		UserFile:    "kamino-router-24-user-data.yaml",
+		NetworkFile: "kamino-router-network-config.yaml",
+	}
+}
+
+func serveRouterCloudInitProxmox(
+	t *testing.T,
+	state *routerCloudInitTestState,
+	powerSlotHeld chan struct{},
+	releasePowerSlot <-chan struct{},
+	routerStartObserved chan struct{},
+	cloudInitDone chan struct{},
+) *httptest.Server {
+	t.Helper()
+
+	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case r.Method == http.MethodGet &&
+			r.URL.Path == "/api2/json/nodes/node1/qemu/101/status/current":
+			writeProxmoxAPIResponse(t, w, http.StatusOK, map[string]any{
+				"status": state.runtimeStatusValue(),
+			})
+		case r.Method == http.MethodGet &&
+			r.URL.Path == "/api2/json/nodes/node1/qemu/101/config":
+			writeProxmoxAPIResponse(t, w, http.StatusOK, map[string]any{
+				"ide2": "local:cloudinit",
+			})
+		case r.Method == http.MethodPut &&
+			r.URL.Path == "/api2/json/nodes/node1/qemu/101/config":
+			if cloudInitDone != nil {
+				select {
+				case cloudInitDone <- struct{}{}:
+				default:
+				}
+			}
+			writeProxmoxAPIResponse(t, w, http.StatusOK, nil)
+		case r.Method == http.MethodPost &&
+			r.URL.Path == "/api2/json/nodes/node1/qemu/101/status/start":
+			state.recordStartPost()
+			state.setRuntimeStatus("running")
+			if routerStartObserved != nil {
+				select {
+				case routerStartObserved <- struct{}{}:
+				default:
+				}
+			}
+			writeProxmoxAPIResponse(t, w, http.StatusOK, routerStartUPID)
+		case r.Method == http.MethodGet &&
+			r.URL.Path == "/api2/json/nodes/node1/tasks/"+routerStartUPID+"/status":
+			writeProxmoxAPIResponse(t, w, http.StatusOK, proxmox.TaskStatus{
+				Status:     "stopped",
+				ExitStatus: "OK",
+			})
+		case r.Method == http.MethodPost &&
+			r.URL.Path == "/api2/json/nodes/node1/qemu/200/status/start":
+			writeProxmoxAPIResponse(t, w, http.StatusOK, blockedPowerStartUP)
+		case r.Method == http.MethodGet &&
+			r.URL.Path == "/api2/json/nodes/node1/tasks/"+blockedPowerStartUP+"/status":
+			if powerSlotHeld != nil {
+				select {
+				case powerSlotHeld <- struct{}{}:
+				default:
+				}
+				if releasePowerSlot != nil {
+					<-releasePowerSlot
+				}
+			}
+			writeProxmoxAPIResponse(t, w, http.StatusOK, proxmox.TaskStatus{
+				Status:     "stopped",
+				ExitStatus: "OK",
+			})
+		default:
+			t.Fatalf("unexpected request: %s %s", r.Method, r.URL.Path)
+		}
+	}))
+}
+
+func TestConfigurePodRouterCloudInitUsesSharedPowerConcurrency(t *testing.T) {
+	state := &routerCloudInitTestState{runtimeStatus: "stopped"}
+	powerSlotHeld := make(chan struct{}, 1)
+	releasePowerSlot := make(chan struct{})
+	routerStartObserved := make(chan struct{}, 1)
+	cloudInitDone := make(chan struct{}, 1)
+
+	server := serveRouterCloudInitProxmox(
+		t,
+		state,
+		powerSlotHeld,
+		releasePowerSlot,
+		routerStartObserved,
+		cloudInitDone,
+	)
+	defer server.Close()
+
+	client := proxmox.NewHTTPTestClient(server)
+	executor := vmactions.NewExecutor(
+		client,
+		nil,
+		nil,
+		vmactions.OperationConfig{Concurrency: 2},
+		vmactions.PowerConfig{Concurrency: 1, TaskTimeout: time.Minute},
+	)
+	handler := newRouterCloudInitTestHandler(client, executor)
+
+	blockerDone := make(chan error, 1)
+	go func() {
+		blockerDone <- executor.PowerAction(context.Background(), vmactions.Target{
+			Node:      testRouterNode,
+			VMID:      testBlockedPowerVM,
+			GuestType: proxmox.GuestQEMU,
+		}, vmactions.PowerActionStart)
+	}()
+
+	select {
+	case <-powerSlotHeld:
+	case <-time.After(2 * time.Second):
+		t.Fatal("timed out waiting for blocked power task to hold the slot")
+	}
+
+	configDone := make(chan *requestError, 1)
+	go func() {
+		configDone <- handler.configurePodRouterCloudInit(
+			context.Background(),
+			testRouterCloudInitConfig(),
+			testRouterCloudInitTargets(),
+		)
+	}()
+
+	select {
+	case <-cloudInitDone:
+	case <-time.After(2 * time.Second):
+		t.Fatal("timed out waiting for cloud-init configuration")
+	}
+
+	select {
+	case <-routerStartObserved:
+		t.Fatal("router start observed before blocked power task released")
+	case <-time.After(100 * time.Millisecond):
+	}
+
+	close(releasePowerSlot)
+
+	select {
+	case reqErr := <-configDone:
+		if reqErr != nil {
+			t.Fatalf("configurePodRouterCloudInit() error = %v", reqErr)
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("timed out waiting for router configuration")
+	}
+
+	select {
+	case <-routerStartObserved:
+	case <-time.After(2 * time.Second):
+		t.Fatal("router start was not observed after releasing blocked power task")
+	}
+
+	select {
+	case err := <-blockerDone:
+		if err != nil {
+			t.Fatalf("blocked PowerAction() error = %v", err)
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("timed out waiting for blocked power task")
+	}
+	if state.startPostCount() != 1 {
+		t.Fatalf("router start posts = %d, want 1", state.startPostCount())
+	}
+}
+
+func TestConfigurePodRouterCloudInitOverlapsOperationSlot(t *testing.T) {
+	state := &routerCloudInitTestState{runtimeStatus: "stopped"}
+	server := serveRouterCloudInitProxmox(t, state, nil, nil, nil, nil)
+	defer server.Close()
+
+	client := proxmox.NewHTTPTestClient(server)
+	executor := vmactions.NewExecutor(
+		client,
+		nil,
+		nil,
+		vmactions.OperationConfig{Concurrency: 1},
+		vmactions.PowerConfig{Concurrency: 1, TaskTimeout: time.Minute},
+	)
+	handler := newRouterCloudInitTestHandler(client, executor)
+
+	releaseOperation, err := executor.AcquireOperationSlot(context.Background())
+	if err != nil {
+		t.Fatalf("AcquireOperationSlot() error = %v", err)
+	}
+	defer releaseOperation()
+
+	configDone := make(chan *requestError, 1)
+	go func() {
+		configDone <- handler.configurePodRouterCloudInit(
+			context.Background(),
+			testRouterCloudInitConfig(),
+			testRouterCloudInitTargets(),
+		)
+	}()
+
+	select {
+	case reqErr := <-configDone:
+		if reqErr != nil {
+			t.Fatalf("configurePodRouterCloudInit() error = %v", reqErr)
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("router start waited for the occupied operation slot")
+	}
+	if state.startPostCount() != 1 {
+		t.Fatalf("router start posts = %d, want 1", state.startPostCount())
+	}
+	if state.runtimeStatusValue() != "running" {
+		t.Fatalf("runtime status = %q, want running", state.runtimeStatusValue())
+	}
+}
+
+func TestConfigurePodRouterCloudInitRequiresActions(t *testing.T) {
+	var startPosts atomic.Int32
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case r.Method == http.MethodGet &&
+			r.URL.Path == "/api2/json/nodes/node1/qemu/101/status/current":
+			writeProxmoxAPIResponse(t, w, http.StatusOK, map[string]any{"status": "stopped"})
+		case r.Method == http.MethodGet &&
+			r.URL.Path == "/api2/json/nodes/node1/qemu/101/config":
+			writeProxmoxAPIResponse(t, w, http.StatusOK, map[string]any{
+				"ide2": "local:cloudinit",
+			})
+		case r.Method == http.MethodPut &&
+			r.URL.Path == "/api2/json/nodes/node1/qemu/101/config":
+			writeProxmoxAPIResponse(t, w, http.StatusOK, nil)
+		case r.Method == http.MethodPost &&
+			strings.Contains(r.URL.Path, "/status/start"):
+			startPosts.Add(1)
+			t.Fatal("unexpected router start POST with Actions unavailable")
+		default:
+			t.Fatalf("unexpected request: %s %s", r.Method, r.URL.Path)
+		}
+	}))
+	defer server.Close()
+
+	handler := &PodsHandler{
+		PX: proxmox.NewHTTPTestClient(server),
+		RouterCloneConfig: PodRouterCloneConfig{
+			RouterWaitTimeout: 3 * time.Second,
+		},
+	}
+
+	reqErr := handler.configurePodRouterCloudInit(
+		context.Background(),
+		testRouterCloudInitConfig(),
+		testRouterCloudInitTargets(),
+	)
+	if reqErr == nil {
+		t.Fatal("expected request error")
+	}
+	if reqErr.Status != http.StatusServiceUnavailable {
+		t.Fatalf("status = %d, want %d", reqErr.Status, http.StatusServiceUnavailable)
+	}
+	if reqErr.UserMessage != "failed to start router" {
+		t.Fatalf("user message = %q", reqErr.UserMessage)
+	}
+	if reqErr.Operation != "start cloned router" {
+		t.Fatalf("operation = %q", reqErr.Operation)
+	}
+	if !strings.Contains(reqErr.Err.Error(), "vm actions are unavailable") {
+		t.Fatalf("error = %v, want VM actions unavailable", reqErr.Err)
+	}
+	if startPosts.Load() != 0 {
+		t.Fatalf("start posts = %d, want 0", startPosts.Load())
+	}
+}
+
+func TestConfigureProfileNetworkAttachmentsUsesCloneTargetWANBridge(t *testing.T) {
+	networks := map[string]map[string]string{
+		"201": {
+			"net0": "virtio=AA:BB:CC:DD:EE:FF,bridge=vmbr0",
+			"net1": "virtio=11:22:33:44:55:66,bridge=pod,tag=24",
+		},
+		"202": {
+			"net0": "virtio=22:33:44:55:66:77,bridge=pod,tag=24",
+		},
+	}
+	var mu sync.Mutex
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case r.Method == http.MethodGet && strings.HasPrefix(r.URL.Path, "/api2/json/nodes/node1/qemu/") && strings.HasSuffix(r.URL.Path, "/config"):
+			vmid := strings.TrimSuffix(strings.TrimPrefix(r.URL.Path, "/api2/json/nodes/node1/qemu/"), "/config")
+			mu.Lock()
+			payload := map[string]any{"scsi0": "local-lvm:vm-201-disk-0,size=10G"}
+			for device, value := range networks[vmid] {
+				payload[device] = value
+			}
+			mu.Unlock()
+			writeProxmoxAPIResponse(t, w, http.StatusOK, payload)
+		case r.Method == http.MethodPut && strings.HasPrefix(r.URL.Path, "/api2/json/nodes/node1/qemu/") && strings.HasSuffix(r.URL.Path, "/config"):
+			vmid := strings.TrimSuffix(strings.TrimPrefix(r.URL.Path, "/api2/json/nodes/node1/qemu/"), "/config")
+			if err := r.ParseForm(); err != nil {
+				t.Fatalf("parse form: %v", err)
+			}
+			mu.Lock()
+			for device := range r.PostForm {
+				if strings.HasPrefix(device, "net") {
+					networks[vmid][device] = r.PostForm.Get(device)
+				}
+			}
+			mu.Unlock()
+			writeProxmoxAPIResponse(t, w, http.StatusOK, nil)
+		default:
+			t.Fatalf("unexpected request: %s %s", r.Method, r.URL.Path)
+		}
+	}))
+	defer server.Close()
+
+	handler := &PodsHandler{
+		PX:             proxmox.NewHTTPTestClient(server),
+		NetworkCatalog: testNetworkCatalog(t),
+	}
+	cloneTarget := podCloneTarget{
+		Key:       "lab2",
+		LANVNet:   "pod2",
+		DMZVNet:   "dmz2",
+		WANBridge: "vmbr9",
+		WANSubnet: "172.30.0.0/16",
+	}
+
+	reqErr := handler.configureProfileNetworkAttachments(
+		context.Background(),
+		cloneTarget,
+		podnetwork.ProfileLANRouterV1,
+		24,
+		[]podNetworkVMTarget{
+			{name: "router", router: true, clone: clonedVM{TargetNode: "node1", VMID: 201}},
+			{name: "workstation", clone: clonedVM{TargetNode: "node1", VMID: 202}},
+		},
+		map[string]string{},
+	)
+	if reqErr != nil {
+		t.Fatalf("configureProfileNetworkAttachments() error = %v", reqErr)
+	}
+
+	mu.Lock()
+	defer mu.Unlock()
+	if got := networks["201"]["net0"]; !strings.Contains(got, "bridge=vmbr9") || strings.Contains(got, "tag=") {
+		t.Fatalf("router net0 = %q, want untagged bridge=vmbr9 from the clone target", got)
+	}
+	if got := networks["201"]["net1"]; !strings.Contains(got, "bridge=pod2") || !strings.Contains(got, "tag=24") {
+		t.Fatalf("router net1 = %q, want bridge=pod2,tag=24", got)
+	}
+	if got := networks["202"]["net0"]; !strings.Contains(got, "bridge=pod2") || !strings.Contains(got, "tag=24") {
+		t.Fatalf("workload net0 = %q, want bridge=pod2,tag=24", got)
+	}
+}

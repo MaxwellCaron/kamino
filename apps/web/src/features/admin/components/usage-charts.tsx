@@ -5,7 +5,7 @@ import {
   ChartTooltip,
   TooltipContent,
 } from "@workspace/ui/components/charts/tooltip"
-import { Skeleton } from "@workspace/ui/components/skeleton"
+import { useChartStable } from "@workspace/ui/components/charts/chart-context"
 import { XAxis } from "@workspace/ui/components/charts/x-axis"
 import {
   formatPercent,
@@ -13,6 +13,7 @@ import {
   percentage,
 } from "../utils/admin-dashboard"
 import type { UsageHistoryTimeframe } from "../api/admin-metrics-api"
+import type { XAxisProps } from "@workspace/ui/components/charts/x-axis"
 import type { CapacityHistoryPoint } from "../utils/admin-dashboard"
 
 function getXAxisConfig(timeframe: UsageHistoryTimeframe) {
@@ -81,6 +82,19 @@ function getNodeAspectRatio(_timeframe: UsageHistoryTimeframe) {
   return "9 / 1"
 }
 
+function XAxisWhenReady(props: XAxisProps) {
+  const { chartPhase } = useChartStable()
+  const showAxis =
+    chartPhase === "gridTweenReady" ||
+    chartPhase === "revealing" ||
+    chartPhase === "ready" ||
+    chartPhase === "exitingReady"
+  if (!showAxis) {
+    return null
+  }
+  return <XAxis {...props} />
+}
+
 function UsageChartBody({
   chartData,
   color,
@@ -90,6 +104,8 @@ function UsageChartBody({
   aspectRatio,
   compact = false,
   showXAxis = true,
+  showCapacitySeries = false,
+  isLoading,
 }: {
   chartData: Array<CapacityHistoryPoint>
   color: string
@@ -99,6 +115,8 @@ function UsageChartBody({
   aspectRatio: string
   compact?: boolean
   showXAxis?: boolean
+  showCapacitySeries?: boolean
+  isLoading: boolean
 }) {
   const xAxisConfig = useMemo(() => getXAxisConfig(timeframe), [timeframe])
   const margin = compact
@@ -108,51 +126,94 @@ function UsageChartBody({
     : { top: 8, right: 6, bottom: 28, left: 6 }
 
   return (
-    <AreaChart
-      aspectRatio={aspectRatio}
-      className={compact ? "overflow-hidden" : undefined}
-      data={chartData}
-      margin={margin}
-    >
-      <Grid
-        fadeHorizontal={false}
-        numTicksRows={compact ? 2 : 3}
-        strokeDasharray="3,3"
-        strokeOpacity={0.5}
-      />
-      <Area
-        dataKey="value"
-        fadeEdges
-        fill={color}
-        fillOpacity={0.2}
-        gradientToOpacity={0.02}
-        showHighlight={false}
-        stroke={color}
-        strokeWidth={compact ? 1.5 : 2}
-      />
-      {showXAxis ? (
-        <XAxis
-          formatLabel={xAxisConfig.formatLabel}
-          numTicks={compact ? 2 : xAxisConfig.numTicks}
-          tickerHalfWidth={compact ? 18 : xAxisConfig.tickerHalfWidth}
+    <>
+      <span className="sr-only" role="status" aria-live="polite">
+        {isLoading ? `Loading ${label} chart` : `${label} chart ready`}
+      </span>
+      <AreaChart
+        animationDuration={600}
+        aspectRatio={aspectRatio}
+        data={chartData}
+        margin={margin}
+        status={isLoading ? "loading" : "ready"}
+        yDomainTweenDuration={250}
+        loadingLabel="Loading..."
+      >
+        <Grid
+          fadeHorizontal={false}
+          numTicksRows={compact ? 2 : 3}
+          strokeDasharray="3,3"
+          strokeOpacity={0.5}
         />
-      ) : null}
-      <ChartTooltip
-        content={({ point }) => (
-          <TooltipContent
-            rows={[
-              {
-                color,
-                label,
-                value: `${formatPercent(Number(point.value ?? 0))} · ${formatValue(Number(point.used ?? 0))} / ${formatValue(Number(point.total ?? 0))}`,
-              },
-            ]}
-            title={formatTooltipTitle(point.date)}
+        {showCapacitySeries ? (
+          <Area
+            dataKey="total"
+            fadeEdges
+            fill="var(--color-primary)"
+            fillOpacity={0.08}
+            gradientToOpacity={0.01}
+            loadingStyle="sweep"
+            showHighlight={false}
+            stroke="var(--color-primary)"
+            strokeWidth={compact ? 1 : 1.5}
           />
-        )}
-        showDatePill={false}
-      />
-    </AreaChart>
+        ) : null}
+        <Area
+          dataKey="value"
+          fadeEdges
+          fill={color}
+          fillOpacity={0.2}
+          gradientToOpacity={0.02}
+          loading={showCapacitySeries ? false : undefined}
+          loadingStyle="sweep"
+          showHighlight={false}
+          stroke={color}
+          strokeWidth={compact ? 1.5 : 2}
+        />
+        {showXAxis ? (
+          <XAxisWhenReady
+            formatLabel={xAxisConfig.formatLabel}
+            numTicks={compact ? 2 : xAxisConfig.numTicks}
+            tickerHalfWidth={compact ? 18 : xAxisConfig.tickerHalfWidth}
+          />
+        ) : null}
+        <ChartTooltip
+          className={compact ? "-translate-y-[calc(30%+0.5rem)]" : undefined}
+          content={({ point }) => {
+            const used = Number(point.used ?? 0)
+            const total = Number(point.total ?? 0)
+            const rows = showCapacitySeries
+              ? [
+                  {
+                    color: "var(--color-primary)",
+                    label: "Total",
+                    value: formatValue(total),
+                  },
+                  {
+                    color,
+                    label,
+                    value: `${formatPercent(percentage(used, total))} · ${formatValue(used)}`,
+                  },
+                ]
+              : [
+                  {
+                    color,
+                    label,
+                    value: `${formatPercent(percentage(used, total))} · ${formatValue(used)} / ${formatValue(total)}`,
+                  },
+                ]
+
+            return (
+              <TooltipContent
+                rows={rows}
+                title={formatTooltipTitle(point.date)}
+              />
+            )
+          }}
+          showDatePill={false}
+        />
+      </AreaChart>
+    </>
   )
 }
 
@@ -182,7 +243,7 @@ export function UsageAreaChart({
     () =>
       history.map((point) => ({
         date: point.date,
-        value: point.value,
+        value: point.used,
         used: point.used,
         total: point.total,
       })),
@@ -214,19 +275,23 @@ export function UsageAreaChart({
       </div>
 
       <div className="min-w-0">
-        {isLoading ? (
-          <Skeleton className="w-full rounded-lg" style={{ aspectRatio }} />
-        ) : chartData.length > 0 ? (
+        {isLoading || chartData.length > 0 ? (
           <UsageChartBody
             aspectRatio={aspectRatio}
             chartData={chartData}
             color={color}
             formatValue={formatValue}
+            isLoading={isLoading}
             label={label}
+            showCapacitySeries
             timeframe={timeframe}
           />
         ) : (
-          <div className="flex h-full items-center justify-center rounded-lg border border-dashed border-border/70 bg-muted/20 px-4 text-center text-sm text-muted-foreground">
+          <div
+            role="status"
+            aria-live="polite"
+            className="flex h-full items-center justify-center rounded-lg border border-dashed border-border/70 bg-muted/20 px-4 text-center text-sm text-muted-foreground"
+          >
             {unavailableMessage}
           </div>
         )}
@@ -245,6 +310,7 @@ export function NodeUsageAreaChart({
   isLoading = false,
   unavailableMessage = "No history",
   formatValue = formatUsageBytes,
+  showUsageHeader = true,
 }: {
   label: string
   used: number
@@ -255,13 +321,14 @@ export function NodeUsageAreaChart({
   isLoading?: boolean
   unavailableMessage?: string
   formatValue?: (value: number) => string
+  showUsageHeader?: boolean
 }) {
   const percent = percentage(used, total)
   const chartData = useMemo(
     () =>
       history.map((point) => ({
         date: point.date,
-        value: point.value,
+        value: point.used,
         used: point.used,
         total: point.total,
       })),
@@ -273,30 +340,34 @@ export function NodeUsageAreaChart({
 
   return (
     <div className="flex w-full min-w-0 flex-col gap-2">
-      <div className="grid min-h-4 grid-cols-[minmax(0,1fr)_3.5rem] items-center gap-2 text-xs leading-none">
-        <span className="truncate text-muted-foreground" title={usageLabel}>
-          {usageLabel}
-        </span>
-        <span className="text-right tabular-nums">
-          {formatPercent(percent)}
-        </span>
-      </div>
-      <div className="w-full overflow-hidden">
-        {isLoading ? (
-          <Skeleton className="w-full rounded-md" style={{ aspectRatio }} />
-        ) : chartData.length > 0 ? (
+      {showUsageHeader ? (
+        <div className="grid min-h-4 grid-cols-[minmax(0,1fr)_3.5rem] items-center gap-2 text-xs leading-none">
+          <span className="truncate text-muted-foreground" title={usageLabel}>
+            {usageLabel}
+          </span>
+          <span className="text-right tabular-nums">
+            {formatPercent(percent)}
+          </span>
+        </div>
+      ) : null}
+      <div className="w-full">
+        {isLoading || chartData.length > 0 ? (
           <UsageChartBody
             aspectRatio={aspectRatio}
             chartData={chartData}
             color={color}
             compact
             formatValue={formatValue}
+            isLoading={isLoading}
             label={label}
+            showCapacitySeries
             showXAxis={false}
             timeframe={timeframe}
           />
         ) : (
           <div
+            role="status"
+            aria-live="polite"
             className="flex w-full items-center justify-center rounded-md border border-dashed border-border/70 bg-muted/20 px-2 text-center text-xs text-muted-foreground"
             style={{ aspectRatio }}
           >

@@ -1,27 +1,44 @@
 package handlers
 
 import (
+	"context"
 	"errors"
-	"fmt"
 	"net/http"
-	"strings"
 	"time"
 
 	"github.com/MaxwellCaron/kamino/database"
 	"github.com/MaxwellCaron/kamino/internal/audit"
 	"github.com/MaxwellCaron/kamino/internal/authorization"
 	"github.com/MaxwellCaron/kamino/internal/principals"
-	"github.com/MaxwellCaron/kamino/internal/principals/activedirectory"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
+
+type principalSessionRevoker interface {
+	RevokePrincipalSessions(context.Context, uuid.UUID) error
+}
+
+// principalsAuthz is the narrow slice of authorization.Service PrincipalsHandler needs, so tests can fake it.
+type principalsAuthz interface {
+	RequireManagement(ctx context.Context, principalID uuid.UUID, required authorization.ManagementPermission) error
+}
+
+// principalsAudit is the narrow slice of audit.Service PrincipalsHandler needs, so tests can fake it.
+type principalsAudit interface {
+	RecordSuccess(ctx context.Context, params audit.EventParams)
+	RecordFailure(ctx context.Context, params audit.EventParams, errMsg string)
+}
 
 // PrincipalsHandler handles user and group CRUD via a generic principal provider.
 type PrincipalsHandler struct {
-	Provider principals.Provider
-	Authz    *authorization.Service
-	Audit    *audit.Service
+	Provider     principals.Provider
+	Authz        principalsAuthz
+	Audit        principalsAudit
+	Sessions     principalSessionRevoker
+	DB           *pgxpool.Pool
+	CookieSecure bool
 }
 
 func (h *PrincipalsHandler) requirePrincipalPermission(
@@ -30,7 +47,7 @@ func (h *PrincipalsHandler) requirePrincipalPermission(
 ) bool {
 	principalID, ok := currentPrincipalID(c)
 	if !ok {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "authentication required"})
+		writeUnauthorized(c)
 		return false
 	}
 
@@ -83,6 +100,7 @@ type principalResponse struct {
 	FullName    *string    `json:"full_name"`
 	Description *string    `json:"description"`
 	CreatedAt   *time.Time `json:"created_at,omitempty"`
+	Status      *bool      `json:"status,omitempty"`
 }
 
 func timestamptzPtr(value pgtype.Timestamptz) *time.Time {
@@ -103,6 +121,7 @@ func userPrincipalResponses(rows []database.GetAllUsersRow) []principalResponse 
 			FullName:    row.FullName,
 			Description: row.Description,
 			CreatedAt:   timestamptzPtr(row.CreatedAt),
+			Status:      row.Status,
 		})
 	}
 	return responses
@@ -146,7 +165,7 @@ func parseBulkDeleteIDs(c *gin.Context) ([]string, bool) {
 
 	for _, rawID := range req.IDs {
 		if _, err := uuid.Parse(rawID); err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
+			writeInvalidRequest(c, "invalid id")
 			return nil, false
 		}
 	}
@@ -200,6 +219,23 @@ func bulkPrincipalDeleteError(err error) string {
 	}
 }
 
+func writePrincipalMutationError(c *gin.Context, message, operation string, err error) {
+	if errors.Is(err, principals.ErrUnsupportedPrincipal) {
+		writeInvalidRequest(c, "unsupported principal")
+		return
+	}
+	writeLoggedError(c, http.StatusBadGateway, message, operation, err)
+}
+
+// GetProvider returns the configured principal provider capabilities.
+// GET /api/v1/principals/provider
+func (h *PrincipalsHandler) GetProvider(c *gin.Context) {
+	if !h.requirePrincipalPermission(c, authorization.ManagementPermissionManager) {
+		return
+	}
+	c.JSON(http.StatusOK, h.Provider.Capabilities())
+}
+
 func parseBulkMembershipIDs(c *gin.Context) ([]uuid.UUID, []string, bool) {
 	var req bulkMembershipRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -211,7 +247,7 @@ func parseBulkMembershipIDs(c *gin.Context) ([]uuid.UUID, []string, bool) {
 	for _, rawID := range req.MemberIDs {
 		id, err := uuid.Parse(rawID)
 		if err != nil {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid member id"})
+			writeInvalidRequest(c, "invalid member id")
 			return nil, nil, false
 		}
 		memberIDs = append(memberIDs, id)
@@ -224,718 +260,6 @@ func parseBulkMembershipIDs(c *gin.Context) ([]uuid.UUID, []string, bool) {
 
 // ListUsers returns all user principals.
 // GET /api/v1/principals/users
-func (h *PrincipalsHandler) ListUsers(c *gin.Context) {
-	if !h.requirePrincipalPermission(c, authorization.ManagementPermissionManager) {
-		return
-	}
-
-	users, err := h.Provider.ListUsers(c.Request.Context())
-	if err != nil {
-		writeLoggedError(c, http.StatusInternalServerError, "failed to fetch users", "list users", err)
-		return
-	}
-	if users == nil {
-		c.JSON(http.StatusOK, []interface{}{})
-		return
-	}
-	c.JSON(http.StatusOK, userPrincipalResponses(users))
-}
-
-type createUserRequest struct {
-	Username    string      `json:"username" binding:"required"`
-	Description string      `json:"description"`
-	Password    string      `json:"password" binding:"required"`
-	GroupIDs    []uuid.UUID `json:"group_ids"`
-}
-
-// CreateUser creates a new user.
-// POST /api/v1/principals/users
-func (h *PrincipalsHandler) CreateUser(c *gin.Context) {
-	if !h.requirePrincipalPermission(c, authorization.ManagementPermissionAdministrator) {
-		return
-	}
-
-	var reqs []createUserRequest
-	if err := c.ShouldBindJSON(&reqs); err != nil {
-		writeInvalidRequest(c, "invalid request body")
-		return
-	}
-	if len(reqs) == 0 {
-		writeInvalidRequest(c, "at least one user is required")
-		return
-	}
-
-	for _, req := range reqs {
-		if err := activedirectory.ValidateADCreateName(req.Username); err != nil {
-			writeInvalidRequest(c, err.Error())
-			return
-		}
-	}
-
-	type userCreateOutcome struct {
-		assignmentErrors []string
-		createdID        uuid.UUID
-		createErr        error
-		groupIDs         []uuid.UUID
-		username         string
-	}
-
-	principalID, _ := currentPrincipalID(c)
-
-	outcomes := make([]userCreateOutcome, len(reqs))
-	groupAssignments := make(map[uuid.UUID][]int)
-
-	for index, req := range reqs {
-		outcomes[index].username = req.Username
-		outcomes[index].groupIDs = uniqueUUIDs(req.GroupIDs)
-
-		createdID, err := h.Provider.CreateUser(
-			c.Request.Context(),
-			req.Username,
-			req.Password,
-			req.Description,
-		)
-		if err != nil {
-			logRequestError(c, "create user username="+req.Username, err)
-			outcomes[index].createErr = err
-			h.Audit.RecordFailure(c.Request.Context(), audit.EventParams{
-				ActorPrincipalID: &principalID,
-				ActionKind:       "principal.user.create",
-				TargetKind:       "principal",
-				Metadata:         map[string]any{"username": req.Username},
-			}, err.Error())
-			continue
-		}
-
-		h.Audit.RecordSuccess(c.Request.Context(), audit.EventParams{
-			ActorPrincipalID: &principalID,
-			ActionKind:       "principal.user.create",
-			TargetKind:       "principal",
-			Metadata:         map[string]any{"principal_id": createdID.String(), "username": req.Username},
-		})
-		outcomes[index].createdID = createdID
-		for _, groupID := range outcomes[index].groupIDs {
-			groupAssignments[groupID] = append(groupAssignments[groupID], index)
-		}
-	}
-
-	for groupID, indexes := range groupAssignments {
-		memberIDs := make([]uuid.UUID, 0, len(indexes))
-		for _, index := range indexes {
-			memberIDs = append(memberIDs, outcomes[index].createdID)
-		}
-
-		failed, err := h.Provider.AddGroupMembers(c.Request.Context(), groupID, memberIDs)
-		if err != nil {
-			logRequestError(c, "add created users to group id="+groupID.String(), err)
-			for _, index := range indexes {
-				outcomes[index].assignmentErrors = append(
-					outcomes[index].assignmentErrors,
-					fmt.Sprintf("group %s: %v", groupID, err),
-				)
-			}
-			continue
-		}
-
-		for _, index := range indexes {
-			if memberErr, hasFailed := failed[outcomes[index].createdID]; hasFailed {
-				logRequestError(
-					c,
-					"add created user to group username="+outcomes[index].username+" group_id="+groupID.String(),
-					memberErr,
-				)
-				outcomes[index].assignmentErrors = append(
-					outcomes[index].assignmentErrors,
-					fmt.Sprintf("group %s: %v", groupID, memberErr),
-				)
-			}
-		}
-	}
-
-	response := bulkCreateResponse{
-		Total:    len(reqs),
-		Failures: make([]bulkCreateFailure, 0),
-	}
-
-	for _, outcome := range outcomes {
-		switch {
-		case outcome.createErr != nil:
-			response.Failures = append(response.Failures, bulkCreateFailure{
-				Name:  outcome.username,
-				Error: outcome.createErr.Error(),
-			})
-		case len(outcome.assignmentErrors) > 0:
-			response.Failures = append(response.Failures, bulkCreateFailure{
-				Name: outcome.username,
-				Error: fmt.Sprintf(
-					"user created, but group assignment failed: %s",
-					strings.Join(outcome.assignmentErrors, "; "),
-				),
-			})
-		default:
-			response.Successful++
-		}
-	}
-
-	c.JSON(http.StatusOK, response)
-}
-
-type updateUserRequest struct {
-	Username    string `json:"username" binding:"required"`
-	FullName    string `json:"full_name"`
-	Description string `json:"description"`
-}
-
-// UpdateUser updates a user's name.
-// PUT /api/v1/principals/users/:id
-func (h *PrincipalsHandler) UpdateUser(c *gin.Context) {
-	if !h.requirePrincipalPermission(c, authorization.ManagementPermissionAdministrator) {
-		return
-	}
-	principalID, _ := currentPrincipalID(c)
-
-	var req updateUserRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		writeInvalidRequest(c, "invalid request body")
-		return
-	}
-
-	id, err := uuid.Parse(c.Param("id"))
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
-		return
-	}
-
-	normalizedFullName, err := principals.NormalizeFullName(req.FullName)
-	if err != nil {
-		writeInvalidRequest(c, err.Error())
-		return
-	}
-
-	if err := h.Provider.UpdateUser(
-		c.Request.Context(),
-		id,
-		req.Username,
-		normalizedFullName,
-		req.Description,
-	); err != nil {
-		writeLoggedError(c, http.StatusBadGateway, "failed to update user", "update user", err)
-		return
-	}
-
-	h.Audit.RecordSuccess(c.Request.Context(), audit.EventParams{
-		ActorPrincipalID: &principalID,
-		ActionKind:       "principal.user.update",
-		TargetKind:       "principal",
-		Metadata:         map[string]any{"principal_id": id.String()},
-	})
-	c.JSON(http.StatusOK, gin.H{"ok": true})
-}
-
-type setPasswordRequest struct {
-	Password string `json:"password" binding:"required"`
-}
-
-type changeOwnPasswordRequest struct {
-	CurrentPassword string `json:"current_password" binding:"required"`
-	NewPassword     string `json:"new_password" binding:"required"`
-}
-
-// SetPassword sets a user's password.
-// POST /api/v1/principals/users/:id/password
-func (h *PrincipalsHandler) SetPassword(c *gin.Context) {
-	if !h.requirePrincipalPermission(c, authorization.ManagementPermissionAdministrator) {
-		return
-	}
-	principalID, _ := currentPrincipalID(c)
-
-	var req setPasswordRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		writeInvalidRequest(c, "invalid request body")
-		return
-	}
-
-	id, err := uuid.Parse(c.Param("id"))
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
-		return
-	}
-
-	if err := h.Provider.SetPassword(c.Request.Context(), id, req.Password); err != nil {
-		writeLoggedError(c, http.StatusBadGateway, "failed to set password", "set user password", err)
-		return
-	}
-
-	h.Audit.RecordSuccess(c.Request.Context(), audit.EventParams{
-		ActorPrincipalID: &principalID,
-		ActionKind:       "principal.user.password.set",
-		TargetKind:       "principal",
-		Metadata:         map[string]any{"principal_id": id.String()},
-	})
-	c.JSON(http.StatusOK, gin.H{"ok": true})
-}
-
-// ChangeOwnPassword changes the authenticated user's password after verifying
-// the current password.
-// POST /api/v1/principals/self/password
-func (h *PrincipalsHandler) ChangeOwnPassword(c *gin.Context) {
-	principalID, ok := currentPrincipalID(c)
-	if !ok {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "authentication required"})
-		return
-	}
-
-	var req changeOwnPasswordRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		writeInvalidRequest(c, "invalid request body")
-		return
-	}
-
-	if err := h.Provider.ChangePassword(
-		c.Request.Context(),
-		principalID,
-		req.CurrentPassword,
-		req.NewPassword,
-	); err != nil {
-		switch {
-		case errors.Is(err, principals.ErrInvalidCredentials):
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "current password is incorrect"})
-		case errors.Is(err, principals.ErrPrincipalNotFound),
-			errors.Is(err, principals.ErrUnsupportedPrincipal):
-			c.JSON(http.StatusBadRequest, gin.H{"error": "password change is unavailable for this account"})
-		default:
-			writeLoggedError(c, http.StatusBadGateway, "failed to change password", "change own password", err)
-		}
-		return
-	}
-
-	h.Audit.RecordSuccess(c.Request.Context(), audit.EventParams{
-		ActorPrincipalID: &principalID,
-		ActionKind:       "principal.user.password.change",
-		TargetKind:       "principal",
-	})
-	c.JSON(http.StatusOK, gin.H{"ok": true})
-}
-
-// EnableUser enables a user account.
-// POST /api/v1/principals/users/:id/enable
-func (h *PrincipalsHandler) EnableUser(c *gin.Context) {
-	if !h.requirePrincipalPermission(c, authorization.ManagementPermissionAdministrator) {
-		return
-	}
-	principalID, _ := currentPrincipalID(c)
-
-	id, err := uuid.Parse(c.Param("id"))
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
-		return
-	}
-
-	if err := h.Provider.EnableUser(c.Request.Context(), id); err != nil {
-		writeLoggedError(c, http.StatusBadGateway, "failed to enable user", "enable user", err)
-		return
-	}
-
-	h.Audit.RecordSuccess(c.Request.Context(), audit.EventParams{
-		ActorPrincipalID: &principalID,
-		ActionKind:       "principal.user.enable",
-		TargetKind:       "principal",
-		Metadata:         map[string]any{"principal_id": id.String()},
-	})
-	c.JSON(http.StatusOK, gin.H{"ok": true})
-}
-
-// DisableUser disables a user account.
-// POST /api/v1/principals/users/:id/disable
-func (h *PrincipalsHandler) DisableUser(c *gin.Context) {
-	if !h.requirePrincipalPermission(c, authorization.ManagementPermissionAdministrator) {
-		return
-	}
-	principalID, _ := currentPrincipalID(c)
-
-	id, err := uuid.Parse(c.Param("id"))
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
-		return
-	}
-
-	if err := h.Provider.DisableUser(c.Request.Context(), id); err != nil {
-		writeLoggedError(c, http.StatusBadGateway, "failed to disable user", "disable user", err)
-		return
-	}
-
-	h.Audit.RecordSuccess(c.Request.Context(), audit.EventParams{
-		ActorPrincipalID: &principalID,
-		ActionKind:       "principal.user.disable",
-		TargetKind:       "principal",
-		Metadata:         map[string]any{"principal_id": id.String()},
-	})
-	c.JSON(http.StatusOK, gin.H{"ok": true})
-}
-
-// DeleteUsers deletes multiple users.
-// DELETE /api/v1/principals/users
-func (h *PrincipalsHandler) DeleteUsers(c *gin.Context) {
-	if !h.requirePrincipalPermission(c, authorization.ManagementPermissionAdministrator) {
-		return
-	}
-	principalID, _ := currentPrincipalID(c)
-
-	rawIDs, ok := parseBulkDeleteIDs(c)
-	if !ok {
-		return
-	}
-
-	writeBulkDeleteResponse(c, rawIDs, func(id uuid.UUID) error {
-		err := h.Provider.DeleteUser(c.Request.Context(), id)
-		if err != nil {
-			h.Audit.RecordFailure(c.Request.Context(), audit.EventParams{
-				ActorPrincipalID: &principalID,
-				ActionKind:       "principal.user.delete",
-				TargetKind:       "principal",
-				Metadata:         map[string]any{"principal_id": id.String()},
-			}, err.Error())
-			return err
-		}
-		h.Audit.RecordSuccess(c.Request.Context(), audit.EventParams{
-			ActorPrincipalID: &principalID,
-			ActionKind:       "principal.user.delete",
-			TargetKind:       "principal",
-			Metadata:         map[string]any{"principal_id": id.String()},
-		})
-		return nil
-	})
-}
-
-// ---------- Groups ----------
-
-// ListGroups returns all group principals.
-// GET /api/v1/principals/groups
-func (h *PrincipalsHandler) ListGroups(c *gin.Context) {
-	if !h.requirePrincipalPermission(c, authorization.ManagementPermissionManager) {
-		return
-	}
-
-	groups, err := h.Provider.ListGroups(c.Request.Context())
-	if err != nil {
-		writeLoggedError(c, http.StatusInternalServerError, "failed to fetch groups", "list groups", err)
-		return
-	}
-	if groups == nil {
-		c.JSON(http.StatusOK, []interface{}{})
-		return
-	}
-	c.JSON(http.StatusOK, groupPrincipalResponses(groups))
-}
-
-type createGroupRequest struct {
-	Name        string `json:"name" binding:"required"`
-	Description string `json:"description"`
-}
-
-// CreateGroup creates a new group.
-// POST /api/v1/principals/groups
-func (h *PrincipalsHandler) CreateGroup(c *gin.Context) {
-	if !h.requirePrincipalPermission(c, authorization.ManagementPermissionAdministrator) {
-		return
-	}
-	principalID, _ := currentPrincipalID(c)
-
-	var reqs []createGroupRequest
-	if err := c.ShouldBindJSON(&reqs); err != nil {
-		writeInvalidRequest(c, "invalid request body")
-		return
-	}
-	if len(reqs) == 0 {
-		writeInvalidRequest(c, "at least one group is required")
-		return
-	}
-
-	for _, req := range reqs {
-		if err := activedirectory.ValidateADCreateName(req.Name); err != nil {
-			writeInvalidRequest(c, err.Error())
-			return
-		}
-	}
-
-	response := bulkCreateResponse{
-		Total:    len(reqs),
-		Failures: make([]bulkCreateFailure, 0),
-	}
-
-	for _, req := range reqs {
-		if _, err := h.Provider.CreateGroup(c.Request.Context(), req.Name, req.Description); err != nil {
-			logRequestError(c, "create group name="+req.Name, err)
-			response.Failures = append(response.Failures, bulkCreateFailure{
-				Name:  req.Name,
-				Error: err.Error(),
-			})
-			h.Audit.RecordFailure(c.Request.Context(), audit.EventParams{
-				ActorPrincipalID: &principalID,
-				ActionKind:       "principal.group.create",
-				TargetKind:       "principal",
-				Metadata:         map[string]any{"name": req.Name},
-			}, err.Error())
-			continue
-		}
-
-		h.Audit.RecordSuccess(c.Request.Context(), audit.EventParams{
-			ActorPrincipalID: &principalID,
-			ActionKind:       "principal.group.create",
-			TargetKind:       "principal",
-			Metadata:         map[string]any{"name": req.Name},
-		})
-		response.Successful++
-	}
-
-	c.JSON(http.StatusOK, response)
-}
-
-type updateGroupRequest struct {
-	Name        string `json:"name" binding:"required"`
-	Description string `json:"description"`
-}
-
-// UpdateGroup updates a group's name.
-// PUT /api/v1/principals/groups/:id
-func (h *PrincipalsHandler) UpdateGroup(c *gin.Context) {
-	if !h.requirePrincipalPermission(c, authorization.ManagementPermissionAdministrator) {
-		return
-	}
-	principalID, _ := currentPrincipalID(c)
-
-	var req updateGroupRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		writeInvalidRequest(c, "invalid request body")
-		return
-	}
-
-	id, err := uuid.Parse(c.Param("id"))
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
-		return
-	}
-
-	if err := h.Provider.UpdateGroup(c.Request.Context(), id, req.Name, req.Description); err != nil {
-		writeLoggedError(c, http.StatusBadGateway, "failed to update group", "update group", err)
-		return
-	}
-
-	h.Audit.RecordSuccess(c.Request.Context(), audit.EventParams{
-		ActorPrincipalID: &principalID,
-		ActionKind:       "principal.group.update",
-		TargetKind:       "principal",
-		Metadata:         map[string]any{"principal_id": id.String()},
-	})
-	c.JSON(http.StatusOK, gin.H{"ok": true})
-}
-
-// DeleteGroups deletes multiple groups.
-// DELETE /api/v1/principals/groups
-func (h *PrincipalsHandler) DeleteGroups(c *gin.Context) {
-	if !h.requirePrincipalPermission(c, authorization.ManagementPermissionAdministrator) {
-		return
-	}
-	principalID, _ := currentPrincipalID(c)
-
-	rawIDs, ok := parseBulkDeleteIDs(c)
-	if !ok {
-		return
-	}
-
-	writeBulkDeleteResponse(c, rawIDs, func(id uuid.UUID) error {
-		err := h.Provider.DeleteGroup(c.Request.Context(), id)
-		if err != nil {
-			h.Audit.RecordFailure(c.Request.Context(), audit.EventParams{
-				ActorPrincipalID: &principalID,
-				ActionKind:       "principal.group.delete",
-				TargetKind:       "principal",
-				Metadata:         map[string]any{"principal_id": id.String()},
-			}, err.Error())
-			return err
-		}
-		h.Audit.RecordSuccess(c.Request.Context(), audit.EventParams{
-			ActorPrincipalID: &principalID,
-			ActionKind:       "principal.group.delete",
-			TargetKind:       "principal",
-			Metadata:         map[string]any{"principal_id": id.String()},
-		})
-		return nil
-	})
-}
-
-// ---------- Group Members ----------
-
-// GetGroupMembers returns the members of a group.
-// GET /api/v1/principals/groups/:id/members
-func (h *PrincipalsHandler) GetGroupMembers(c *gin.Context) {
-	if !h.requirePrincipalPermission(c, authorization.ManagementPermissionAdministrator) {
-		return
-	}
-
-	id, err := uuid.Parse(c.Param("id"))
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
-		return
-	}
-
-	members, err := h.Provider.GetGroupMembers(c.Request.Context(), id)
-	if err != nil {
-		writeLoggedError(c, http.StatusInternalServerError, "failed to fetch members", "get group members", err)
-		return
-	}
-	if members == nil {
-		c.JSON(http.StatusOK, []interface{}{})
-		return
-	}
-	c.JSON(http.StatusOK, members)
-}
-
-// AddGroupMembers adds members to a group.
-// POST /api/v1/principals/groups/:id/members
-func (h *PrincipalsHandler) AddGroupMembers(c *gin.Context) {
-	if !h.requirePrincipalPermission(c, authorization.ManagementPermissionAdministrator) {
-		return
-	}
-	principalID, _ := currentPrincipalID(c)
-
-	groupID, err := uuid.Parse(c.Param("id"))
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid group id"})
-		return
-	}
-
-	memberIDs, rawIDs, ok := parseBulkMembershipIDs(c)
-	if !ok {
-		return
-	}
-
-	failed, err := h.Provider.AddGroupMembers(c.Request.Context(), groupID, memberIDs)
-	if err != nil {
-		writeLoggedError(c, http.StatusBadGateway, "failed to add members", "add group members", err)
-		return
-	}
-
-	response := bulkMembershipResponse{
-		Succeeded: make([]string, 0, len(rawIDs)),
-		Failed:    make([]bulkMembershipFailure, 0),
-	}
-
-	for index, memberID := range memberIDs {
-		if memberErr, hasFailed := failed[memberID]; hasFailed {
-			logRequestError(c, "add group member id="+rawIDs[index], memberErr)
-			response.Failed = append(response.Failed, bulkMembershipFailure{
-				ID:    rawIDs[index],
-				Error: "add failed",
-			})
-			h.Audit.RecordFailure(c.Request.Context(), audit.EventParams{
-				ActorPrincipalID: &principalID,
-				ActionKind:       "principal.group.member.add",
-				TargetKind:       "principal",
-				Metadata:         map[string]any{"group_id": groupID.String(), "member_id": memberID.String()},
-			}, memberErr.Error())
-			continue
-		}
-
-		response.Succeeded = append(response.Succeeded, rawIDs[index])
-		h.Audit.RecordSuccess(c.Request.Context(), audit.EventParams{
-			ActorPrincipalID: &principalID,
-			ActionKind:       "principal.group.member.add",
-			TargetKind:       "principal",
-			Metadata:         map[string]any{"group_id": groupID.String(), "member_id": memberID.String()},
-		})
-	}
-
-	c.JSON(http.StatusOK, response)
-}
-
-// RemoveGroupMembers removes members from a group.
-// DELETE /api/v1/principals/groups/:id/members
-func (h *PrincipalsHandler) RemoveGroupMembers(c *gin.Context) {
-	if !h.requirePrincipalPermission(c, authorization.ManagementPermissionAdministrator) {
-		return
-	}
-	principalID, _ := currentPrincipalID(c)
-
-	groupID, err := uuid.Parse(c.Param("id"))
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid group id"})
-		return
-	}
-
-	memberIDs, rawIDs, ok := parseBulkMembershipIDs(c)
-	if !ok {
-		return
-	}
-
-	failed, err := h.Provider.RemoveGroupMembers(c.Request.Context(), groupID, memberIDs)
-	if err != nil {
-		writeLoggedError(c, http.StatusBadGateway, "failed to remove members", "remove group members", err)
-		return
-	}
-
-	response := bulkMembershipResponse{
-		Succeeded: make([]string, 0, len(rawIDs)),
-		Failed:    make([]bulkMembershipFailure, 0),
-	}
-
-	for index, memberID := range memberIDs {
-		if memberErr, hasFailed := failed[memberID]; hasFailed {
-			logRequestError(c, "remove group member id="+rawIDs[index], memberErr)
-			response.Failed = append(response.Failed, bulkMembershipFailure{
-				ID:    rawIDs[index],
-				Error: "remove failed",
-			})
-			h.Audit.RecordFailure(c.Request.Context(), audit.EventParams{
-				ActorPrincipalID: &principalID,
-				ActionKind:       "principal.group.member.remove",
-				TargetKind:       "principal",
-				Metadata:         map[string]any{"group_id": groupID.String(), "member_id": memberID.String()},
-			}, memberErr.Error())
-			continue
-		}
-
-		response.Succeeded = append(response.Succeeded, rawIDs[index])
-		h.Audit.RecordSuccess(c.Request.Context(), audit.EventParams{
-			ActorPrincipalID: &principalID,
-			ActionKind:       "principal.group.member.remove",
-			TargetKind:       "principal",
-			Metadata:         map[string]any{"group_id": groupID.String(), "member_id": memberID.String()},
-		})
-	}
-
-	c.JSON(http.StatusOK, response)
-}
-
-// GetUserGroups returns the groups a user belongs to.
-// GET /api/v1/principals/users/:id/groups
-func (h *PrincipalsHandler) GetUserGroups(c *gin.Context) {
-	if !h.requirePrincipalPermission(c, authorization.ManagementPermissionAdministrator) {
-		return
-	}
-
-	id, err := uuid.Parse(c.Param("id"))
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
-		return
-	}
-
-	groups, err := h.Provider.GetUserGroups(c.Request.Context(), id)
-	if err != nil {
-		writeLoggedError(c, http.StatusInternalServerError, "failed to fetch user groups", "get user groups", err)
-		return
-	}
-	if groups == nil {
-		c.JSON(http.StatusOK, []interface{}{})
-		return
-	}
-	c.JSON(http.StatusOK, groups)
-}
-
-// ---------- Sync ----------
-
-// TriggerSync manually triggers a full sync.
-// POST /api/v1/principals/sync
 func (h *PrincipalsHandler) TriggerSync(c *gin.Context) {
 	if !h.requirePrincipalPermission(c, authorization.ManagementPermissionAdministrator) {
 		return

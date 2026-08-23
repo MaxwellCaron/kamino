@@ -1,11 +1,13 @@
 import { useForm } from "@tanstack/react-form"
 import { toast } from "sonner"
 import { DialogFooter } from "@workspace/ui/components/dialog"
+import { FieldError } from "@workspace/ui/components/field"
+import type { ApiScopedNetwork } from "@/features/vms/api/proxmox-options-api"
 import type { ApiVmHardwareConfig } from "@/features/vms/types/vm-types"
 import type { NetworkOption } from "@/features/vms/components/hardware/hardware-section-utils"
 import type {
   StorageOption,
-  VmHardwareFormValues,
+  VmHardwareDialogFormValues,
 } from "@/features/vms/components/hardware/hardware-dialog-schema"
 import {
   AppDialogPrimaryButton,
@@ -28,6 +30,7 @@ import {
 import { VmHardwareNetworksField } from "@/features/vms/components/hardware/vm-hardware-networks-field"
 import { useUpdateVMHardware } from "@/features/vms/hooks/use-vm-actions"
 import { toastUpdateHardware } from "@/features/vms/utils/vm-toasts"
+import { uuid } from "@/features/shared/utils/uuid"
 
 type VmHardwareDialogFormProps = {
   itemId: string
@@ -39,9 +42,13 @@ type VmHardwareDialogFormProps = {
   networkOptions: Array<NetworkOption>
   storageOptions: Array<StorageOption>
   onOpenChange: (open: boolean) => void
+  scopedNetwork?: ApiScopedNetwork
 }
 
-function toFormValues(hardware: ApiVmHardwareConfig): VmHardwareFormValues {
+// Seeds exactly from current hardware; replacing an existing NIC's bridge/tag here would erase a manager override.
+function vmHardwareFormValuesFromHardware(
+  hardware: ApiVmHardwareConfig
+): VmHardwareDialogFormValues {
   return {
     ostype: hardware.ostype,
     bios: hardware.bios,
@@ -55,6 +62,7 @@ function toFormValues(hardware: ApiVmHardwareConfig): VmHardwareFormValues {
     storage: hardware.storage,
     disk_size: hardware.disk_size,
     networks: hardware.networks.map((network) => ({
+      id: network.device ?? uuid(),
       device: network.device,
       mac_address: network.mac_address,
       bridge: network.bridge,
@@ -75,12 +83,13 @@ export function VmHardwareDialogForm({
   networkOptions,
   storageOptions,
   onOpenChange,
+  scopedNetwork,
 }: VmHardwareDialogFormProps) {
   const updateHardware = useUpdateVMHardware(itemId)
   const minimumDiskSize = hardware.disk_size
 
   const form = useForm({
-    defaultValues: toFormValues(hardware),
+    defaultValues: vmHardwareFormValuesFromHardware(hardware),
     onSubmit: ({ value }) => {
       const parsed = vmHardwareFormSchema.parse(value)
       if (parsed.disk_size < minimumDiskSize) {
@@ -137,16 +146,22 @@ export function VmHardwareDialogForm({
                   hardwareNetworkInterfaceSchema.shape.bridge.safeParse(value)
                 )
               }
+              scopedNetwork={scopedNetwork}
             />
           </VmHardwareNetworkSection>
         </div>
       </AppDialogScrollBody>
 
+      <form.Subscribe selector={(state) => state.canSubmit}>
+        {(canSubmit) =>
+          canSubmit ? null : (
+            <FieldError>Correct the highlighted fields to continue.</FieldError>
+          )
+        }
+      </form.Subscribe>
+
       <DialogFooter>
-        <AppDialogPrimaryButton
-          pending={updateHardware.isPending}
-          pendingLabel="Saving..."
-        >
+        <AppDialogPrimaryButton pending={updateHardware.isPending}>
           Save
         </AppDialogPrimaryButton>
       </DialogFooter>

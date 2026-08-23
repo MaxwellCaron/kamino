@@ -13,6 +13,10 @@ import { cn } from "@workspace/ui/lib/utils"
 export const browsePodsGridClassName =
   "grid grid-cols-1 gap-6 lg:grid-cols-2 xl:grid-cols-3 xl:gap-12"
 
+/** One browse-grid column at xl (3-up inside max-w-7xl). */
+export const browsePodsCarouselItemClassName =
+  "w-[min(100%,23.6875rem)] shrink-0"
+
 export function BrowsePodsGridSkeleton() {
   return (
     <div

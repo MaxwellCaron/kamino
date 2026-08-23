@@ -1,10 +1,220 @@
 package requests
 
 import (
+	"context"
+	"errors"
 	"testing"
 
+	"github.com/MaxwellCaron/kamino/database"
 	"github.com/MaxwellCaron/kamino/internal/authorization"
+	"github.com/MaxwellCaron/kamino/internal/inventory"
+	"github.com/MaxwellCaron/kamino/internal/proxmox"
+	"github.com/MaxwellCaron/kamino/internal/vmactions"
+	"github.com/google/uuid"
 )
+
+type fakePersonalPodProvisioner struct {
+	enabled        bool
+	folderID       uuid.UUID
+	err            error
+	provisionCalls int
+}
+
+func (f *fakePersonalPodProvisioner) PersonalPodsEnabled() bool {
+	return f.enabled
+}
+
+func (f *fakePersonalPodProvisioner) ProvisionPersonalPod(context.Context, uuid.UUID) (uuid.UUID, error) {
+	f.provisionCalls++
+	return f.folderID, f.err
+}
+
+// executableService satisfies executeApprovedRequest's non-nil px/inventory/authz/actions guard.
+func executableService(personalPods PersonalPodProvisioner) *Service {
+	return &Service{
+		px:           &proxmox.Client{},
+		inventory:    &inventory.Service{},
+		authz:        &authorization.Service{},
+		actions:      &vmactions.Executor{},
+		personalPods: personalPods,
+	}
+}
+
+type fakeVMActionClaimer struct {
+	claimErr error
+	claims   []fakeVMActionClaimCall
+	releases []uuid.UUID
+}
+
+type fakeVMActionClaimCall struct {
+	itemID           uuid.UUID
+	action           string
+	actorPrincipalID uuid.UUID
+	detail           string
+}
+
+func (f *fakeVMActionClaimer) Claim(
+	_ context.Context,
+	itemID uuid.UUID,
+	action string,
+	actorPrincipalID uuid.UUID,
+	detail string,
+) error {
+	f.claims = append(f.claims, fakeVMActionClaimCall{
+		itemID:           itemID,
+		action:           action,
+		actorPrincipalID: actorPrincipalID,
+		detail:           detail,
+	})
+	return f.claimErr
+}
+
+func (f *fakeVMActionClaimer) Release(_ context.Context, itemID uuid.UUID) error {
+	f.releases = append(f.releases, itemID)
+	return nil
+}
+
+func TestAcquireInventoryRequestClaim_ContentionBeforeTransition(t *testing.T) {
+	itemID := uuid.New()
+	requestID := uuid.New()
+	reviewerID := uuid.New()
+	claimer := &fakeVMActionClaimer{claimErr: vmactions.ErrActionInProgress}
+	svc := &Service{vmClaims: claimer}
+
+	release, err := svc.acquireInventoryRequestClaim(context.Background(), database.GetRequestForExecutionRow{
+		ID:              requestID,
+		Kind:            RequestKindInventoryVMPower,
+		InventoryItemID: &itemID,
+	}, reviewerID)
+	if !errors.Is(err, ErrRequestActionInProgress) {
+		t.Fatalf("acquireInventoryRequestClaim() error = %v, want ErrRequestActionInProgress", err)
+	}
+	if release != nil {
+		t.Fatal("expected no release callback on contention")
+	}
+	if len(claimer.claims) != 1 {
+		t.Fatalf("Claim calls = %d, want 1", len(claimer.claims))
+	}
+	if len(claimer.releases) != 0 {
+		t.Fatalf("Release calls = %d, want 0 before status transition", len(claimer.releases))
+	}
+	got := claimer.claims[0]
+	if got.itemID != itemID {
+		t.Errorf("claim itemID = %s, want %s", got.itemID, itemID)
+	}
+	if got.action != "request:"+RequestKindInventoryVMPower {
+		t.Errorf("claim action = %q, want %q", got.action, "request:"+RequestKindInventoryVMPower)
+	}
+	if got.actorPrincipalID != reviewerID {
+		t.Errorf("claim actorPrincipalID = %s, want %s", got.actorPrincipalID, reviewerID)
+	}
+	if got.detail != requestID.String() {
+		t.Errorf("claim detail = %q, want %q", got.detail, requestID.String())
+	}
+}
+
+func TestAcquireInventoryRequestClaim_ReleaseOnSuccess(t *testing.T) {
+	itemID := uuid.New()
+	requestID := uuid.New()
+	reviewerID := uuid.New()
+	claimer := &fakeVMActionClaimer{}
+	svc := &Service{vmClaims: claimer}
+
+	release, err := svc.acquireInventoryRequestClaim(context.Background(), database.GetRequestForExecutionRow{
+		ID:              requestID,
+		Kind:            RequestKindInventoryVMSnapshotCreate,
+		InventoryItemID: &itemID,
+	}, reviewerID)
+	if err != nil {
+		t.Fatalf("acquireInventoryRequestClaim() error = %v", err)
+	}
+	if release == nil {
+		t.Fatal("expected release callback")
+	}
+
+	release()
+	if len(claimer.releases) != 1 {
+		t.Fatalf("Release calls = %d, want 1", len(claimer.releases))
+	}
+	if claimer.releases[0] != itemID {
+		t.Errorf("released itemID = %s, want %s", claimer.releases[0], itemID)
+	}
+}
+
+func TestAcquireInventoryRequestClaim_ReleaseOnFailure(t *testing.T) {
+	itemID := uuid.New()
+	claimer := &fakeVMActionClaimer{}
+	svc := &Service{vmClaims: claimer}
+
+	release, err := svc.acquireInventoryRequestClaim(context.Background(), database.GetRequestForExecutionRow{
+		ID:              uuid.New(),
+		Kind:            RequestKindInventoryVMSnapshotRollback,
+		InventoryItemID: &itemID,
+	}, uuid.New())
+	if err != nil {
+		t.Fatalf("acquireInventoryRequestClaim() error = %v", err)
+	}
+	defer release()
+
+	release()
+	if len(claimer.releases) != 1 {
+		t.Fatalf("Release calls = %d, want 1 after deferred cleanup", len(claimer.releases))
+	}
+}
+
+func TestAcquireInventoryRequestClaim_PersonalPodSkipsClaim(t *testing.T) {
+	claimer := &fakeVMActionClaimer{}
+	svc := &Service{vmClaims: claimer}
+
+	release, err := svc.acquireInventoryRequestClaim(context.Background(), database.GetRequestForExecutionRow{
+		ID:   uuid.New(),
+		Kind: RequestKindPersonalPodCreate,
+	}, uuid.New())
+	if err != nil {
+		t.Fatalf("acquireInventoryRequestClaim() error = %v", err)
+	}
+	if release != nil {
+		t.Fatal("expected no release callback for personal pod requests")
+	}
+	if len(claimer.claims) != 0 {
+		t.Fatalf("Claim calls = %d, want 0 for personal pod requests", len(claimer.claims))
+	}
+}
+
+func TestAcquireInventoryRequestClaim_NilClaimService(t *testing.T) {
+	itemID := uuid.New()
+	svc := &Service{}
+
+	_, err := svc.acquireInventoryRequestClaim(context.Background(), database.GetRequestForExecutionRow{
+		ID:              uuid.New(),
+		Kind:            RequestKindInventoryVMPower,
+		InventoryItemID: &itemID,
+	}, uuid.New())
+	if !errors.Is(err, ErrRequestServiceUnavailable) {
+		t.Fatalf("acquireInventoryRequestClaim() error = %v, want ErrRequestServiceUnavailable", err)
+	}
+}
+
+func TestIsInventoryVMRequestKind(t *testing.T) {
+	tests := []struct {
+		kind string
+		want bool
+	}{
+		{RequestKindInventoryVMPower, true},
+		{RequestKindInventoryVMSnapshotCreate, true},
+		{RequestKindInventoryVMSnapshotRollback, true},
+		{RequestKindPersonalPodCreate, false},
+		{"unknown.kind", false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.kind, func(t *testing.T) {
+			if got := isInventoryVMRequestKind(tt.kind); got != tt.want {
+				t.Fatalf("isInventoryVMRequestKind(%q) = %v, want %v", tt.kind, got, tt.want)
+			}
+		})
+	}
+}
 
 func TestNormalizeTablePageDefaults(t *testing.T) {
 	page, rows, offset := normalizeTablePage(TablePageParams{})
@@ -90,5 +300,51 @@ func TestCanReviewRequestKind(t *testing.T) {
 				t.Fatalf("canReviewRequestKind() = %v, want %v", got, tt.want)
 			}
 		})
+	}
+}
+
+func TestExecuteApprovedRequest_PersonalPodDisabledIsServiceUnavailable(t *testing.T) {
+	provisioner := &fakePersonalPodProvisioner{enabled: false}
+	svc := executableService(provisioner)
+
+	err := svc.executeApprovedRequest(context.Background(), database.GetRequestForExecutionRow{
+		Kind:                 RequestKindPersonalPodCreate,
+		RequesterPrincipalID: uuid.New(),
+	})
+	if !errors.Is(err, ErrRequestServiceUnavailable) {
+		t.Fatalf("err = %v, want ErrRequestServiceUnavailable", err)
+	}
+	if provisioner.provisionCalls != 0 {
+		t.Fatalf("provision calls = %d, want 0 when the feature is disabled", provisioner.provisionCalls)
+	}
+}
+
+func TestExecuteApprovedRequest_PersonalPodProvisionsExactlyOnce(t *testing.T) {
+	provisioner := &fakePersonalPodProvisioner{enabled: true, folderID: uuid.New()}
+	svc := executableService(provisioner)
+	requesterID := uuid.New()
+
+	if err := svc.executeApprovedRequest(context.Background(), database.GetRequestForExecutionRow{
+		Kind:                 RequestKindPersonalPodCreate,
+		RequesterPrincipalID: requesterID,
+	}); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if provisioner.provisionCalls != 1 {
+		t.Fatalf("provision calls = %d, want 1", provisioner.provisionCalls)
+	}
+}
+
+func TestExecuteApprovedRequest_PersonalPodProvisionErrorDiscardsFolderID(t *testing.T) {
+	provisionErr := errors.New("provisioning failed")
+	provisioner := &fakePersonalPodProvisioner{enabled: true, folderID: uuid.New(), err: provisionErr}
+	svc := executableService(provisioner)
+
+	err := svc.executeApprovedRequest(context.Background(), database.GetRequestForExecutionRow{
+		Kind:                 RequestKindPersonalPodCreate,
+		RequesterPrincipalID: uuid.New(),
+	})
+	if !errors.Is(err, provisionErr) {
+		t.Fatalf("err = %v, want %v", err, provisionErr)
 	}
 }

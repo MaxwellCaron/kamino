@@ -10,9 +10,14 @@ export function SiteLayoutInset({
   children: ReactNode
 }) {
   return (
-    <SidebarInset>
+    <SidebarInset id="main-content" tabIndex={-1}>
       {header}
-      <div className="flex min-h-svh flex-col">{children}</div>
+      <div
+        className="relative flex min-h-svh flex-col"
+        data-vnc-layout-anchor
+      >
+        {children}
+      </div>
       <SiteFooter />
     </SidebarInset>
   )

@@ -58,7 +58,7 @@ import {
   AppDialogScrollBody,
   nestedDialogAnimationClassName,
 } from "@/components/dialogs/app-dialog"
-import { DialogBodySkeleton } from "@/components/loading-skeletons"
+import { PreloadOverlay } from "@/components/loading-overlay"
 
 function InventoryPermissionsFormBody({
   props,
@@ -135,8 +135,8 @@ function InventoryPermissionsFormBody({
         <SearchInputGroup
           value={principalSearch}
           onValueChange={setPrincipalSearch}
-          placeholder="Search principals..."
-          aria-label="Search added principals"
+          placeholder="Search configured principals..."
+          aria-label="Search configured principals"
           resultCount={filteredPrincipalCount}
         />
         <AddPrincipalsDialog
@@ -293,7 +293,6 @@ function InventoryPermissionsFormBody({
           onClick={() => void actions.handleSubmit()}
           disabled={!state.hasChanges}
           pending={state.isSaving}
-          pendingLabel="Submitting..."
         >
           Submit
         </AppDialogPrimaryButton>
@@ -360,7 +359,11 @@ export function InventoryPermissionsDialog(
         descriptionProps={{ render: <div /> }}
         className={nestedDialogAnimationClassName}
       >
-        {loadError ? (
+        {loading ? (
+          <div className="relative min-h-66">
+            <PreloadOverlay active={loading} label="Loading permissions" />
+          </div>
+        ) : loadError || !acl ? (
           <Item variant="muted">
             <ItemContent>
               <ItemTitle>Failed to Load ACL</ItemTitle>
@@ -371,8 +374,6 @@ export function InventoryPermissionsDialog(
               </ItemDescription>
             </ItemContent>
           </Item>
-        ) : loading || !acl ? (
-          <DialogBodySkeleton rows={3} />
         ) : (
           <InventoryPermissionsFormBody
             key={`${itemId}-${open}`}
@@ -386,5 +387,3 @@ export function InventoryPermissionsDialog(
     </Dialog>
   )
 }
-
-export const InventoryAclDialog = InventoryPermissionsDialog

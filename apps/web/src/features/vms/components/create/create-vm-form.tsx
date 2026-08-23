@@ -6,14 +6,17 @@ import {
 } from "@tanstack/react-form"
 import { z } from "zod"
 import { vmNameSchema } from "../../utils/vm-name"
-import type { ApiTreeNode } from "@/features/inventory/types/inventory-types"
+import type { ApiVMTemplateOption } from "@/features/vms/api/proxmox-options-api"
 import type { CreateVMParams } from "@/features/vms/types/vm-types"
+import { optionalVmidSchema } from "@/components/vms/vmid-schema"
+import { uuid } from "@/features/shared/utils/uuid"
 
 const createVmMethodSchema = z.enum(["template", "iso", "upload"])
 
 export type CreateVmMethod = z.infer<typeof createVmMethodSchema>
 
 export const networkInterfaceSchema = z.object({
+  id: z.string().min(1),
   bridge: z
     .string()
     .trim()
@@ -28,10 +31,6 @@ export const optionalVmNameSchema = z.preprocess(
   (value) => (typeof value === "string" && value.trim() === "" ? "" : value),
   z.union([vmNameSchema, z.literal("")])
 )
-export const optionalVmidSchema = z.union([
-  z.literal(0),
-  z.number().int().min(100, "VM ID must be at least 100"),
-])
 
 const templateConfigurationSchema = z.object({
   template_id: z.string().trim().min(1, "Template is required"),
@@ -97,7 +96,9 @@ export const createVmFormSchema = z
     disk_size: z.number().int().min(1).default(32),
     networks: z
       .array(networkInterfaceSchema)
-      .default([{ bridge: "vmbr0", model: "virtio", firewall: true }]),
+      .default([
+        { id: uuid(), bridge: "vmbr0", model: "virtio", firewall: true },
+      ]),
     upload_filename: z.string().trim().optional(),
     upload_notes: z.string().trim().max(256).optional(),
   })
@@ -159,7 +160,7 @@ const defaultValues: CreateVmFormValues = {
   balloon: 0,
   storage: "",
   disk_size: 32,
-  networks: [{ bridge: "vmbr0", model: "virtio", firewall: true }],
+  networks: [{ id: uuid(), bridge: "vmbr0", model: "virtio", firewall: true }],
   upload_filename: "",
   upload_notes: "",
 }
@@ -194,31 +195,17 @@ export type VmTemplateOption = {
 }
 
 export function getVmTemplateOptions(
-  tree: Array<ApiTreeNode> | undefined
+  templates: Array<ApiVMTemplateOption> | undefined
 ): Array<VmTemplateOption> {
-  if (!tree) return []
-
-  const templates: Array<VmTemplateOption> = []
-
-  function walk(nodes: Array<ApiTreeNode>) {
-    for (const entry of nodes) {
-      if (entry.kind === "vm" && entry.vm?.is_template) {
-        templates.push({
-          id: entry.id,
-          label: `${entry.name} (${entry.vm.node}/${entry.vm.vmid})`,
-          name: entry.name,
-          node: entry.vm.node,
-          vmid: entry.vm.vmid,
-        })
-      }
-
-      if (entry.children?.length) walk(entry.children)
-    }
-  }
-
-  walk(tree)
-
-  return templates.sort((left, right) => left.label.localeCompare(right.label))
+  return (templates ?? [])
+    .map((template) => ({
+      id: template.id,
+      label: `${template.name} (${template.node}/${template.vmid})`,
+      name: template.name,
+      node: template.node,
+      vmid: template.vmid,
+    }))
+    .sort((left, right) => left.label.localeCompare(right.label))
 }
 
 export function getSelectedTemplate(
@@ -226,9 +213,7 @@ export function getSelectedTemplate(
   templateId: string | null | undefined
 ) {
   if (!templateId) return undefined
-  return templateOptions.find(
-    (template) => template.id === templateId || template.name === templateId
-  )
+  return templateOptions.find((template) => template.id === templateId)
 }
 
 export function parseNumberInput(value: string, fallback: number) {

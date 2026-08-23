@@ -37,6 +37,7 @@ export function DashboardActivityTableCard({
           data={data}
           error={error}
           initialPageSize={10}
+          searchLabel="Search requests"
           getRowId={(request: ApiRequestSummary) => request.id}
         />
       </CardContent>

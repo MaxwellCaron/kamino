@@ -8,6 +8,12 @@ FROM principal_providers
 WHERE provider_type <> 'system'
 LIMIT 1;
 
+-- name: GetPrincipalProviderByType :one
+SELECT id
+FROM principal_providers
+WHERE provider_type = $1
+LIMIT 1;
+
 -- name: CreatePrincipalProvider :one
 INSERT INTO principal_providers (provider_type, name)
 VALUES ($1, $2)
@@ -22,6 +28,15 @@ INSERT INTO principals (provider_id, principal_type, external_id, name)
 VALUES ($1, $2, $3, $4)
 ON CONFLICT (provider_id, external_id)
 DO UPDATE SET name = EXCLUDED.name, principal_type = EXCLUDED.principal_type
+RETURNING id;
+
+-- name: UpsertSyncedPrincipal :one
+INSERT INTO principals (provider_id, principal_type, external_id, name, created_at)
+VALUES ($1, $2, $3, $4, $5)
+ON CONFLICT (provider_id, external_id)
+DO UPDATE SET
+    name = EXCLUDED.name,
+    principal_type = EXCLUDED.principal_type
 RETURNING id;
 
 -- name: DeleteStalePrincipals :execrows
@@ -50,7 +65,7 @@ ON CONFLICT DO NOTHING;
 -- ---------------------------------------------------------------------------
 
 -- name: GetAllUsers :many
-SELECT id, external_id, name, full_name, description, created_at
+SELECT id, external_id, name, full_name, description, created_at, status
 FROM principals
 WHERE provider_id = $1 AND principal_type = 'user'
 ORDER BY name;
@@ -154,6 +169,9 @@ UPDATE principals SET full_name = $1 WHERE id = $2;
 
 -- name: UpdatePrincipalDescription :exec
 UPDATE principals SET description = $1 WHERE id = $2;
+
+-- name: UpdatePrincipalStatus :exec
+UPDATE principals SET status = $1, updated_at = now() WHERE id = $2;
 
 -- name: DeletePrincipal :exec
 DELETE FROM principals WHERE id = $1;

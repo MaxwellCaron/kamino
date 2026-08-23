@@ -1,6 +1,10 @@
 import { describe, expect, it, vi } from "vitest"
 import { act, fireEvent, screen } from "@testing-library/react"
+import { IdentificationIcon } from "@hugeicons/core-free-icons"
 import { DataTable } from "./data-table"
+import { DataTableColumnHeader } from "./data-table-column-header"
+import { createRowSelectionColumn } from "./data-table-row-selection-column"
+import type { AppTableFeatures } from "./data-table-types"
 import type { ColumnDef } from "@tanstack/react-table"
 import { renderWithQueryClient } from "@/test/test-utils"
 
@@ -10,7 +14,16 @@ vi.mock("@/components/loading-transition", () => ({
 
 type Row = { id: string; name: string }
 
-const columns: Array<ColumnDef<Row>> = [
+const sortableColumns: Array<ColumnDef<AppTableFeatures, Row>> = [
+  {
+    accessorKey: "name",
+    header: ({ column }) => (
+      <DataTableColumnHeader column={column} icon={IdentificationIcon} title="Name" />
+    ),
+  },
+]
+
+const columns: Array<ColumnDef<AppTableFeatures, Row>> = [
   {
     accessorKey: "name",
     header: "Name",
@@ -25,6 +38,58 @@ function makeRows(count: number): Array<Row> {
 }
 
 describe("DataTable client mode", () => {
+  it("exposes the search input with the default accessible name", () => {
+    renderWithQueryClient(
+      <DataTable columns={columns} data={makeRows(1)} error={null} />
+    )
+
+    expect(
+      screen.getByRole("textbox", { name: "Search table" })
+    ).toBeInTheDocument()
+  })
+
+  it("uses a custom searchLabel as the accessible name", () => {
+    renderWithQueryClient(
+      <DataTable
+        columns={columns}
+        data={makeRows(1)}
+        error={null}
+        searchLabel="Search groups"
+      />
+    )
+
+    expect(
+      screen.getByRole("textbox", { name: "Search groups" })
+    ).toBeInTheDocument()
+  })
+
+  it("sorts rows through a sortable column header", () => {
+    renderWithQueryClient(
+      <DataTable
+        columns={sortableColumns}
+        data={[
+          { id: "row-b", name: "Beta" },
+          { id: "row-a", name: "Alpha" },
+        ]}
+        features={{ sorting: true }}
+        initialSorting={[{ id: "name", desc: true }]}
+        error={null}
+      />
+    )
+
+    const rows = screen.getAllByRole("row")
+    expect(rows[1]).toHaveTextContent("Beta")
+    expect(rows[2]).toHaveTextContent("Alpha")
+
+    const sortButton = screen.getByRole("button", { name: "Sort by Name" })
+    fireEvent.click(sortButton)
+    fireEvent.click(sortButton)
+
+    const sortedRows = screen.getAllByRole("row")
+    expect(sortedRows[1]).toHaveTextContent("Alpha")
+    expect(sortedRows[2]).toHaveTextContent("Beta")
+  })
+
   it("paginates local data with initialPageSize=25 by default", () => {
     renderWithQueryClient(
       <DataTable columns={columns} data={makeRows(60)} error={null} />
@@ -42,11 +107,71 @@ describe("DataTable client mode", () => {
       <DataTable columns={columns} data={makeRows(5)} error={null} />
     )
 
-    const search = screen.getByPlaceholderText("Search...")
+    const search = screen.getByRole("textbox", { name: "Search table" })
     fireEvent.change(search, { target: { value: "Row 3" } })
 
     expect(screen.getByText("Row 3")).toBeInTheDocument()
     expect(screen.queryByText("Row 0")).not.toBeInTheDocument()
+  })
+
+  it("exposes the page-size combobox with an accessible name", () => {
+    renderWithQueryClient(
+      <DataTable columns={columns} data={makeRows(1)} error={null} />
+    )
+
+    expect(
+      screen.getByRole("combobox", { name: "Rows per page" })
+    ).toBeInTheDocument()
+  })
+})
+
+describe("DataTable row selection", () => {
+  const selectableColumns: Array<ColumnDef<AppTableFeatures, Row>> = [
+    createRowSelectionColumn<Row>((row) => row.name),
+    { accessorKey: "name", header: "Name" },
+  ]
+
+  it("names the header checkbox with the page scope", () => {
+    renderWithQueryClient(
+      <DataTable columns={selectableColumns} data={makeRows(2)} error={null} />
+    )
+
+    expect(
+      screen.getByRole("checkbox", { name: "Select all rows on this page" })
+    ).toBeInTheDocument()
+  })
+
+  it("names every row checkbox with its own record", () => {
+    renderWithQueryClient(
+      <DataTable columns={selectableColumns} data={makeRows(2)} error={null} />
+    )
+
+    expect(
+      screen.getByRole("checkbox", { name: "Select Row 0" })
+    ).toBeInTheDocument()
+    expect(
+      screen.getByRole("checkbox", { name: "Select Row 1" })
+    ).toBeInTheDocument()
+  })
+
+  it("disables row checkboxes through isRowDisabled", () => {
+    const disabledColumns: Array<ColumnDef<AppTableFeatures, Row>> = [
+      createRowSelectionColumn<Row>((row) => row.name, {
+        isRowDisabled: (row) => row.id === "row-0",
+      }),
+      { accessorKey: "name", header: "Name" },
+    ]
+
+    renderWithQueryClient(
+      <DataTable columns={disabledColumns} data={makeRows(2)} error={null} />
+    )
+
+    expect(
+      screen.getByRole("checkbox", { name: "Select Row 0" })
+    ).toHaveAttribute("aria-disabled", "true")
+    expect(
+      screen.getByRole("checkbox", { name: "Select Row 1" })
+    ).not.toHaveAttribute("aria-disabled", "true")
   })
 })
 
@@ -128,7 +253,7 @@ describe("DataTable server mode", () => {
       />
     )
 
-    const trigger = screen.getByRole("combobox")
+    const trigger = screen.getByRole("combobox", { name: "Rows per page" })
     trigger.focus()
     await act(() => {
       fireEvent.keyDown(trigger, { key: "ArrowDown" })
@@ -177,7 +302,7 @@ describe("DataTable server mode", () => {
       />
     )
 
-    const search = screen.getByPlaceholderText("Search...")
+    const search = screen.getByRole("textbox", { name: "Search table" })
     fireEvent.change(search, { target: { value: "vm-100" } })
 
     expect(onSearchChange).toHaveBeenCalledWith("vm-100")

@@ -135,7 +135,7 @@ func (q *Queries) GetAllGroups(ctx context.Context, providerID uuid.UUID) ([]Get
 
 const getAllUsers = `-- name: GetAllUsers :many
 
-SELECT id, external_id, name, full_name, description, created_at
+SELECT id, external_id, name, full_name, description, created_at, status
 FROM principals
 WHERE provider_id = $1 AND principal_type = 'user'
 ORDER BY name
@@ -148,6 +148,7 @@ type GetAllUsersRow struct {
 	FullName    *string            `json:"full_name"`
 	Description *string            `json:"description"`
 	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+	Status      *bool              `json:"status"`
 }
 
 // ---------------------------------------------------------------------------
@@ -169,6 +170,7 @@ func (q *Queries) GetAllUsers(ctx context.Context, providerID uuid.UUID) ([]GetA
 			&i.FullName,
 			&i.Description,
 			&i.CreatedAt,
+			&i.Status,
 		); err != nil {
 			return nil, err
 		}
@@ -304,6 +306,20 @@ LIMIT 1
 // ---------------------------------------------------------------------------
 func (q *Queries) GetPrincipalProvider(ctx context.Context) (uuid.UUID, error) {
 	row := q.db.QueryRow(ctx, getPrincipalProvider)
+	var id uuid.UUID
+	err := row.Scan(&id)
+	return id, err
+}
+
+const getPrincipalProviderByType = `-- name: GetPrincipalProviderByType :one
+SELECT id
+FROM principal_providers
+WHERE provider_type = $1
+LIMIT 1
+`
+
+func (q *Queries) GetPrincipalProviderByType(ctx context.Context, providerType PrincipalProviderType) (uuid.UUID, error) {
+	row := q.db.QueryRow(ctx, getPrincipalProviderByType, providerType)
 	var id uuid.UUID
 	err := row.Scan(&id)
 	return id, err
@@ -567,6 +583,20 @@ func (q *Queries) UpdatePrincipalFullName(ctx context.Context, arg UpdatePrincip
 	return err
 }
 
+const updatePrincipalStatus = `-- name: UpdatePrincipalStatus :exec
+UPDATE principals SET status = $1, updated_at = now() WHERE id = $2
+`
+
+type UpdatePrincipalStatusParams struct {
+	Status *bool     `json:"status"`
+	ID     uuid.UUID `json:"id"`
+}
+
+func (q *Queries) UpdatePrincipalStatus(ctx context.Context, arg UpdatePrincipalStatusParams) error {
+	_, err := q.db.Exec(ctx, updatePrincipalStatus, arg.Status, arg.ID)
+	return err
+}
+
 const upsertPrincipal = `-- name: UpsertPrincipal :one
 
 INSERT INTO principals (provider_id, principal_type, external_id, name)
@@ -592,6 +622,37 @@ func (q *Queries) UpsertPrincipal(ctx context.Context, arg UpsertPrincipalParams
 		arg.PrincipalType,
 		arg.ExternalID,
 		arg.Name,
+	)
+	var id uuid.UUID
+	err := row.Scan(&id)
+	return id, err
+}
+
+const upsertSyncedPrincipal = `-- name: UpsertSyncedPrincipal :one
+INSERT INTO principals (provider_id, principal_type, external_id, name, created_at)
+VALUES ($1, $2, $3, $4, $5)
+ON CONFLICT (provider_id, external_id)
+DO UPDATE SET
+    name = EXCLUDED.name,
+    principal_type = EXCLUDED.principal_type
+RETURNING id
+`
+
+type UpsertSyncedPrincipalParams struct {
+	ProviderID    uuid.UUID          `json:"provider_id"`
+	PrincipalType PrincipalType      `json:"principal_type"`
+	ExternalID    string             `json:"external_id"`
+	Name          *string            `json:"name"`
+	CreatedAt     pgtype.Timestamptz `json:"created_at"`
+}
+
+func (q *Queries) UpsertSyncedPrincipal(ctx context.Context, arg UpsertSyncedPrincipalParams) (uuid.UUID, error) {
+	row := q.db.QueryRow(ctx, upsertSyncedPrincipal,
+		arg.ProviderID,
+		arg.PrincipalType,
+		arg.ExternalID,
+		arg.Name,
+		arg.CreatedAt,
 	)
 	var id uuid.UUID
 	err := row.Scan(&id)

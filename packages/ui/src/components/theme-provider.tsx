@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useState } from "react"
 
 type Theme = "dark" | "light" | "system"
+type ResolvedTheme = "dark" | "light"
 
 type ThemeProviderProps = {
   children: React.ReactNode
@@ -10,11 +11,14 @@ type ThemeProviderProps = {
 
 type ThemeProviderState = {
   theme: Theme
+  // null until the client resolves "system" via matchMedia, keeping SSR/hydration in sync
+  resolvedTheme: ResolvedTheme | null
   setTheme: (theme: Theme) => void
 }
 
 const initialState: ThemeProviderState = {
   theme: "system",
+  resolvedTheme: null,
   setTheme: () => null,
 }
 
@@ -36,29 +40,36 @@ export function ThemeProvider({
 
     return isTheme(storedTheme) ? storedTheme : defaultTheme
   })
+  const [resolvedTheme, setResolvedTheme] = useState<ResolvedTheme | null>(
+    null
+  )
 
   useEffect(() => {
     const root = window.document.documentElement
 
-    root.classList.remove("light", "dark")
+    const applyResolvedTheme = (nextResolvedTheme: ResolvedTheme) => {
+      root.classList.remove("light", "dark")
+      root.classList.add(nextResolvedTheme)
+      root.style.colorScheme = nextResolvedTheme
+      setResolvedTheme(nextResolvedTheme)
+    }
 
-    if (theme === "system") {
-      const systemTheme = window.matchMedia("(prefers-color-scheme: dark)")
-        .matches
-        ? "dark"
-        : "light"
-
-      root.classList.add(systemTheme)
-      root.style.colorScheme = systemTheme
+    if (theme !== "system") {
+      applyResolvedTheme(theme)
       return
     }
 
-    root.classList.add(theme)
-    root.style.colorScheme = theme
+    const query = window.matchMedia("(prefers-color-scheme: dark)")
+    const onChange = () => applyResolvedTheme(query.matches ? "dark" : "light")
+
+    onChange()
+    query.addEventListener("change", onChange)
+    return () => query.removeEventListener("change", onChange)
   }, [theme])
 
   const value = {
     theme,
+    resolvedTheme,
     setTheme: (newTheme: Theme) => {
       localStorage.setItem(storageKey, newTheme)
       setTheme(newTheme)

@@ -9,6 +9,12 @@ import {
   CardTitle,
 } from "@workspace/ui/components/card"
 import { Tabs, TabsList, TabsTrigger } from "@workspace/ui/components/tabs"
+import {
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyTitle,
+} from "@workspace/ui/components/empty"
 
 import { clusterUsageHistoryQueryOptions } from "../api/admin-metrics-api"
 import {
@@ -16,12 +22,15 @@ import {
   formatCores,
   formatUsageBytes,
   getClusterCapacitySummary,
+  sharedStorageHistoryKey,
 } from "../utils/admin-dashboard"
 import { UsageAreaChart } from "./usage-charts"
 import { AdminNodeTable } from "./admin-node-table"
-import type { Capacity } from "../utils/admin-dashboard"
+import { AdminSharedStorageTable } from "./admin-shared-storage-table"
+import type { DashboardStorageSummary } from "../utils/admin-dashboard"
 import type { ApiNode } from "@/features/vms/types/vm-types"
 import type { UsageHistoryTimeframe } from "../api/admin-metrics-api"
+import { InlineErrorAlert } from "@/components/feedback/inline-error-alert"
 
 function normalizeTimeframe(value: string): UsageHistoryTimeframe {
   switch (value) {
@@ -40,18 +49,25 @@ function normalizeTimeframe(value: string): UsageHistoryTimeframe {
 
 export function AdminClusterCard({
   nodes,
-  storageByNode,
+  storageSummary,
+  nodesError,
+  storageError,
+  isCapacityLoading,
 }: {
   nodes: Array<ApiNode>
-  storageByNode: Map<string, Capacity>
+  storageSummary: DashboardStorageSummary
+  nodesError?: unknown
+  storageError?: unknown
+  isCapacityLoading?: boolean
 }) {
+  const clusterLoadError = nodesError ?? storageError
   const [timeframe, setTimeframe] = useState<UsageHistoryTimeframe>("hour")
   const {
     data: historyData,
     error: historyError,
     isLoading: isHistoryLoading,
   } = useQuery(clusterUsageHistoryQueryOptions(timeframe))
-  const clusterCapacity = getClusterCapacitySummary(nodes, storageByNode)
+  const clusterCapacity = getClusterCapacitySummary(nodes, storageSummary)
   const clusterHistory = buildUsageHistorySeries(historyData?.points ?? [])
   const nodeHistoryByNode = useMemo(() => {
     const historyMap = new Map<
@@ -68,12 +84,51 @@ export function AdminClusterCard({
 
     return historyMap
   }, [historyData?.nodes])
+  const sharedStorageHistoryByKey = useMemo(() => {
+    const historyMap = new Map<
+      string,
+      ReturnType<typeof buildUsageHistorySeries>
+    >()
+
+    for (const sharedHistory of historyData?.shared_storages ?? []) {
+      historyMap.set(sharedStorageHistoryKey(sharedHistory), {
+        ...buildUsageHistorySeries(sharedHistory.points),
+      })
+    }
+
+    return historyMap
+  }, [historyData?.shared_storages])
   const historyUnavailableMessage = useMemo(() => {
     if (historyError instanceof Error) {
       return historyError.message
     }
     return "History unavailable."
   }, [historyError])
+
+  if (isCapacityLoading) {
+    return null
+  }
+
+  if (clusterLoadError) {
+    return (
+      <Card className="xl:col-span-12">
+        <CardHeader>
+          <CardTitle>
+            <span className="scroll-m-20 text-2xl font-semibold tracking-tight">
+              Cluster
+            </span>
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <InlineErrorAlert
+            error={clusterLoadError}
+            fallback="Failed to load cluster capacity."
+            title="Cluster unavailable"
+          />
+        </CardContent>
+      </Card>
+    )
+  }
 
   return (
     <Card className="pb-0.5 xl:col-span-12">
@@ -101,60 +156,82 @@ export function AdminClusterCard({
         </CardAction>
       </CardHeader>
       <CardContent>
-        <div className="grid gap-6 py-3 lg:grid-cols-2 2xl:grid-cols-3">
-          <Card className="bg-muted/50 ring-0">
-            <CardContent>
-              <UsageAreaChart
-                label="CPU"
-                used={clusterCapacity.cpuUsed}
-                total={clusterCapacity.cpuTotal}
-                color="var(--chart-1)"
-                formatValue={formatCores}
-                history={clusterHistory.cpu}
-                isLoading={isHistoryLoading}
-                timeframe={timeframe}
-                unavailableMessage={historyUnavailableMessage}
-              />
-            </CardContent>
-          </Card>
-          <Card className="bg-muted/50 ring-0">
-            <CardContent>
-              <UsageAreaChart
-                label="Memory"
-                used={clusterCapacity.memoryUsed}
-                total={clusterCapacity.memoryTotal}
-                color="var(--chart-2)"
-                formatValue={formatUsageBytes}
-                history={clusterHistory.memory}
-                isLoading={isHistoryLoading}
-                timeframe={timeframe}
-                unavailableMessage={historyUnavailableMessage}
-              />
-            </CardContent>
-          </Card>
-          <Card className="bg-muted/50 ring-0 lg:col-span-2 2xl:col-span-1">
-            <CardContent>
-              <UsageAreaChart
-                label="Storage"
-                used={clusterCapacity.storage.used}
-                total={clusterCapacity.storage.total}
-                color="var(--chart-3)"
-                formatValue={formatUsageBytes}
-                history={clusterHistory.storage}
-                isLoading={isHistoryLoading}
-                timeframe={timeframe}
-                unavailableMessage={historyUnavailableMessage}
-              />
-            </CardContent>
-          </Card>
-        </div>
+        {nodes.length === 0 ? (
+          <Empty className="min-h-56 rounded-xl border border-dashed">
+            <EmptyHeader>
+              <EmptyTitle className="scroll-m-20 text-xl font-semibold tracking-tight">
+                No nodes reported
+              </EmptyTitle>
+              <EmptyDescription className="text-sm text-muted-foreground">
+                Proxmox did not return any managed cluster nodes.
+              </EmptyDescription>
+            </EmptyHeader>
+          </Empty>
+        ) : (
+          <div className="grid gap-6 py-3 lg:grid-cols-2 2xl:grid-cols-3">
+            <Card className="bg-muted/50 ring-0">
+              <CardContent>
+                <UsageAreaChart
+                  label="CPU"
+                  used={clusterCapacity.cpuUsed}
+                  total={clusterCapacity.cpuTotal}
+                  color="var(--chart-1)"
+                  formatValue={formatCores}
+                  history={clusterHistory.cpu}
+                  isLoading={isHistoryLoading}
+                  timeframe={timeframe}
+                  unavailableMessage={historyUnavailableMessage}
+                />
+              </CardContent>
+            </Card>
+            <Card className="bg-muted/50 ring-0">
+              <CardContent>
+                <UsageAreaChart
+                  label="Memory"
+                  used={clusterCapacity.memoryUsed}
+                  total={clusterCapacity.memoryTotal}
+                  color="var(--chart-2)"
+                  formatValue={formatUsageBytes}
+                  history={clusterHistory.memory}
+                  isLoading={isHistoryLoading}
+                  timeframe={timeframe}
+                  unavailableMessage={historyUnavailableMessage}
+                />
+              </CardContent>
+            </Card>
+            <Card className="bg-muted/50 ring-0 lg:col-span-2 2xl:col-span-1">
+              <CardContent>
+                <UsageAreaChart
+                  label="Storage"
+                  used={clusterCapacity.storage.used}
+                  total={clusterCapacity.storage.total}
+                  color="var(--chart-3)"
+                  formatValue={formatUsageBytes}
+                  history={clusterHistory.storage}
+                  isLoading={isHistoryLoading}
+                  timeframe={timeframe}
+                  unavailableMessage={historyUnavailableMessage}
+                />
+              </CardContent>
+            </Card>
+          </div>
+        )}
 
         <div className="-mx-6 mt-6 border-t">
-          <AdminNodeTable
+          {nodes.length > 0 ? (
+            <AdminNodeTable
+              isHistoryLoading={isHistoryLoading}
+              nodeHistoryByNode={nodeHistoryByNode}
+              nodes={nodes}
+              storageByNode={storageSummary.localByNode}
+              timeframe={timeframe}
+              unavailableMessage="No history"
+            />
+          ) : null}
+          <AdminSharedStorageTable
             isHistoryLoading={isHistoryLoading}
-            nodeHistoryByNode={nodeHistoryByNode}
-            nodes={nodes}
-            storageByNode={storageByNode}
+            sharedStorageHistoryByKey={sharedStorageHistoryByKey}
+            sharedStorages={storageSummary.shared}
             timeframe={timeframe}
             unavailableMessage="No history"
           />

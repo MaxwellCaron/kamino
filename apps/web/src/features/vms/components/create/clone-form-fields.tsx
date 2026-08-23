@@ -16,27 +16,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@workspace/ui/components/select"
-import {
-  Combobox,
-  ComboboxContent,
-  ComboboxEmpty,
-  ComboboxInput,
-  ComboboxItem,
-  ComboboxList,
-} from "@workspace/ui/components/combobox"
-import {
-  getFirstIssueMessage,
-  optionalVmNameSchema,
-  optionalVmidSchema,
-  parseNumberInput,
-} from "./create-vm-form"
+import { getFirstIssueMessage, optionalVmNameSchema } from "./create-vm-form"
 import { formatFieldError } from "./create-vm-step-utils"
 import type { ComponentType } from "react"
 import type { InventoryFolderOption } from "@/features/inventory/utils/inventory-tree"
 import type { ApiNode } from "@/features/vms/types/vm-types"
-import { getSelectedFolder } from "@/features/inventory/utils/inventory-tree"
+import { InventoryFolderCombobox } from "@/components/forms/inventory-folder-combobox"
 import { replaceWhitespaceWithHyphen } from "@/features/shared/utils/sanitize"
-import { validateVMID } from "@/features/vms/api/vm-api"
 
 type AppFieldComponent = ComponentType<any>
 
@@ -63,26 +49,32 @@ export function CloneNameField({
           getFirstIssueMessage(optionalVmNameSchema.safeParse(value)),
       }}
     >
-      {(field: any) => (
-        <Field data-invalid={field.state.meta.errors.length > 0 || undefined}>
-          <FieldLabel htmlFor={inputId}>Name</FieldLabel>
-          <Input
-            id={inputId}
-            value={field.state.value}
-            onBlur={field.handleBlur}
-            onChange={(event) =>
-              field.handleChange(
-                replaceWhitespaceWithHyphen(event.target.value)
-              )
-            }
-            placeholder={placeholder}
-            aria-invalid={field.state.meta.errors.length > 0 || undefined}
-          />
-          <FieldError>
-            {formatFieldError(field.state.meta.errors[0])}
-          </FieldError>
-        </Field>
-      )}
+      {(field: any) => {
+        const isInvalid = field.state.meta.errors.length > 0
+        const errorId = `${inputId}-error`
+
+        return (
+          <Field data-invalid={isInvalid || undefined}>
+            <FieldLabel htmlFor={inputId}>Name</FieldLabel>
+            <Input
+              id={inputId}
+              value={field.state.value}
+              onBlur={field.handleBlur}
+              onChange={(event) =>
+                field.handleChange(
+                  replaceWhitespaceWithHyphen(event.target.value)
+                )
+              }
+              placeholder={placeholder}
+              aria-invalid={isInvalid || undefined}
+              aria-errormessage={isInvalid ? errorId : undefined}
+            />
+            <FieldError id={errorId}>
+              {formatFieldError(field.state.meta.errors[0])}
+            </FieldError>
+          </Field>
+        )
+      }}
     </FieldComponent>
   )
 }
@@ -128,57 +120,6 @@ export function CloneNodeField({
   )
 }
 
-export function CloneVmidField({
-  FieldComponent,
-  fieldName,
-  inputId,
-}: {
-  FieldComponent: AppFieldComponent
-  fieldName: string
-  inputId: string
-}) {
-  return (
-    <FieldComponent
-      name={fieldName}
-      validators={{
-        onBlur: ({ value }: { value: number }) =>
-          getFirstIssueMessage(optionalVmidSchema.safeParse(value)),
-        onBlurAsync: async ({ value }: { value: number }) => {
-          if (value === 0) return undefined
-          try {
-            const valid = await validateVMID(value)
-            return valid ? undefined : "VM ID is already in use"
-          } catch (error) {
-            return error instanceof Error
-              ? error.message
-              : "Failed to validate VM ID"
-          }
-        },
-      }}
-    >
-      {(field: any) => (
-        <Field data-invalid={field.state.meta.errors.length > 0 || undefined}>
-          <FieldLabel htmlFor={inputId}>VMID</FieldLabel>
-          <Input
-            id={inputId}
-            type="number"
-            value={field.state.value || ""}
-            placeholder="Next (Default)"
-            onBlur={field.handleBlur}
-            onChange={(event) =>
-              field.handleChange(parseNumberInput(event.target.value, 0))
-            }
-            aria-invalid={field.state.meta.errors.length > 0 || undefined}
-          />
-          <FieldError>
-            {formatFieldError(field.state.meta.errors[0])}
-          </FieldError>
-        </Field>
-      )}
-    </FieldComponent>
-  )
-}
-
 export function CloneDestinationFolderField({
   FieldComponent,
   fieldName,
@@ -201,31 +142,13 @@ export function CloneDestinationFolderField({
       {(field: any) => (
         <Field data-invalid={field.state.meta.errors.length > 0 || undefined}>
           <FieldLabel>Destination Folder</FieldLabel>
-          <Combobox
-            items={folderOptions}
-            itemToStringValue={(folder) => folder.label}
-            value={
-              getSelectedFolder(folderOptions, field.state.value ?? "") ?? null
-            }
-            onValueChange={(folder) => field.handleChange(folder?.id ?? null)}
-            autoHighlight
-          >
-            <ComboboxInput
-              placeholder="Select a folder"
-              onBlur={field.handleBlur}
-              aria-invalid={field.state.meta.errors.length > 0 || undefined}
-            />
-            <ComboboxEmpty>No folders found.</ComboboxEmpty>
-            <ComboboxContent>
-              <ComboboxList>
-                {(folder) => (
-                  <ComboboxItem key={folder.id} value={folder}>
-                    {folder.label}
-                  </ComboboxItem>
-                )}
-              </ComboboxList>
-            </ComboboxContent>
-          </Combobox>
+          <InventoryFolderCombobox
+            folderOptions={folderOptions}
+            selectedFolderId={field.state.value}
+            onSelectedFolderChange={(folderId) => field.handleChange(folderId)}
+            onBlur={field.handleBlur}
+            invalid={field.state.meta.errors.length > 0}
+          />
           <FieldError>
             {formatFieldError(field.state.meta.errors[0])}
           </FieldError>

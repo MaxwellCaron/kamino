@@ -1,3 +1,9 @@
+// Convention: handlers never call c.JSON(status, gin.H{"error": ...}) directly.
+// - failures with an underlying err  -> writeLoggedError (logs, then responds)
+// - validation 400s                  -> writeInvalidRequest
+// - permission 403s                  -> writeForbidden
+// - missing/invalid auth 401s        -> writeUnauthorized
+// Response bodies are static strings; internal error text goes to logs only.
 package handlers
 
 import (
@@ -37,4 +43,12 @@ func writeInvalidRequest(c *gin.Context, message string) {
 
 func writeForbidden(c *gin.Context) {
 	c.JSON(http.StatusForbidden, gin.H{"error": "forbidden"})
+}
+
+func writeUnauthorized(c *gin.Context) {
+	c.JSON(http.StatusUnauthorized, gin.H{"error": "authentication required"})
+}
+
+func writeConflict(c *gin.Context, message string) {
+	c.JSON(http.StatusConflict, gin.H{"error": message})
 }

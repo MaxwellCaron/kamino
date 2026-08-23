@@ -26,6 +26,9 @@ spec:
             - op: replace
               path: /data/PUBLIC_HOST
               value: dev.placeholder.invalid
+            - op: replace
+              path: /data/TRUSTED_PROXY_CIDRS
+              value: REPLACE_WITH_ISTIO_SOURCE_CIDRS
   destination:
     server: https://kubernetes.default.svc
     namespace: kamino-dev
