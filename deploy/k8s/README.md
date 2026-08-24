@@ -8,6 +8,13 @@ Both the production (`kamino`) and development (`kamino-dev`) environments share
 the same Kustomize base and Dockerfile targets. They differ only in namespace,
 hostname, image repositories, and the independently configured cluster secrets.
 
+The shared base also installs `kamino-principal-sync`, a mandatory Kubernetes
+CronJob that runs every 30 minutes. It uses the API image and the environment's
+existing `kamino-config` ConfigMap and `kamino-secrets` Secret to perform the
+same full provider-to-database sync as the administrator-triggered sync. The
+CronJob runs regardless of `PRINCIPAL_INITIAL_SYNC_ENABLED`; that setting only
+controls the additional sync performed when the API starts.
+
 ## Common prerequisites
 
 - Istio is installed and the default ingress gateway (pods labeled
