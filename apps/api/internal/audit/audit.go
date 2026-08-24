@@ -3,19 +3,21 @@ package audit
 import (
 	"context"
 	"encoding/json"
-	"log"
+	"log/slog"
 	"time"
 
 	"github.com/MaxwellCaron/kamino/database"
+	"github.com/MaxwellCaron/kamino/internal/observability"
 	"github.com/google/uuid"
 )
 
 type Service struct {
-	db database.DBTX
+	db  database.DBTX
+	tel *observability.Telemetry
 }
 
-func NewService(db database.DBTX) *Service {
-	return &Service{db: db}
+func NewService(db database.DBTX, tel *observability.Telemetry) *Service {
+	return &Service{db: db, tel: tel}
 }
 
 type EventParams struct {
@@ -35,7 +37,7 @@ func (s *Service) Record(ctx context.Context, params EventParams) {
 		var err error
 		metadataBytes, err = json.Marshal(params.Metadata)
 		if err != nil {
-			log.Printf("audit: failed to marshal metadata: %v", err)
+			slog.ErrorContext(ctx, "audit: failed to marshal metadata", slog.String("error", err.Error()))
 			metadataBytes = []byte("{}")
 		}
 	} else {
@@ -53,7 +55,7 @@ func (s *Service) Record(ctx context.Context, params EventParams) {
 		Metadata:         metadataBytes,
 	})
 	if err != nil {
-		log.Printf("audit: failed to record action event: %v", err)
+		slog.ErrorContext(ctx, "audit: failed to record action event", slog.String("error", err.Error()))
 	}
 }
 
@@ -116,14 +118,16 @@ func (s *Service) StartRetention(ctx context.Context) {
 }
 
 func (s *Service) runRetentionSweep(ctx context.Context) {
-	deleted, err := s.DeleteOldEvents(ctx)
-	if err != nil && ctx.Err() == nil {
-		log.Printf("audit retention sweep failed: %v", err)
-		return
-	}
-	if deleted > 0 {
-		log.Printf("audit retention sweep deleted %d old event(s)", deleted)
-	}
+	_ = observability.RunBackgroundJob(ctx, s.tel, observability.JobAuditRetention, func(jobCtx context.Context) error {
+		deleted, err := s.DeleteOldEvents(jobCtx)
+		if err != nil {
+			return err
+		}
+		if deleted > 0 {
+			slog.InfoContext(jobCtx, "audit retention sweep deleted old events", slog.Int64("deleted", deleted))
+		}
+		return nil
+	})
 }
 
 func (s *Service) List(ctx context.Context, params ListParams) (ListResult, error) {

@@ -1,0 +1,30 @@
+# SigNoz core stack values for chart signoz/signoz 0.138.0
+global:
+  storageClass: null
+
+signoz:
+  service:
+    type: ClusterIP
+
+otelCollector:
+  service:
+    type: ClusterIP
+
+clickhouse:
+  persistence:
+    enabled: true
+    size: 80Gi
+
+queryService:
+  service:
+    type: ClusterIP
+
+# Tune resources per cluster capacity before production install.
+signoz-otel-gateway:
+  resources:
+    requests:
+      cpu: 200m
+      memory: 512Mi
+    limits:
+      cpu: "1"
+      memory: 1Gi

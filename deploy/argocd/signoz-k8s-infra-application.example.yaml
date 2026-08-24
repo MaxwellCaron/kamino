@@ -1,0 +1,20 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: signoz-k8s-infra
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://charts.signoz.io
+    chart: k8s-infra
+    targetRevision: 0.17.0
+    helm:
+      valueFiles:
+        - deploy/observability/k8s-infra-values.yaml
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: signoz
+  syncPolicy:
+    syncOptions:
+      - CreateNamespace=true

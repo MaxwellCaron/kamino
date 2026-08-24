@@ -1,0 +1,16 @@
+apiVersion: networking.istio.io/v1
+kind: VirtualService
+metadata:
+  name: signoz-ui
+  namespace: signoz
+spec:
+  hosts:
+    - signoz.placeholder.invalid
+  gateways:
+    - signoz-gateway
+  http:
+    - route:
+        - destination:
+            host: signoz-query-service
+            port:
+              number: 8080

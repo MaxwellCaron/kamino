@@ -47,19 +47,26 @@ func newGroupSearchRequest(baseDN string) *ldap.SearchRequest {
 
 // FetchUsers returns all user accounts under the configured user OU.
 func (c *Client) FetchUsers(ctx context.Context) ([]User, error) {
+	ctx, span := startLDAPSpan(ctx, "LDAP fetch users", c.serverAddress())
+	defer span.End()
+
 	userOU := strings.TrimSpace(c.userOU)
 	if userOU == "" {
-		return nil, fmt.Errorf("LDAP_USER_OU is required to sync users")
+		err := fmt.Errorf("LDAP_USER_OU is required to sync users")
+		finishLDAPSpan(span, err, false)
+		return nil, err
 	}
 
 	conn, err := c.connect(ctx)
 	if err != nil {
+		finishLDAPSpan(span, err, false)
 		return nil, err
 	}
 	defer conn.Close()
 
 	result, err := conn.SearchWithPaging(newUserSearchRequest(userOU), 1000)
 	if err != nil {
+		finishLDAPSpan(span, fmt.Errorf("ldap search users: %w", err), false)
 		return nil, fmt.Errorf("ldap search users: %w", err)
 	}
 
@@ -170,8 +177,12 @@ func (c *Client) FetchGroupsInDN(ctx context.Context, baseDN string) ([]Group, e
 }
 
 func (c *Client) fetchGroups(ctx context.Context, baseDN string) ([]Group, error) {
+	ctx, span := startLDAPSpan(ctx, "LDAP fetch groups", c.serverAddress())
+	defer span.End()
+
 	conn, err := c.connect(ctx)
 	if err != nil {
+		finishLDAPSpan(span, err, false)
 		return nil, err
 	}
 	defer conn.Close()
@@ -183,6 +194,7 @@ func (c *Client) fetchGroups(ctx context.Context, baseDN string) ([]Group, error
 
 	result, err := conn.SearchWithPaging(newGroupSearchRequest(searchBase), 1000)
 	if err != nil {
+		finishLDAPSpan(span, fmt.Errorf("ldap search groups: %w", err), false)
 		return nil, fmt.Errorf("ldap search groups: %w", err)
 	}
 

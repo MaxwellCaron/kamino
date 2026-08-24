@@ -71,6 +71,16 @@ type Config struct {
 	VMOperationConcurrency int    `envconfig:"VM_OPERATION_CONCURRENCY" default:"2"`
 	VMPowerConcurrency     int    `envconfig:"VM_POWER_CONCURRENCY" default:"6"`
 	VMPowerTaskTimeout     string `envconfig:"VM_POWER_TASK_TIMEOUT" default:"5m"`
+
+	// --- OpenTelemetry (optional) ---
+	OTelEnabled           bool    `envconfig:"OTEL_ENABLED" default:"false"`
+	OTelExporterEndpoint  string  `envconfig:"OTEL_EXPORTER_OTLP_ENDPOINT"`
+	OTelTraceSampleRatio  float64 `envconfig:"OTEL_TRACE_SAMPLE_RATIO" default:"1"`
+	DeploymentEnvironment string  `envconfig:"DEPLOYMENT_ENVIRONMENT" default:"local"`
+	OTelK8sClusterName    string  `envconfig:"OTEL_K8S_CLUSTER_NAME"`
+	K8sNamespace          string  `envconfig:"K8S_NAMESPACE"`
+	K8sPodName            string  `envconfig:"K8S_POD_NAME"`
+	K8sPodUID             string  `envconfig:"K8S_POD_UID"`
 }
 
 func splitCSV(value string) []string {

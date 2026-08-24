@@ -28,7 +28,7 @@ func TestRefreshNowCoalescesOverlappingCalls(t *testing.T) {
 	}))
 	defer server.Close()
 
-	notifier := NewNotifier(proxmox.NewHTTPTestClient(server))
+	notifier := NewNotifier(proxmox.NewHTTPTestClient(server), nil)
 
 	const callers = 5
 	errs := make(chan error, callers)
@@ -62,7 +62,7 @@ func TestRefreshNowCancelledWaiterDoesNotPoisonOthers(t *testing.T) {
 	}))
 	defer server.Close()
 
-	notifier := NewNotifier(proxmox.NewHTTPTestClient(server))
+	notifier := NewNotifier(proxmox.NewHTTPTestClient(server), nil)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
@@ -93,7 +93,7 @@ func TestRefreshUntilStatusesMatchesAllTargets(t *testing.T) {
 	}))
 	defer server.Close()
 
-	notifier := NewNotifier(proxmox.NewHTTPTestClient(server))
+	notifier := NewNotifier(proxmox.NewHTTPTestClient(server), nil)
 	err := notifier.RefreshUntilStatuses(context.Background(), map[int]string{
 		101: "stopped",
 		102: "stopped",
@@ -114,7 +114,7 @@ func TestRefreshUntilStatusesRetriesAfterFailedSharedRefresh(t *testing.T) {
 	}))
 	defer server.Close()
 
-	notifier := NewNotifier(proxmox.NewHTTPTestClient(server))
+	notifier := NewNotifier(proxmox.NewHTTPTestClient(server), nil)
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
 

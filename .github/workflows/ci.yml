@@ -41,6 +41,33 @@ jobs:
         working-directory: apps/api
         run: go run golang.org/x/vuln/cmd/govulncheck@latest ./...
 
+  observability-manifests:
+    name: Observability manifests
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: azure/setup-helm@v4
+        with:
+          version: v3.16.4
+
+      - uses: azure/setup-kubectl@v4
+
+      - name: Render SigNoz and Kamino manifests
+        run: |
+          helm repo add signoz https://charts.signoz.io
+          helm repo update signoz
+          helm template signoz signoz/signoz --version 0.138.0 --namespace signoz \
+            -f deploy/observability/signoz-values.yaml > /tmp/kamino-signoz.yaml
+          helm template signoz-k8s-infra signoz/k8s-infra --version 0.17.0 --namespace signoz \
+            -f deploy/observability/k8s-infra-values.yaml > /tmp/kamino-k8s-infra.yaml
+          test -s /tmp/kamino-signoz.yaml
+          test -s /tmp/kamino-k8s-infra.yaml
+          kubectl kustomize deploy/k8s/overlays/dev >/dev/null
+          kubectl kustomize deploy/k8s/overlays/prod >/dev/null
+          kubectl kustomize deploy/observability/access >/dev/null
+
   web:
     name: Web
     runs-on: ubuntu-latest

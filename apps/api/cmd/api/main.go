@@ -2,8 +2,16 @@ package main
 
 import (
 	"context"
-	"log"
+	"errors"
+	"fmt"
+	"log/slog"
+	"net"
+	"net/http"
+	"os"
+	"os/signal"
 	"strings"
+	"syscall"
+	"time"
 
 	"github.com/MaxwellCaron/kamino/database"
 	"github.com/MaxwellCaron/kamino/internal/audit"
@@ -12,6 +20,7 @@ import (
 	"github.com/MaxwellCaron/kamino/internal/handlers"
 	"github.com/MaxwellCaron/kamino/internal/inventory"
 	"github.com/MaxwellCaron/kamino/internal/middleware"
+	"github.com/MaxwellCaron/kamino/internal/observability"
 	"github.com/MaxwellCaron/kamino/internal/personalpods"
 	"github.com/MaxwellCaron/kamino/internal/podnetwork"
 	"github.com/MaxwellCaron/kamino/internal/proxmox/vmstatus"
@@ -23,81 +32,115 @@ import (
 	"github.com/google/uuid"
 	"github.com/joho/godotenv"
 	"github.com/kelseyhightower/envconfig"
+	"go.opentelemetry.io/contrib/instrumentation/github.com/gin-gonic/gin/otelgin"
 )
 
-// Config holds all application configuration
+var buildVersion = "dev"
+
+type serveOptions struct {
+	listener net.Listener
+}
 
 // init the environment
 func init() {
 	if err := godotenv.Load(); err != nil {
-		log.Println("No .env file found, using environment variables from system")
+		slog.Info("no .env file found, using environment variables from system")
 	} else {
-		log.Println("Loaded configuration from .env file")
+		slog.Info("loaded configuration from .env file")
 	}
 }
+
 func main() {
+	if err := run(); err != nil {
+		slog.Error("application failed", slog.String("error", err.Error()))
+		os.Exit(1)
+	}
+}
+
+func run(opts ...func(*serveOptions)) error {
+	serveOpts := serveOptions{}
+	for _, opt := range opts {
+		opt(&serveOpts)
+	}
+
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+
 	var config Config
 	if err := envconfig.Process("", &config); err != nil {
-		log.Fatalf("Failed to process environment configuration: %v", err)
+		return fmt.Errorf("process environment configuration: %w", err)
 	}
 	if err := validatePrincipalProviderConfig(&config); err != nil {
-		log.Fatalf("Invalid principal provider configuration: %v", err)
+		return fmt.Errorf("invalid principal provider configuration: %w", err)
 	}
+
+	tel, err := observability.New(ctx, observability.Config{
+		Enabled:          config.OTelEnabled,
+		OTLPEndpoint:     config.OTelExporterEndpoint,
+		TraceSampleRatio: config.OTelTraceSampleRatio,
+		DeploymentEnv:    config.DeploymentEnvironment,
+		K8sClusterName:   config.OTelK8sClusterName,
+		ServiceVersion:   buildVersion,
+		K8sNamespace:     config.K8sNamespace,
+		K8sPodName:       config.K8sPodName,
+		K8sPodUID:        config.K8sPodUID,
+	})
+	if err != nil {
+		return fmt.Errorf("initialize telemetry: %w", err)
+	}
+	defer func() {
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		_ = tel.Shutdown(shutdownCtx)
+	}()
+
 	spiceProxyHost, err := resolveSPICEProxyHost(config.ProxmoxURL, config.ProxmoxSPICEProxyHost)
 	if err != nil {
-		log.Fatalf("Invalid SPICE proxy host configuration: %v", err)
+		return fmt.Errorf("invalid SPICE proxy host configuration: %w", err)
 	}
 	config.ProxmoxSPICEProxyHost = spiceProxyHost
 	routerCloneConfig, err := buildPodRouterCloneConfig(&config)
 	if err != nil {
-		log.Fatalf("Invalid pod router clone configuration: %v", err)
+		return fmt.Errorf("invalid pod router clone configuration: %w", err)
 	}
 	networkCatalog, err := podnetwork.NewCatalog()
 	if err != nil {
-		log.Fatalf("Invalid pod network catalog: %v", err)
+		return fmt.Errorf("invalid pod network catalog: %w", err)
 	}
 	vmidRangeConfig, err := buildVMIDRangeConfig(&config)
 	if err != nil {
-		log.Fatalf("Invalid VMID range configuration: %v", err)
+		return fmt.Errorf("invalid VMID range configuration: %w", err)
 	}
 	vmOperationConfig, err := buildVMOperationConfig(&config)
 	if err != nil {
-		log.Fatalf("Invalid VM operation concurrency configuration: %v", err)
+		return fmt.Errorf("invalid VM operation concurrency configuration: %w", err)
 	}
 	vmPowerConfig, err := buildVMPowerConfig(&config)
 	if err != nil {
-		log.Fatalf("Invalid VM power configuration: %v", err)
+		return fmt.Errorf("invalid VM power configuration: %w", err)
 	}
 
-	// Initialize server with all dependencies
-	server, err := newServer(&config)
+	server, err := newServer(ctx, &config)
 	if err != nil {
-		log.Fatalf("Failed to initialize server: %v", err)
+		return fmt.Errorf("initialize server: %w", err)
 	}
 	defer server.DBPool.Close()
 
-	runInitialSyncs(
-		context.Background(),
-		&config,
-		server.ProxmoxImport.Run,
-		server.PrincipalSync,
-	)
+	runInitialSyncs(ctx, &config, tel, server.ProxmoxImport.Run, server.PrincipalSync)
 
-	inventoryNotifier := inventory.NewNotifier(server.DBPool)
-	go inventoryNotifier.Start(context.Background())
-	requestsNotifier := requestqueue.NewNotifier(server.DBPool)
-	go requestsNotifier.Start(context.Background())
-	vmStatusNotifier := vmstatus.NewNotifier(server.ProxmoxClient)
-	go vmStatusNotifier.Start(context.Background())
+	inventoryNotifier := inventory.NewNotifier(server.DBPool, tel)
+	go inventoryNotifier.Start(ctx)
+	requestsNotifier := requestqueue.NewNotifier(server.DBPool, tel)
+	go requestsNotifier.Start(ctx)
+	vmStatusNotifier := vmstatus.NewNotifier(server.ProxmoxClient, tel)
+	go vmStatusNotifier.Start(ctx)
 
-	adminGroup, err := resolveBootstrapAdminGroup(context.Background(), server.Config, server.ADClient)
+	adminGroup, err := resolveBootstrapAdminGroup(ctx, server.Config, server.ADClient)
 	if err != nil {
-		log.Fatalf("Admin group discovery failed: %v", err)
+		return fmt.Errorf("admin group discovery failed: %w", err)
 	}
 	if strings.TrimSpace(server.Config.PrincipalBootstrapAdminGroup) == "" {
-		log.Printf(
-			"WARNING: PRINCIPAL_BOOTSTRAP_ADMIN_GROUP is unset; no initial administrator group will be bootstrapped",
-		)
+		slog.WarnContext(ctx, "PRINCIPAL_BOOTSTRAP_ADMIN_GROUP is unset; no initial administrator group will be bootstrapped")
 	}
 
 	var bootstrapAdminGroups []string
@@ -106,7 +149,7 @@ func main() {
 	}
 
 	protectedACLPrincipalID, err := resolveProtectedAdminGroupPrincipalID(
-		context.Background(),
+		ctx,
 		server.DBPool,
 		configuredPrincipalProviderType(server.Config),
 		func() string {
@@ -117,7 +160,7 @@ func main() {
 		}(),
 	)
 	if err != nil {
-		log.Printf("Protected admin group principal discovery failed: %v", err)
+		slog.WarnContext(ctx, "protected admin group principal discovery failed", slog.String("error", err.Error()))
 	}
 
 	var protectedACLPrincipalIDs []uuid.UUID
@@ -127,10 +170,10 @@ func main() {
 
 	authzService := authorization.NewService(server.DBPool, protectedACLPrincipalIDs)
 	if err := authzService.BootstrapRootAccess(
-		context.Background(),
+		ctx,
 		bootstrapAdminGroups,
 	); err != nil {
-		log.Printf("Inventory ACL bootstrap failed: %v", err)
+		slog.WarnContext(ctx, "inventory ACL bootstrap failed", slog.String("error", err.Error()))
 	}
 
 	// Initialize handlers
@@ -139,11 +182,11 @@ func main() {
 		inventoryNotifier,
 		protectedACLPrincipalIDs,
 	)
-	if err := inventoryService.NormalizeInheritance(context.Background()); err != nil {
-		log.Printf("Inventory inheritance normalization failed: %v", err)
+	if err := inventoryService.NormalizeInheritance(ctx); err != nil {
+		slog.WarnContext(ctx, "inventory inheritance normalization failed", slog.String("error", err.Error()))
 	}
-	auditService := audit.NewService(server.DBPool)
-	go auditService.StartRetention(context.Background())
+	auditService := audit.NewService(server.DBPool, tel)
+	go auditService.StartRetention(ctx)
 	inventoryHandler := &handlers.InventoryHandler{
 		Service:            inventoryService,
 		Notifier:           inventoryNotifier,
@@ -153,7 +196,7 @@ func main() {
 		PodVMAddressReader: database.New(server.DBPool),
 		NetworkCatalog:     networkCatalog,
 	}
-	vncHandler := handlers.NewVNCHandler(server.ProxmoxClient, config.FrontendURL)
+	vncHandler := handlers.NewVNCHandler(ctx, server.ProxmoxClient, config.FrontendURL, tel)
 	vncHandler.Authz = authzService
 	consoleHandler := &handlers.ConsoleHandler{
 		PX:             server.ProxmoxClient,
@@ -167,18 +210,18 @@ func main() {
 		vmOperationConfig,
 		vmPowerConfig,
 	)
-	vmActionClaims := vmactions.NewClaims(server.DBPool)
+	vmActionClaims := vmactions.NewClaims(server.DBPool, tel)
 	podCloneClaims := vmactions.NewPodCloneClaims(server.DBPool)
 	templatesFolderItemID, err := parseOptionalUUID(server.Config.TemplatesFolderItemID)
 	if err != nil {
-		log.Fatalf("Invalid TEMPLATES_FOLDER_ITEM_ID: %v", err)
+		return fmt.Errorf("invalid TEMPLATES_FOLDER_ITEM_ID: %w", err)
 	}
 	vmTemplatesFolderItemID, err := resolveVMTemplatesFolderItemID(
 		server.Config.VMTemplatesFolderItemID,
 		templatesFolderItemID,
 	)
 	if err != nil {
-		log.Fatalf("Invalid VM_TEMPLATES_FOLDER_ITEM_ID: %v", err)
+		return fmt.Errorf("invalid VM_TEMPLATES_FOLDER_ITEM_ID: %w", err)
 	}
 	vmHandler := &handlers.VMHandler{
 		PX:                    server.ProxmoxClient,
@@ -210,7 +253,7 @@ func main() {
 	}
 	routerTemplateItemID, err := parseOptionalUUID(server.Config.PodRouterTemplate)
 	if err != nil {
-		log.Fatalf("Invalid POD_ROUTER_TEMPLATE_ITEM_ID: %v", err)
+		return fmt.Errorf("invalid POD_ROUTER_TEMPLATE_ITEM_ID: %w", err)
 	}
 	personalPodRouterTemplateItemID, err := resolvePersonalPodRouterTemplateItemID(
 		server.Config.PersonalPodsEnabled,
@@ -218,15 +261,15 @@ func main() {
 		routerTemplateItemID,
 	)
 	if err != nil {
-		log.Fatalf("Invalid personal pod configuration: %v", err)
+		return fmt.Errorf("invalid personal pod configuration: %w", err)
 	}
 	podsFolderItemID, err := parseOptionalUUID(server.Config.PodsFolderItemID)
 	if err != nil {
-		log.Fatalf("Invalid PODS_FOLDER_ITEM_ID: %v", err)
+		return fmt.Errorf("invalid PODS_FOLDER_ITEM_ID: %w", err)
 	}
 	personalPodsFolderItemID, err := parseOptionalUUID(server.Config.PersonalPodsFolderItemID)
 	if err != nil {
-		log.Fatalf("Invalid PERSONAL_PODS_FOLDER_ITEM_ID: %v", err)
+		return fmt.Errorf("invalid PERSONAL_PODS_FOLDER_ITEM_ID: %w", err)
 	}
 	podsHandler := &handlers.PodsHandler{
 		PX:                              server.ProxmoxClient,
@@ -260,8 +303,8 @@ func main() {
 		auditService,
 		personalPodRuntime,
 	)
-	if err := podsHandler.EnsurePurposeFolderDescriptions(context.Background()); err != nil {
-		log.Printf("Purpose folder description sync failed: %v", err)
+	if err := podsHandler.EnsurePurposeFolderDescriptions(ctx); err != nil {
+		slog.WarnContext(ctx, "purpose folder description sync failed", slog.String("error", err.Error()))
 	}
 	sdnHandler := &handlers.SDNHandler{
 		PX:    server.ProxmoxClient,
@@ -292,48 +335,52 @@ func main() {
 	)
 	requestsHandler := &handlers.RequestsHandler{Service: requestService}
 
-	if fenced, err := requestService.FailStaleExecutingRequests(context.Background()); err != nil {
-		log.Printf("Stale executing request recovery failed: %v", err)
+	if fenced, err := requestService.FailStaleExecutingRequests(ctx); err != nil {
+		slog.WarnContext(ctx, "stale executing request recovery failed", slog.String("error", err.Error()))
 	} else if len(fenced) > 0 {
-		log.Printf("Recovered %d stranded executing request(s): %v", len(fenced), fenced)
+		slog.InfoContext(ctx, "recovered stranded executing requests", slog.Int("count", len(fenced)))
 	}
 
-	if swept, err := inventoryService.SweepExpiredFolderVMCapacityReservations(context.Background()); err != nil {
-		log.Printf("Expired capacity reservation sweep failed: %v", err)
+	if swept, err := inventoryService.SweepExpiredFolderVMCapacityReservations(ctx); err != nil {
+		slog.WarnContext(ctx, "expired capacity reservation sweep failed", slog.String("error", err.Error()))
 	} else if swept > 0 {
-		log.Printf("Swept %d expired folder VM capacity reservation(s)", swept)
+		slog.InfoContext(ctx, "swept expired folder vm capacity reservations", slog.Int64("count", swept))
 	}
 
-	// Clear claims stranded by the previous process; Kamino currently supports one API replica.
-	if cleared, err := podCloneClaims.ClearAll(context.Background()); err != nil {
-		log.Printf("Stranded pod clone claim recovery failed: %v", err)
+	if cleared, err := podCloneClaims.ClearAll(ctx); err != nil {
+		slog.WarnContext(ctx, "stranded pod clone claim recovery failed", slog.String("error", err.Error()))
 	} else if cleared > 0 {
-		log.Printf("Recovered %d stranded pod clone claim(s)", cleared)
+		slog.InfoContext(ctx, "recovered stranded pod clone claims", slog.Int64("count", cleared))
 	}
 
-	if swept, err := vmActionClaims.SweepStale(context.Background(), vmactions.VMActionClaimStaleAge); err != nil {
-		log.Printf("Stale VM action claim sweep failed: %v", err)
+	if swept, err := vmActionClaims.SweepStale(ctx, vmactions.VMActionClaimStaleAge); err != nil {
+		slog.WarnContext(ctx, "stale vm action claim sweep failed", slog.String("error", err.Error()))
 	} else if swept > 0 {
-		log.Printf("Swept %d stale VM action claim(s)", swept)
+		slog.InfoContext(ctx, "swept stale vm action claims", slog.Int64("count", swept))
 	}
-	go vmActionClaims.StartRecovery(context.Background())
+	go vmActionClaims.StartRecovery(ctx)
+
+	handlers.InitPublishProgressTelemetry(tel)
 
 	eventsHandler := &handlers.EventsHandler{
 		InventoryNotifier: inventoryNotifier,
 		VMNotifier:        vmStatusNotifier,
 		Requests:          requestService,
 		Authz:             authzService,
+		Telemetry:         tel,
+		AppCtx:            ctx,
 	}
 
 	authService, err := auth.NewService(server.Config.JWTSecret)
 	if err != nil {
-		log.Fatal(err)
+		return fmt.Errorf("initialize auth service: %w", err)
 	}
 
-	sessionManager := auth.NewSessionManager(server.DBPool)
-	go sessionManager.StartCleanup(context.Background())
+	sessionManager := auth.NewSessionManager(server.DBPool, tel)
+	go sessionManager.StartCleanup(ctx)
 	eventsHandler.Sessions = sessionManager
 	vncHandler.Sessions = sessionManager
+	vncHandler.AppCtx = ctx
 
 	authHandler := &handlers.AuthHandler{
 		Auth:          authService,
@@ -353,15 +400,21 @@ func main() {
 		CookieSecure: strings.HasPrefix(server.Config.FrontendURL, "https://"),
 	}
 
-	r := gin.Default()
+	gin.SetMode(gin.ReleaseMode)
+	r := gin.New()
+	r.Use(otelgin.Middleware("kamino-api", otelgin.WithFilter(func(req *http.Request) bool {
+		path := req.URL.Path
+		return path != "/api/v1/health" && path != "/api/v1/ready"
+	})))
+	r.Use(middleware.RequestLogger())
+	r.Use(middleware.SafeRecovery())
 	if err := r.SetTrustedProxies(server.Config.TrustedProxyCIDRs); err != nil {
-		log.Fatalf("invalid TRUSTED_PROXY_CIDRS: %v", err)
+		return fmt.Errorf("invalid TRUSTED_PROXY_CIDRS: %w", err)
 	}
 	r.Use(middleware.CORS(server.Config.FrontendURL))
 
 	healthHandler := &handlers.HealthHandler{DB: server.DBPool}
 
-	// Register all API routes
 	routes.RegisterRoutes(
 		r,
 		healthHandler,
@@ -383,5 +436,50 @@ func main() {
 		auditHandler,
 	)
 
-	r.Run(config.Port)
+	httpServer := &http.Server{
+		Addr:    config.Port,
+		Handler: r,
+		BaseContext: func(net.Listener) context.Context {
+			return ctx
+		},
+	}
+
+	var listener net.Listener
+	if serveOpts.listener != nil {
+		listener = serveOpts.listener
+	} else {
+		listener, err = net.Listen("tcp", config.Port)
+		if err != nil {
+			return fmt.Errorf("listen on %s: %w", config.Port, err)
+		}
+	}
+
+	serverErr := make(chan error, 1)
+	go func() {
+		err := httpServer.Serve(listener)
+		if errors.Is(err, http.ErrServerClosed) {
+			serverErr <- nil
+			return
+		}
+		serverErr <- err
+	}()
+
+	select {
+	case <-ctx.Done():
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+		defer cancel()
+		if err := httpServer.Shutdown(shutdownCtx); err != nil {
+			return fmt.Errorf("http shutdown: %w", err)
+		}
+	case err := <-serverErr:
+		if err != nil {
+			return fmt.Errorf("http server: %w", err)
+		}
+		return nil
+	}
+
+	if err := <-serverErr; err != nil {
+		return fmt.Errorf("http server after shutdown: %w", err)
+	}
+	return nil
 }

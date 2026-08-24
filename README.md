@@ -61,6 +61,16 @@ The compose file has no Postgres service — `DATABASE_URL` must point at an exi
 
 The API healthcheck endpoint is `GET /api/v1/health`.
 
+## Observability
+
+Kamino exports OpenTelemetry traces, metrics, and correlated JSON logs when `OTEL_ENABLED=true`. Local development keeps telemetry disabled by default; opt in by setting `OTEL_EXPORTER_OTLP_ENDPOINT` to a local OTLP/HTTP collector (see `apps/api/.env.example`).
+
+Kubernetes deployments send OTLP/HTTP to the node-local SigNoz `k8s-infra` agent at `http://$(K8S_HOST_IP):4318`. Replace `OTEL_K8S_CLUSTER_NAME` from `REPLACE_WITH_K8S_CLUSTER_NAME` in your Argo CD Application patch — the API rejects the placeholder at startup.
+
+SigNoz runs as a separate `signoz` namespace. See `deploy/observability/README.md` for install steps, dashboard import (`kamino-operations-dashboard.json`), and alert runbooks.
+
+Never record usernames, session IDs, JWTs, client IPs, LDAP credentials, Proxmox tokens, or request bodies in telemetry.
+
 ## Development workflow
 
 The intended fast loop is `bun run dev` on a **dedicated internal dev

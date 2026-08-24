@@ -61,5 +61,6 @@ jobs:
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+          build-args: ${{ matrix.target == 'api' && format('BUILD_VERSION={0}', github.sha) || '' }}
           cache-from: type=gha,ref=${{ github.ref_name }}-${{ matrix.target }}
           cache-to: type=gha,ref=${{ github.ref_name }}-${{ matrix.target }},mode=max

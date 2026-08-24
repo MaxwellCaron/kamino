@@ -4,14 +4,17 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"log"
+	"log/slog"
 	"sync"
 	"time"
 
 	"github.com/MaxwellCaron/kamino/database"
+	"github.com/MaxwellCaron/kamino/internal/observability"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/metric"
 )
 
 const inventoryEventsChannel = "inventory_events"
@@ -24,15 +27,17 @@ type Event struct {
 }
 
 type Notifier struct {
-	db *pgxpool.Pool
+	db  *pgxpool.Pool
+	tel *observability.Telemetry
 
 	mu          sync.RWMutex
 	subscribers map[chan Event]struct{}
 }
 
-func NewNotifier(db *pgxpool.Pool) *Notifier {
+func NewNotifier(db *pgxpool.Pool, tel *observability.Telemetry) *Notifier {
 	return &Notifier{
 		db:          db,
+		tel:         tel,
 		subscribers: make(map[chan Event]struct{}),
 	}
 }
@@ -43,8 +48,11 @@ func (n *Notifier) Start(ctx context.Context) {
 			return
 		}
 
-		if err := n.listenOnce(ctx); err != nil && ctx.Err() == nil {
-			log.Printf("inventory notifier error: %v", err)
+		err := observability.RunBackgroundJob(ctx, n.tel, observability.JobInventoryListener, func(jobCtx context.Context) error {
+			return n.listenOnce(jobCtx)
+		})
+		if err != nil && ctx.Err() == nil {
+			slog.ErrorContext(ctx, "inventory notifier error", slog.String("error", err.Error()))
 		}
 
 		select {
@@ -74,7 +82,7 @@ func (n *Notifier) listenOnce(ctx context.Context) error {
 
 		var event Event
 		if err := json.Unmarshal([]byte(notification.Payload), &event); err != nil {
-			log.Printf("inventory notifier payload decode failed: %v", err)
+			slog.ErrorContext(ctx, "inventory notifier payload decode failed", slog.String("error", err.Error()))
 			continue
 		}
 
@@ -120,10 +128,25 @@ func (n *Notifier) broadcast(event Event) {
 	n.mu.RLock()
 	defer n.mu.RUnlock()
 
+	eventType := event.Type
+	if eventType == "" {
+		eventType = "inventory.changed"
+	}
+	busAttrs := []attribute.KeyValue{
+		attribute.String("bus", observability.EventBusInventory),
+		attribute.String("event.type", eventType),
+	}
+
 	for ch := range n.subscribers {
 		select {
 		case ch <- event:
+			if n.tel != nil {
+				n.tel.Metrics().EventsDelivered.Add(context.Background(), 1, metric.WithAttributes(busAttrs...))
+			}
 		default:
+			if n.tel != nil {
+				n.tel.Metrics().EventsDropped.Add(context.Background(), 1, metric.WithAttributes(busAttrs...))
+			}
 		}
 	}
 }

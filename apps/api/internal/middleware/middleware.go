@@ -8,6 +8,8 @@ import (
 	"github.com/MaxwellCaron/kamino/internal/authorization"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/trace"
 )
 
 type accessSessionValidator interface {
@@ -52,6 +54,9 @@ func Auth(authService *auth.Service, sessionValidator accessSessionValidator) gi
 		if claims.ExpiresAt != nil {
 			c.Set("accessTokenExpiresAt", claims.ExpiresAt.Time.UTC())
 		}
+		trace.SpanFromContext(c.Request.Context()).SetAttributes(
+			attribute.String("enduser.id", userID.String()),
+		)
 		c.Request = c.Request.WithContext(authorization.WithPrincipalCache(c.Request.Context()))
 		c.Next()
 	}

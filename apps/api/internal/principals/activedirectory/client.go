@@ -66,12 +66,17 @@ func NewClient(url, bindDN, bindPass, baseDN, userOU, groupOU string, insecure b
 
 // connect dials the LDAPS server and binds with the configured credentials.
 func (c *Client) connect(ctx context.Context) (*ldap.Conn, error) {
+	_, span := startLDAPSpan(ctx, "LDAP connect", c.serverAddress())
+	defer span.End()
+
 	if err := ctx.Err(); err != nil {
+		finishLDAPSpan(span, err, false)
 		return nil, err
 	}
 
 	tlsConn, err := c.dialTLS(ctx)
 	if err != nil {
+		finishLDAPSpan(span, err, false)
 		return nil, err
 	}
 
@@ -81,6 +86,7 @@ func (c *Client) connect(ctx context.Context) (*ldap.Conn, error) {
 
 	if err := conn.Bind(c.bindDN, c.bindPass); err != nil {
 		conn.Close()
+		finishLDAPSpan(span, fmt.Errorf("ldap bind: %w", err), false)
 		return nil, fmt.Errorf("ldap bind: %w", err)
 	}
 
@@ -221,13 +227,17 @@ func (c *Client) bindUser(ctx context.Context, userDN, password string) error {
 }
 
 func (c *Client) Authenticate(ctx context.Context, username, password string) (*AuthResult, error) {
+	ctx, span := startLDAPSpan(ctx, "LDAP authenticate", c.serverAddress())
+	defer span.End()
+
 	if err := ctx.Err(); err != nil {
+		finishLDAPSpan(span, err, false)
 		return nil, err
 	}
 
-	// First, connect with service account to look up the user's DN and SID.
 	conn, err := c.connect(ctx)
 	if err != nil {
+		finishLDAPSpan(span, fmt.Errorf("ad connect: %w", err), false)
 		return nil, fmt.Errorf("ad connect: %w", err)
 	}
 	defer conn.Close()
@@ -242,9 +252,11 @@ func (c *Client) Authenticate(ctx context.Context, username, password string) (*
 		nil,
 	))
 	if err != nil {
+		finishLDAPSpan(span, fmt.Errorf("ad search user: %w", err), false)
 		return nil, fmt.Errorf("ad search user: %w", err)
 	}
 	if len(result.Entries) == 0 {
+		finishLDAPSpan(span, fmt.Errorf("invalid credentials"), true)
 		return nil, fmt.Errorf("invalid credentials")
 	}
 
@@ -256,6 +268,7 @@ func (c *Client) Authenticate(ctx context.Context, username, password string) (*
 
 	// Now attempt a fresh bind as the user to verify their password.
 	if err := c.bindUser(ctx, user.DN, password); err != nil {
+		finishLDAPSpan(span, err, true)
 		return nil, err
 	}
 

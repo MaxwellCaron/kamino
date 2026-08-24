@@ -27,11 +27,13 @@ EXPOSE 3000
 FROM golang:1.26.6-bookworm AS api-build
 WORKDIR /src/apps/api
 
+ARG BUILD_VERSION=dev
+
 COPY apps/api/go.mod apps/api/go.sum ./
 RUN go mod download
 
 COPY apps/api ./
-RUN CGO_ENABLED=0 GOOS=linux go build -trimpath -ldflags="-s -w" -o /out/api ./cmd/api
+RUN CGO_ENABLED=0 GOOS=linux go build -trimpath -ldflags="-s -w -X main.buildVersion=${BUILD_VERSION}" -o /out/api ./cmd/api
 
 FROM debian:bookworm-slim AS api
 RUN apt-get update \

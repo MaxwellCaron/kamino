@@ -39,16 +39,17 @@ allow cluster DNS, PostgreSQL, Proxmox, and AD.
 
 ### Configure the production origin
 
-The shared manifests contain only `placeholder.invalid` and
-`REPLACE_WITH_ISTIO_SOURCE_CIDRS`. Create a local Argo CD Application file and
-replace both placeholders with values measured from this cluster:
+The shared manifests contain only `placeholder.invalid`,
+`REPLACE_WITH_ISTIO_SOURCE_CIDRS`, and `REPLACE_WITH_K8S_CLUSTER_NAME`.
+Create a local Argo CD Application file and replace all placeholders with
+values measured from this cluster:
 
 ```bash
 cp deploy/argocd/kamino-application.example.yaml \
   deploy/argocd/kamino-application.yaml
 
-# Edit deploy/argocd/kamino-application.yaml and replace placeholder.invalid
-# and REPLACE_WITH_ISTIO_SOURCE_CIDRS.
+# Edit deploy/argocd/kamino-application.yaml and replace placeholder.invalid,
+# REPLACE_WITH_ISTIO_SOURCE_CIDRS, and REPLACE_WITH_K8S_CLUSTER_NAME.
 ```
 
 `kamino-application.yaml` is ignored by Git. It can contain different values

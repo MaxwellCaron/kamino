@@ -1,0 +1,36 @@
+# k8s-infra collector values for chart signoz/k8s-infra 0.17.0
+global:
+  clusterName: REPLACE_WITH_K8S_CLUSTER_NAME
+
+otelCollectorEndpoint: signoz-otel-collector.signoz.svc.cluster.local:4318
+otelInsecure: true
+
+presets:
+  otlpExporter:
+    enabled: true
+  hostMetrics:
+    enabled: true
+  kubeletMetrics:
+    enabled: true
+  clusterMetrics:
+    enabled: true
+  kubernetesEvents:
+    enabled: true
+  logsCollection:
+    enabled: true
+    blacklist:
+      enabled: true
+      signozLogs: false
+      namespaces:
+        - kamino
+        - kamino-dev
+      pods:
+        - kamino-api
+
+otelCollector:
+  config:
+    exporters:
+      otlp:
+        endpoint: ${env:OTEL_EXPORTER_OTLP_ENDPOINT}
+        tls:
+          insecure: true

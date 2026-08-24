@@ -7,7 +7,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"io"
-	"log"
+	"log/slog"
 	"net/http"
 	"net/url"
 	"strings"
@@ -16,29 +16,38 @@ import (
 
 	"github.com/MaxwellCaron/kamino/internal/authorization"
 	"github.com/MaxwellCaron/kamino/internal/middleware"
+	"github.com/MaxwellCaron/kamino/internal/observability"
 	"github.com/MaxwellCaron/kamino/internal/proxmox"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/codes"
+	"go.opentelemetry.io/otel/metric"
+	"go.opentelemetry.io/otel/trace"
 )
 
 const vncCloseWriteDeadline = 2 * time.Second
 
 // VNCHandler handles VNC proxy and WebSocket bridge requests.
 type VNCHandler struct {
-	PX       *proxmox.Client
-	Authz    vmAuthz
-	Sessions liveSessionValidator
-	sessions *sessionStore
-	upgrader websocket.Upgrader
+	PX        *proxmox.Client
+	Authz     vmAuthz
+	Sessions  liveSessionValidator
+	Telemetry *observability.Telemetry
+	AppCtx    context.Context
+	sessions  *sessionStore
+	upgrader  websocket.Upgrader
 }
 
 // NewVNCHandler creates a VNCHandler with an initialized session store.
-func NewVNCHandler(px *proxmox.Client, frontendURL string) *VNCHandler {
+func NewVNCHandler(ctx context.Context, px *proxmox.Client, frontendURL string, tel *observability.Telemetry) *VNCHandler {
 	allowedOrigin := middleware.NormalizeOrigin(frontendURL)
 	return &VNCHandler{
-		PX:       px,
-		sessions: newSessionStore(),
+		PX:        px,
+		Telemetry: tel,
+		AppCtx:    ctx,
+		sessions:  newSessionStore(ctx),
 		upgrader: websocket.Upgrader{
 			CheckOrigin: func(r *http.Request) bool {
 				origin := strings.TrimSpace(r.Header.Get("Origin"))
@@ -70,9 +79,9 @@ type sessionStore struct {
 	sessions map[string]*vncSession
 }
 
-func newSessionStore() *sessionStore {
+func newSessionStore(ctx context.Context) *sessionStore {
 	s := &sessionStore{sessions: make(map[string]*vncSession)}
-	go s.reapLoop()
+	go s.reapLoop(ctx)
 	return s
 }
 
@@ -102,18 +111,23 @@ func (s *sessionStore) consume(id string) (*vncSession, bool) {
 	return sess, true
 }
 
-func (s *sessionStore) reapLoop() {
+func (s *sessionStore) reapLoop(ctx context.Context) {
 	ticker := time.NewTicker(10 * time.Second)
 	defer ticker.Stop()
-	for range ticker.C {
-		s.mu.Lock()
-		now := time.Now()
-		for id, sess := range s.sessions {
-			if now.After(sess.expires) {
-				delete(s.sessions, id)
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			s.mu.Lock()
+			now := time.Now()
+			for id, sess := range s.sessions {
+				if now.After(sess.expires) {
+					delete(s.sessions, id)
+				}
 			}
+			s.mu.Unlock()
 		}
-		s.mu.Unlock()
 	}
 }
 
@@ -182,7 +196,7 @@ func (h *VNCHandler) WebSocket(c *gin.Context) {
 
 	clientConn, err := h.upgrader.Upgrade(c.Writer, c.Request, nil)
 	if err != nil {
-		log.Printf("ws upgrade error: %v", err)
+		slog.ErrorContext(c.Request.Context(), "ws upgrade error", slog.String("error", err.Error()))
 		return
 	}
 	defer clientConn.Close()
@@ -199,21 +213,42 @@ func (h *VNCHandler) WebSocket(c *gin.Context) {
 	}
 
 	if err := h.Sessions.ValidateLiveSession(c.Request.Context(), sessionID, principalID); err != nil {
-		log.Printf("vnc session validation failed: %v", err)
+		slog.WarnContext(c.Request.Context(), "vnc session validation failed", slog.String("error", err.Error()))
 		denyVNCConnection(clientConn)
 		return
 	}
 
 	if err := h.Authz.Require(freshAuthzContext(c.Request.Context()), principalID, sess.itemID, authorization.ConsoleVM); err != nil {
-		log.Printf("vnc console authorization failed: %v", err)
+		slog.WarnContext(c.Request.Context(), "vnc console authorization failed", slog.String("error", err.Error()))
 		denyVNCConnection(clientConn)
 		return
 	}
 
+	connectedAt := time.Now()
+	var closeReason string
+	if h.Telemetry != nil {
+		h.Telemetry.Metrics().VNCConnections.Add(c.Request.Context(), 1)
+	}
+	defer func() {
+		if h.Telemetry == nil {
+			return
+		}
+		reason := closeReason
+		if reason == "" {
+			reason = classifyVNCCloseReason(h.AppCtx, c.Request.Context())
+		}
+		m := h.Telemetry.Metrics()
+		ctx := c.Request.Context()
+		m.VNCConnections.Add(ctx, -1)
+		reasonAttr := metric.WithAttributes(attribute.String("close.reason", reason))
+		m.VNCConnectionDuration.Record(ctx, time.Since(connectedAt).Seconds(), reasonAttr)
+	}()
+
 	// Build Proxmox WebSocket URL
 	pxURL, err := url.Parse(h.PX.BaseURL())
 	if err != nil {
-		log.Printf("bad proxmox base url: %v", err)
+		slog.ErrorContext(c.Request.Context(), "bad proxmox base url", slog.String("error", err.Error()))
+		closeReason = observability.CloseReasonUpstreamError
 		return
 	}
 	scheme := "wss"
@@ -223,7 +258,6 @@ func (h *VNCHandler) WebSocket(c *gin.Context) {
 	wsURL := fmt.Sprintf("%s://%s/api2/json/nodes/%s/%s/%d/vncwebsocket?port=%s&vncticket=%s",
 		scheme, pxURL.Host, sess.node, sess.guestType, sess.vmid, sess.port, url.QueryEscape(sess.ticket))
 
-	// Dial Proxmox WebSocket
 	dialer := websocket.Dialer{}
 	if h.PX.Insecure() {
 		dialer.TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
@@ -232,13 +266,24 @@ func (h *VNCHandler) WebSocket(c *gin.Context) {
 	pxHeaders := http.Header{}
 	pxHeaders.Set("Authorization", h.PX.AuthHeader())
 
-	pxConn, _, err := dialer.DialContext(c.Request.Context(), wsURL, pxHeaders)
+	dialCtx, span := trace.SpanFromContext(c.Request.Context()).TracerProvider().Tracer("kamino-api").Start(
+		c.Request.Context(), "Proxmox VNC websocket", trace.WithSpanKind(trace.SpanKindClient),
+	)
+	pxConn, resp, err := dialer.DialContext(dialCtx, wsURL, pxHeaders)
 	if err != nil {
-		log.Printf("proxmox ws dial error: %v", err)
+		span.RecordError(err)
+		span.SetStatus(codes.Error, "websocket dial failed")
+		span.End()
+		slog.ErrorContext(c.Request.Context(), "proxmox ws dial error", slog.String("error", err.Error()))
 		clientConn.WriteMessage(websocket.CloseMessage,
 			websocket.FormatCloseMessage(websocket.CloseInternalServerErr, "failed to connect to VNC"))
+		closeReason = observability.CloseReasonUpstreamError
 		return
 	}
+	if resp != nil {
+		span.SetAttributes(attribute.Int("http.response.status_code", resp.StatusCode))
+	}
+	span.End()
 	defer pxConn.Close()
 
 	watchCtx, cancelWatch := context.WithCancel(c.Request.Context())
@@ -263,13 +308,23 @@ func (h *VNCHandler) WebSocket(c *gin.Context) {
 		ticker := time.NewTicker(liveCheckInterval)
 		defer ticker.Stop()
 		if err := h.watchAuthorization(watchCtx, sessionID, principalID, sess.itemID, ticker.C); err != nil {
-			log.Printf("vnc watchdog authorization failed: %v", err)
+			slog.WarnContext(watchCtx, "vnc watchdog authorization failed", slog.String("error", err.Error()))
 			close(watchdogRejected)
 		}
 	}()
 
-	bridgeBidirectional(watchCtx, clientConn, pxConn, watchdogRejected, shutdown)
+	bridgeBidirectional(watchCtx, clientConn, pxConn, watchdogRejected, shutdown, h.Telemetry)
 	<-watchdogStopped
+}
+
+func classifyVNCCloseReason(appCtx, reqCtx context.Context) string {
+	if appCtx != nil && appCtx.Err() != nil {
+		return observability.CloseReasonServerShutdown
+	}
+	if reqCtx.Err() != nil {
+		return observability.CloseReasonClientCancel
+	}
+	return observability.CloseReasonClientCancel
 }
 
 func denyVNCConnection(conn *websocket.Conn) {
@@ -304,16 +359,17 @@ func bridgeBidirectional(
 	left, right *websocket.Conn,
 	watchdogRejected <-chan struct{},
 	shutdown func(),
+	tel *observability.Telemetry,
 ) {
 	copyDone := make(chan struct{}, 2)
 
 	go func() {
-		bridge(left, right)
+		bridge(left, right, observability.VNCDirectionClientToUpstream, tel)
 		copyDone <- struct{}{}
 	}()
 
 	go func() {
-		bridge(right, left)
+		bridge(right, left, observability.VNCDirectionUpstreamToClient, tel)
 		copyDone <- struct{}{}
 	}()
 
@@ -335,7 +391,7 @@ func bridgeBidirectional(
 	}
 }
 
-func bridge(src, dst *websocket.Conn) {
+func bridge(src, dst *websocket.Conn, direction string, tel *observability.Telemetry) {
 	for {
 		msgType, r, err := src.NextReader()
 		if err != nil {
@@ -345,7 +401,13 @@ func bridge(src, dst *websocket.Conn) {
 		if err != nil {
 			return
 		}
-		if _, err := io.Copy(w, r); err != nil {
+		n, err := io.Copy(w, r)
+		if tel != nil && n > 0 {
+			tel.Metrics().VNCBytes.Add(context.Background(), n,
+				metric.WithAttributes(attribute.String("direction", direction)),
+			)
+		}
+		if err != nil {
 			return
 		}
 		if err := w.Close(); err != nil {

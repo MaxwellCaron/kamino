@@ -3,10 +3,11 @@ package vmactions
 import (
 	"context"
 	"errors"
-	"log"
+	"log/slog"
 	"time"
 
 	"github.com/MaxwellCaron/kamino/database"
+	"github.com/MaxwellCaron/kamino/internal/observability"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
@@ -21,11 +22,12 @@ const (
 var ErrActionInProgress = errors.New("vm action already in progress")
 
 type Claims struct {
-	db database.DBTX
+	db  database.DBTX
+	tel *observability.Telemetry
 }
 
-func NewClaims(db database.DBTX) *Claims {
-	return &Claims{db: db}
+func NewClaims(db database.DBTX, tel *observability.Telemetry) *Claims {
+	return &Claims{db: db, tel: tel}
 }
 
 func (c *Claims) Claim(
@@ -90,14 +92,16 @@ func (c *Claims) startRecovery(ctx context.Context, staleAge, interval time.Dura
 }
 
 func (c *Claims) runStaleSweep(ctx context.Context, staleAge time.Duration) {
-	swept, err := c.SweepStale(ctx, staleAge)
-	if err != nil && ctx.Err() == nil {
-		log.Printf("stale VM action claim sweep failed: %v", err)
-		return
-	}
-	if swept > 0 {
-		log.Printf("swept %d stale VM action claim(s)", swept)
-	}
+	_ = observability.RunBackgroundJob(ctx, c.tel, observability.JobVMClaimRecovery, func(jobCtx context.Context) error {
+		swept, err := c.SweepStale(jobCtx, staleAge)
+		if err != nil {
+			return err
+		}
+		if swept > 0 {
+			slog.InfoContext(jobCtx, "swept stale vm action claims", slog.Int64("swept", swept))
+		}
+		return nil
+	})
 }
 
 func (c *Claims) WithClaim(

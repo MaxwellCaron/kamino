@@ -68,7 +68,7 @@ func TestGetOverview_QEMUIncludesDashboardData(t *testing.T) {
 	}))
 	defer server.Close()
 
-	notifier := vmstatus.NewNotifier(proxmox.NewHTTPTestClient(server))
+	notifier := vmstatus.NewNotifier(proxmox.NewHTTPTestClient(server), nil)
 	if err := notifier.RefreshNow(context.Background()); err != nil {
 		t.Fatalf("seed notifier resources: %v", err)
 	}
@@ -392,7 +392,7 @@ func TestUpdateHardware_NonManagerScopedPreservesCurrentTagsAndScopesNewNIC(t *t
 		PX:                 px,
 		NetworkScopeReader: reader,
 		NetworkCatalog:     testNetworkCatalog(t),
-		Claims:             vmactions.NewClaims(newFakeVMActionClaimsDB()),
+		Claims:             vmactions.NewClaims(newFakeVMActionClaimsDB(), nil),
 	}
 
 	body := vmHardwareUpdateRequestBody(`[
@@ -484,7 +484,7 @@ func TestUpdateHardware_NonManagerScopedRejectsDisallowedBridgeChange(t *testing
 		PX:                 px,
 		NetworkScopeReader: reader,
 		NetworkCatalog:     testNetworkCatalog(t),
-		Claims:             vmactions.NewClaims(newFakeVMActionClaimsDB()),
+		Claims:             vmactions.NewClaims(newFakeVMActionClaimsDB(), nil),
 	}
 
 	body := vmHardwareUpdateRequestBody(`[
@@ -540,7 +540,7 @@ func TestUpdateHardware_ManagerOverridePassesThroughUnrestricted(t *testing.T) {
 		PX:                 px,
 		NetworkScopeReader: reader,
 		NetworkCatalog:     testNetworkCatalog(t),
-		Claims:             vmactions.NewClaims(newFakeVMActionClaimsDB()),
+		Claims:             vmactions.NewClaims(newFakeVMActionClaimsDB(), nil),
 	}
 
 	body := vmHardwareUpdateRequestBody(`[

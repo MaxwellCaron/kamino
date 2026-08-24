@@ -29,6 +29,9 @@ spec:
             - op: replace
               path: /data/TRUSTED_PROXY_CIDRS
               value: REPLACE_WITH_ISTIO_SOURCE_CIDRS
+            - op: replace
+              path: /data/OTEL_K8S_CLUSTER_NAME
+              value: REPLACE_WITH_K8S_CLUSTER_NAME
   destination:
     server: https://kubernetes.default.svc
     namespace: kamino-dev

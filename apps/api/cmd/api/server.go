@@ -7,6 +7,7 @@ import (
 	"github.com/MaxwellCaron/kamino/internal/principals"
 	"github.com/MaxwellCaron/kamino/internal/principals/activedirectory"
 	"github.com/MaxwellCaron/kamino/internal/proxmox"
+	"github.com/exaring/otelpgx"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -25,17 +26,25 @@ type Server struct {
 }
 
 // newServer creates a new server instance with all dependencies initialized
-func newServer(config *Config) (*Server, error) {
-	// Initialize database connection pool
-	dbPool, err := pgxpool.New(context.Background(), config.DatabaseURL)
+func newServer(ctx context.Context, config *Config) (*Server, error) {
+	poolConfig, err := pgxpool.ParseConfig(config.DatabaseURL)
+	if err != nil {
+		return nil, fmt.Errorf("unable to parse database config: %w", err)
+	}
+	poolConfig.ConnConfig.Tracer = otelpgx.NewTracer()
+
+	dbPool, err := pgxpool.NewWithConfig(ctx, poolConfig)
 	if err != nil {
 		return nil, fmt.Errorf("unable to create connection pool: %w", err)
 	}
 
-	// Verify connection
-	if err := dbPool.Ping(context.Background()); err != nil {
+	if err := dbPool.Ping(ctx); err != nil {
 		dbPool.Close()
 		return nil, fmt.Errorf("unable to ping database: %w", err)
+	}
+	if err := otelpgx.RecordStats(dbPool); err != nil {
+		dbPool.Close()
+		return nil, fmt.Errorf("unable to record pgx stats: %w", err)
 	}
 
 	// Initialize Proxmox client

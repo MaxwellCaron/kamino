@@ -5,15 +5,18 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"log"
+	"log/slog"
 	"net/http"
 	"time"
 
 	"github.com/MaxwellCaron/kamino/internal/inventory"
+	"github.com/MaxwellCaron/kamino/internal/observability"
 	"github.com/MaxwellCaron/kamino/internal/proxmox/vmstatus"
 	requestqueue "github.com/MaxwellCaron/kamino/internal/requests"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/metric"
 )
 
 // eventsAuthz is the narrow authorization seam EventsHandler depends on.
@@ -34,6 +37,8 @@ type EventsHandler struct {
 	Requests          eventsRequestService
 	Authz             eventsAuthz
 	Sessions          liveSessionValidator
+	Telemetry         *observability.Telemetry
+	AppCtx            context.Context
 }
 
 // Stream pushes dashboard-wide server events over a single authenticated SSE
@@ -128,10 +133,41 @@ func (h *EventsHandler) Stream(c *gin.Context) {
 	}
 	flusher.Flush()
 
+	connectedAt := time.Now()
+	var closeReason string
+	if h.Telemetry != nil {
+		h.Telemetry.Metrics().SSEConnections.Add(c.Request.Context(), 1)
+	}
+	defer func() {
+		if h.Telemetry == nil {
+			return
+		}
+		reason := closeReason
+		if reason == "" {
+			reason = classifySSECloseReason(h.AppCtx, c.Request.Context())
+		}
+		m := h.Telemetry.Metrics()
+		ctx := c.Request.Context()
+		m.SSEConnections.Add(ctx, -1)
+		reasonAttr := metric.WithAttributes(attribute.String("close.reason", reason))
+		m.SSEConnectionDuration.Record(ctx, time.Since(connectedAt).Seconds(), reasonAttr)
+		m.SSEDisconnects.Add(ctx, 1, reasonAttr)
+	}()
+
 	heartbeat := time.NewTicker(liveCheckInterval)
 	defer heartbeat.Stop()
 
-	h.streamLoop(c, principalID, sessionID, flusher, inventoryEvents, vmEvents, requestEvents, publishProgressEvents, heartbeat.C)
+	closeReason = h.streamLoop(c, principalID, sessionID, flusher, inventoryEvents, vmEvents, requestEvents, publishProgressEvents, heartbeat.C)
+}
+
+func classifySSECloseReason(appCtx, reqCtx context.Context) string {
+	if appCtx != nil && appCtx.Err() != nil {
+		return observability.CloseReasonServerShutdown
+	}
+	if reqCtx.Err() != nil {
+		return observability.CloseReasonClientCancel
+	}
+	return observability.CloseReasonClientCancel
 }
 
 // streamLoop is Stream's event pump, extracted so tests can inject fake channels.
@@ -145,11 +181,20 @@ func (h *EventsHandler) streamLoop(
 	requestEvents <-chan requestqueue.Event,
 	publishProgressEvents <-chan publishPodProgressSnapshot,
 	heartbeatTick <-chan time.Time,
-) {
+) string {
+	recordEvent := func(eventType string) {
+		if h.Telemetry == nil || eventType == "" {
+			return
+		}
+		h.Telemetry.Metrics().SSEEventsSent.Add(c.Request.Context(), 1,
+			metric.WithAttributes(attribute.String("event.type", eventType)),
+		)
+	}
+
 	for {
 		select {
 		case <-c.Request.Context().Done():
-			return
+			return ""
 		case event, ok := <-inventoryEvents:
 			if !ok {
 				inventoryEvents = nil
@@ -157,8 +202,9 @@ func (h *EventsHandler) streamLoop(
 			}
 			event.ItemID = nil
 			if err := writeSSEvent(c.Writer, event.Type, event); err != nil {
-				return
+				return observability.CloseReasonWriteError
 			}
+			recordEvent(event.Type)
 			flusher.Flush()
 		case event, ok := <-vmEvents:
 			if !ok {
@@ -168,7 +214,7 @@ func (h *EventsHandler) streamLoop(
 
 			filteredStatuses, err := h.filterVMStatuses(c.Request.Context(), principalID, event.Statuses)
 			if err != nil {
-				return
+				return observability.CloseReasonAuthorizationError
 			}
 
 			payload := vmstatus.Event{
@@ -177,8 +223,9 @@ func (h *EventsHandler) streamLoop(
 				Timestamp: event.Timestamp,
 			}
 			if err := writeSSEvent(c.Writer, payload.Type, payload); err != nil {
-				return
+				return observability.CloseReasonWriteError
 			}
+			recordEvent(payload.Type)
 			flusher.Flush()
 		case event, ok := <-requestEvents:
 			if !ok {
@@ -187,8 +234,8 @@ func (h *EventsHandler) streamLoop(
 			}
 			send, err := h.authorizeRequestEvent(c.Request.Context(), principalID, event)
 			if err != nil {
-				log.Printf("sse request event authorization failed: %v", err)
-				return
+				slog.ErrorContext(c.Request.Context(), "sse request event authorization failed", slog.String("error", err.Error()))
+				return observability.CloseReasonAuthorizationError
 			}
 			if !send {
 				continue
@@ -197,8 +244,9 @@ func (h *EventsHandler) streamLoop(
 				event.Type = "request.changed"
 			}
 			if err := writeSSEvent(c.Writer, event.Type, event); err != nil {
-				return
+				return observability.CloseReasonWriteError
 			}
+			recordEvent(event.Type)
 			flusher.Flush()
 		case event, ok := <-publishProgressEvents:
 			if !ok {
@@ -207,19 +255,20 @@ func (h *EventsHandler) streamLoop(
 			}
 			isManager, err := h.authorizePublishProgressEvent(c.Request.Context(), principalID)
 			if err != nil {
-				log.Printf("sse publish progress authorization failed: %v", err)
-				return
+				slog.ErrorContext(c.Request.Context(), "sse publish progress authorization failed", slog.String("error", err.Error()))
+				return observability.CloseReasonAuthorizationError
 			}
 			if !isManager {
 				continue
 			}
 			if err := writeSSEvent(c.Writer, publishProgressEventType, event); err != nil {
-				return
+				return observability.CloseReasonWriteError
 			}
+			recordEvent(publishProgressEventType)
 			flusher.Flush()
 		case <-heartbeatTick:
 			if err := h.Sessions.ValidateLiveSession(c.Request.Context(), sessionID, principalID); err != nil {
-				return
+				return observability.CloseReasonSessionInvalid
 			}
 			fmt.Fprint(c.Writer, ": heartbeat\n\n")
 			flusher.Flush()

@@ -1,0 +1,57 @@
+{
+  "title": "Kamino Operations",
+  "description": "Kamino API operational dashboard",
+  "tags": ["kamino", "api"],
+  "version": "v2",
+  "layout": [
+    {
+      "i": "api-red",
+      "x": 0,
+      "y": 0,
+      "w": 12,
+      "h": 6
+    }
+  ],
+  "widgets": [
+    {
+      "id": "api-red",
+      "title": "API RED",
+      "panelTypes": "graph",
+      "query": {
+        "queryType": "builder",
+        "builder": {
+          "queryData": [
+            {
+              "aggregateOperator": "rate",
+              "dataSource": "traces",
+              "expression": "A",
+              "filters": {
+                "items": [
+                  {
+                    "key": "service.name",
+                    "op": "=",
+                    "value": "kamino-api"
+                  }
+                ]
+              },
+              "legend": "request rate",
+              "queryName": "A"
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "variables": {
+    "environment": {
+      "type": "QUERY",
+      "name": "environment",
+      "label": "Environment"
+    },
+    "service_version": {
+      "type": "QUERY",
+      "name": "service_version",
+      "label": "Service version"
+    }
+  }
+}

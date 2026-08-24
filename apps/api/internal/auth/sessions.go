@@ -8,11 +8,12 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"log"
+	"log/slog"
 	"strings"
 	"time"
 
 	"github.com/MaxwellCaron/kamino/database"
+	"github.com/MaxwellCaron/kamino/internal/observability"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
@@ -37,10 +38,11 @@ type sessionStore interface {
 
 type SessionManager struct {
 	store sessionStore
+	tel   *observability.Telemetry
 }
 
-func NewSessionManager(db *pgxpool.Pool) *SessionManager {
-	return &SessionManager{store: db}
+func NewSessionManager(db *pgxpool.Pool, tel *observability.Telemetry) *SessionManager {
+	return &SessionManager{store: db, tel: tel}
 }
 
 type Session struct {
@@ -322,14 +324,16 @@ func (m *SessionManager) startCleanup(ctx context.Context, interval, gracePeriod
 }
 
 func (m *SessionManager) runCleanupSweep(ctx context.Context, gracePeriod time.Duration) {
-	deleted, err := m.DeleteExpiredSessions(ctx, gracePeriod)
-	if err != nil && ctx.Err() == nil {
-		log.Printf("auth session cleanup sweep failed: %v", err)
-		return
-	}
-	if deleted > 0 {
-		log.Printf("auth session cleanup sweep deleted %d expired session(s)", deleted)
-	}
+	_ = observability.RunBackgroundJob(ctx, m.tel, observability.JobSessionCleanup, func(jobCtx context.Context) error {
+		deleted, err := m.DeleteExpiredSessions(jobCtx, gracePeriod)
+		if err != nil {
+			return err
+		}
+		if deleted > 0 {
+			slog.InfoContext(jobCtx, "auth session cleanup sweep deleted expired sessions", slog.Int64("deleted", deleted))
+		}
+		return nil
+	})
 }
 
 func generateOpaqueToken() (rawToken string, tokenHash string, err error) {

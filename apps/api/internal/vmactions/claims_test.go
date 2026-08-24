@@ -139,7 +139,7 @@ func (r fakeRow) Scan(dest ...any) error {
 
 func TestClaimsSecondClaimReportsConflict(t *testing.T) {
 	db := newFakeClaimsDB()
-	claims := NewClaims(db)
+	claims := NewClaims(db, nil)
 	itemID := uuid.New()
 	actorID := uuid.New()
 
@@ -158,7 +158,7 @@ func TestClaimsSecondClaimReportsConflict(t *testing.T) {
 
 func TestClaimsReleaseAllowsLaterClaim(t *testing.T) {
 	db := newFakeClaimsDB()
-	claims := NewClaims(db)
+	claims := NewClaims(db, nil)
 	itemID := uuid.New()
 	actorID := uuid.New()
 
@@ -176,7 +176,7 @@ func TestClaimsReleaseAllowsLaterClaim(t *testing.T) {
 
 func TestWithClaimReleasesOnActionFailure(t *testing.T) {
 	db := newFakeClaimsDB()
-	claims := NewClaims(db)
+	claims := NewClaims(db, nil)
 	itemID := uuid.New()
 	actorID := uuid.New()
 	boom := errors.New("boom")
@@ -197,7 +197,7 @@ func TestWithClaimReleasesOnActionFailure(t *testing.T) {
 
 func TestClaimsReleaseSurvivesCallerCancel(t *testing.T) {
 	db := newFakeClaimsDB()
-	claims := NewClaims(db)
+	claims := NewClaims(db, nil)
 	itemID := uuid.New()
 	actorID := uuid.New()
 
@@ -218,7 +218,7 @@ func TestClaimsReleaseSurvivesCallerCancel(t *testing.T) {
 
 func TestClaimsSweepStaleDeletesOnlyOldRows(t *testing.T) {
 	db := newFakeClaimsDB()
-	claims := NewClaims(db)
+	claims := NewClaims(db, nil)
 	staleItemID := uuid.New()
 	recentItemID := uuid.New()
 	actorID := uuid.New()
@@ -256,7 +256,7 @@ func TestClaimsSweepStaleDeletesOnlyOldRows(t *testing.T) {
 
 func TestClaimsRecoveryLoopExitsOnCancel(t *testing.T) {
 	db := newFakeClaimsDB()
-	claims := NewClaims(db)
+	claims := NewClaims(db, nil)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan struct{})
@@ -277,7 +277,7 @@ func TestClaimsRecoveryLoopExitsOnCancel(t *testing.T) {
 
 func TestClaimsUnrelatedVMsDoNotBlockEachOther(t *testing.T) {
 	db := newFakeClaimsDB()
-	claims := NewClaims(db)
+	claims := NewClaims(db, nil)
 	itemA := uuid.New()
 	itemB := uuid.New()
 	actorID := uuid.New()

@@ -63,6 +63,8 @@ func NewClient(
 		allowedNodes = append(allowedNodes, node)
 	}
 
+	wrappedTransport := wrapTransport(transport, baseURL)
+
 	return &Client{
 		baseURL:            baseURL,
 		tokenID:            tokenID,
@@ -70,7 +72,7 @@ func NewClient(
 		insecure:           insecure,
 		nodes:              allowedNodes,
 		nodeIndex:          nodeIndex,
-		httpClient:         &http.Client{Transport: transport},
+		httpClient:         &http.Client{Transport: wrappedTransport},
 		sharedStorageNames: map[string]struct{}{},
 	}
 }
@@ -107,12 +109,13 @@ func (c *Client) requireAllowedNode(node string) error {
 }
 
 func unexpectedStatusError(resp *http.Response, path string) error {
+	normalized := normalizeProxmoxPath(path)
 	body, err := io.ReadAll(io.LimitReader(resp.Body, 4096))
 	if err != nil {
-		return fmt.Errorf("unexpected status %d for %s (reading response body: %w)", resp.StatusCode, path, err)
+		return fmt.Errorf("unexpected status %d for %s (reading response body: %w)", resp.StatusCode, normalized, err)
 	}
 
-	return unexpectedStatusErrorWithBody(resp.StatusCode, path, string(body))
+	return unexpectedStatusErrorWithBody(resp.StatusCode, normalized, string(body))
 }
 
 func unexpectedStatusErrorWithBody(statusCode int, path string, body string) error {

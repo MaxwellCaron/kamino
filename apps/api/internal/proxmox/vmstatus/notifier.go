@@ -2,11 +2,14 @@ package vmstatus
 
 import (
 	"context"
-	"log"
+	"log/slog"
 	"sync"
 	"time"
 
+	"github.com/MaxwellCaron/kamino/internal/observability"
 	"github.com/MaxwellCaron/kamino/internal/proxmox"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/metric"
 	"golang.org/x/sync/singleflight"
 )
 
@@ -36,7 +39,8 @@ type VMResources struct {
 }
 
 type Notifier struct {
-	px *proxmox.Client
+	px  *proxmox.Client
+	tel *observability.Telemetry
 
 	refreshGroup singleflight.Group
 	mu           sync.RWMutex
@@ -45,9 +49,10 @@ type Notifier struct {
 	resources    map[int]VMResources
 }
 
-func NewNotifier(px *proxmox.Client) *Notifier {
+func NewNotifier(px *proxmox.Client, tel *observability.Telemetry) *Notifier {
 	return &Notifier{
 		px:          px,
+		tel:         tel,
 		subscribers: make(map[chan Event]struct{}),
 		last:        make(map[int]string),
 		resources:   make(map[int]VMResources),
@@ -56,7 +61,7 @@ func NewNotifier(px *proxmox.Client) *Notifier {
 
 func (n *Notifier) Start(ctx context.Context) {
 	if err := n.RefreshNow(ctx); err != nil && ctx.Err() == nil {
-		log.Printf("vm status notifier initial poll failed: %v", err)
+		slog.ErrorContext(ctx, "vm status notifier initial poll failed", slog.String("error", err.Error()))
 	}
 
 	ticker := time.NewTicker(pollInterval)
@@ -68,7 +73,7 @@ func (n *Notifier) Start(ctx context.Context) {
 			return
 		case <-ticker.C:
 			if err := n.RefreshNow(ctx); err != nil && ctx.Err() == nil {
-				log.Printf("vm status notifier poll failed: %v", err)
+				slog.ErrorContext(ctx, "vm status notifier poll failed", slog.String("error", err.Error()))
 			}
 		}
 	}
@@ -176,58 +181,71 @@ func (n *Notifier) Resources(vmid int) (VMResources, bool) {
 }
 
 func (n *Notifier) pollAndBroadcast(ctx context.Context) error {
-	vms, err := n.px.GetVMs(ctx)
-	if err != nil {
-		return err
-	}
-
-	next := make(map[int]string, len(vms))
-	nextResources := make(map[int]VMResources, len(vms))
-	for _, vm := range vms {
-		next[vm.VMID] = vm.Status
-		nextResources[vm.VMID] = VMResources{
-			CPU:       vm.CPU,
-			MaxCPU:    vm.MaxCPU,
-			Mem:       vm.Mem,
-			MaxMem:    vm.MaxMem,
-			Disk:      vm.Disk,
-			MaxDisk:   vm.MaxDisk,
-			NetIn:     vm.NetIn,
-			NetOut:    vm.NetOut,
-			DiskRead:  vm.DiskRead,
-			DiskWrite: vm.DiskWrite,
-			Uptime:    vm.Uptime,
+	return observability.RunBackgroundJob(ctx, n.tel, observability.JobVMStatusPoll, func(jobCtx context.Context) error {
+		vms, err := n.px.GetVMs(jobCtx)
+		if err != nil {
+			return err
 		}
-	}
 
-	n.mu.Lock()
-	n.resources = nextResources
+		next := make(map[int]string, len(vms))
+		nextResources := make(map[int]VMResources, len(vms))
+		for _, vm := range vms {
+			next[vm.VMID] = vm.Status
+			nextResources[vm.VMID] = VMResources{
+				CPU:       vm.CPU,
+				MaxCPU:    vm.MaxCPU,
+				Mem:       vm.Mem,
+				MaxMem:    vm.MaxMem,
+				Disk:      vm.Disk,
+				MaxDisk:   vm.MaxDisk,
+				NetIn:     vm.NetIn,
+				NetOut:    vm.NetOut,
+				DiskRead:  vm.DiskRead,
+				DiskWrite: vm.DiskWrite,
+				Uptime:    vm.Uptime,
+			}
+		}
 
-	if statusesEqual(n.last, next) {
+		n.mu.Lock()
+		n.resources = nextResources
+
+		if statusesEqual(n.last, next) {
+			n.mu.Unlock()
+			return nil
+		}
+
+		n.last = next
+		event := Event{
+			Type:      "vm.statuses.changed",
+			Statuses:  cloneStatuses(next),
+			Timestamp: time.Now().UTC(),
+		}
 		n.mu.Unlock()
+
+		n.broadcast(event)
 		return nil
-	}
-
-	n.last = next
-	event := Event{
-		Type:      "vm.statuses.changed",
-		Statuses:  cloneStatuses(next),
-		Timestamp: time.Now().UTC(),
-	}
-	n.mu.Unlock()
-
-	n.broadcast(event)
-	return nil
+	})
 }
 
 func (n *Notifier) broadcast(event Event) {
 	n.mu.RLock()
 	defer n.mu.RUnlock()
 
+	busAttrs := []attribute.KeyValue{
+		attribute.String("bus", observability.EventBusVMStatus),
+		attribute.String("event.type", event.Type),
+	}
+
 	for ch := range n.subscribers {
 		select {
 		case ch <- event:
+			if n.tel != nil {
+				n.tel.Metrics().EventsDelivered.Add(context.Background(), 1, metric.WithAttributes(busAttrs...))
+			}
 		default:
+			if n.tel != nil {
+				n.tel.Metrics().EventsDropped.Add(context.Background(), 1, metric.WithAttributes(busAttrs...))
+			}
 		}
 	}
 }

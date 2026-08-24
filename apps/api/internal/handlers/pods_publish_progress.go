@@ -1,10 +1,15 @@
 package handlers
 
 import (
+	"context"
 	"sort"
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/MaxwellCaron/kamino/internal/observability"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/metric"
 )
 
 const (
@@ -23,6 +28,10 @@ const (
 
 var publishedPodProgress = newPublishPodProgressStore()
 
+func InitPublishProgressTelemetry(tel *observability.Telemetry) {
+	publishedPodProgress.setTelemetry(tel)
+}
+
 type publishPodProgressSnapshot struct {
 	Type      string    `json:"type"`
 	ID        string    `json:"id"`
@@ -35,6 +44,7 @@ type publishPodProgressSnapshot struct {
 
 type publishPodProgressStore struct {
 	mu          sync.RWMutex
+	tel         *observability.Telemetry
 	items       map[string]publishPodProgressSnapshot
 	subscribers map[chan publishPodProgressSnapshot]struct{}
 }
@@ -75,6 +85,12 @@ func (s *publishPodProgressStore) getBatch(batchID string) []publishPodProgressS
 	return result
 }
 
+func (s *publishPodProgressStore) setTelemetry(tel *observability.Telemetry) {
+	s.mu.Lock()
+	s.tel = tel
+	s.mu.Unlock()
+}
+
 func (s *publishPodProgressStore) set(snapshot publishPodProgressSnapshot) {
 	s.mu.Lock()
 	if snapshot.Type == "" {
@@ -89,10 +105,20 @@ func (s *publishPodProgressStore) set(snapshot publishPodProgressSnapshot) {
 	}
 	s.mu.Unlock()
 
+	busAttrs := []attribute.KeyValue{
+		attribute.String("bus", observability.EventBusPublishProgress),
+		attribute.String("event.type", publishProgressEventType),
+	}
 	for _, ch := range subscribers {
 		select {
 		case ch <- snapshot:
+			if s.tel != nil {
+				s.tel.Metrics().EventsDelivered.Add(context.Background(), 1, metric.WithAttributes(busAttrs...))
+			}
 		default:
+			if s.tel != nil {
+				s.tel.Metrics().EventsDropped.Add(context.Background(), 1, metric.WithAttributes(busAttrs...))
+			}
 		}
 	}
 

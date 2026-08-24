@@ -35,6 +35,10 @@ apps/api/bin/
 /deploy/k8s/kamino-tls.crt
 /deploy/k8s/kamino-tls.key
 /deploy/argocd/kamino-dev-application.yaml
+/deploy/argocd/signoz-application.yaml
+/deploy/argocd/signoz-k8s-infra-application.yaml
+/deploy/k8s/signoz-tls.crt
+/deploy/k8s/signoz-tls.key
 /deploy/k8s/kamino-dev-secrets.env
 /deploy/k8s/kamino-dev-tls.crt
 /deploy/k8s/kamino-dev-tls.key

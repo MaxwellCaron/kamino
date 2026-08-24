@@ -195,7 +195,7 @@ func TestRunInitialSyncs(t *testing.T) {
 				PrincipalInitialSyncEnabled: tt.principalEnabled,
 			}
 
-			runInitialSyncs(context.Background(), &cfg, proxmoxSync, principalSync)
+			runInitialSyncs(context.Background(), &cfg, nil, proxmoxSync, principalSync)
 
 			if proxmoxCalls != tt.wantProxmoxCalls {
 				t.Fatalf("proxmox calls = %d, want %d", proxmoxCalls, tt.wantProxmoxCalls)

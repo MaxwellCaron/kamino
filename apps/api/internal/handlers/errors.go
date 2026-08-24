@@ -7,23 +7,52 @@
 package handlers
 
 import (
-	"log"
+	"log/slog"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+	"go.opentelemetry.io/otel/codes"
+	"go.opentelemetry.io/otel/trace"
 )
 
-func logRequestError(c *gin.Context, operation string, err error) {
-	if err == nil {
-		return
-	}
-
+func normalizedRoute(c *gin.Context) string {
 	path := c.FullPath()
 	if path == "" && c.Request != nil && c.Request.URL != nil {
 		path = c.Request.URL.Path
 	}
+	return path
+}
 
-	log.Printf("api %s %s %s: %v", c.Request.Method, path, operation, err)
+func logRequestError(c *gin.Context, operation string, err error) {
+	status := c.Writer.Status()
+	if status == 0 {
+		status = http.StatusInternalServerError
+	}
+	logRequestErrorWithStatus(c, status, operation, err)
+}
+
+func logRequestErrorWithStatus(c *gin.Context, status int, operation string, err error) {
+	if err == nil {
+		return
+	}
+
+	ctx := c.Request.Context()
+	attrs := []any{
+		slog.String("operation", operation),
+		slog.String("http.method", c.Request.Method),
+		slog.String("http.route", normalizedRoute(c)),
+		slog.Int("http.status_code", status),
+		slog.String("error", err.Error()),
+	}
+
+	span := trace.SpanFromContext(ctx)
+	if status >= 500 {
+		span.RecordError(err)
+		span.SetStatus(codes.Error, operation)
+		slog.ErrorContext(ctx, "api request failed", attrs...)
+		return
+	}
+	slog.WarnContext(ctx, "api request failed", attrs...)
 }
 
 func writeLoggedError(
@@ -33,7 +62,7 @@ func writeLoggedError(
 	operation string,
 	err error,
 ) {
-	logRequestError(c, operation, err)
+	logRequestErrorWithStatus(c, status, operation, err)
 	c.JSON(status, gin.H{"error": userMessage})
 }
 
