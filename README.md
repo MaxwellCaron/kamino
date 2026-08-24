@@ -143,7 +143,7 @@ All configuration is loaded from environment variables (or `apps/api/.env`). Cop
 | `PROXMOX_INSECURE` | no | `false` | Skip TLS verification (lab only) |
 | `PROXMOX_INITIAL_SYNC_ENABLED` | no | `true` | Run the startup Proxmox-to-database inventory import |
 | `PRINCIPAL_PROVIDER` | yes | — | `active_directory` or `proxmox` |
-| `PRINCIPAL_INITIAL_SYNC_ENABLED` | no | `true` | Run the startup principal sync for the selected provider |
+| `PRINCIPAL_INITIAL_SYNC_ENABLED` | no | `true` | Run the startup principal sync for the selected provider; it does not control the mandatory deployment CronJob |
 | `PRINCIPAL_BOOTSTRAP_ADMIN_GROUP` | no | — | Initial admin group seed: AD DN in AD mode, Proxmox group ID in Proxmox mode |
 | `PROXMOX_AUTH_REALM` | no | `pve` | Default Proxmox realm for login and managed users when `PRINCIPAL_PROVIDER=proxmox` |
 | `PROXMOX_MANAGED_USER_REALM` | no | `PROXMOX_AUTH_REALM` | Realm appended to bare usernames created through Kamino in Proxmox mode |
@@ -307,7 +307,7 @@ On startup the API performs these steps in order:
 
 ### Active Directory principal sync scope
 
-When `PRINCIPAL_PROVIDER=active_directory`, both startup and manual (`POST /api/v1/principals/sync`) sync search only the two configured OU subtrees: every user under `LDAP_USER_OU` and every group under `LDAP_GROUP_OU`. Kamino principals returned by a provider outside those subtrees are treated as stale: a successful sync deletes their principal rows and memberships. Verify `LDAP_USER_OU` and `LDAP_GROUP_OU` point at the intended subtrees before enabling or rolling out AD sync in production; principals previously imported from outside those OUs are removed on the next successful sync.
+When `PRINCIPAL_PROVIDER=active_directory`, startup, manual (`POST /api/v1/principals/sync`), and the deployment's mandatory 30-minute principal sync search only the two configured OU subtrees: every user under `LDAP_USER_OU` and every group under `LDAP_GROUP_OU`. Kamino principals returned by a provider outside those subtrees are treated as stale: a successful sync deletes their principal rows and memberships. Verify `LDAP_USER_OU` and `LDAP_GROUP_OU` point at the intended subtrees before enabling or rolling out AD sync in production; principals previously imported from outside those OUs are removed on the next successful sync.
 
 ### Mirror reconcile and pool structure
 

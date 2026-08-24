@@ -3,7 +3,10 @@ package main
 import (
 	"context"
 	"log"
+	"os"
+	"os/signal"
 	"strings"
+	"syscall"
 
 	"github.com/MaxwellCaron/kamino/database"
 	"github.com/MaxwellCaron/kamino/internal/audit"
@@ -42,6 +45,14 @@ func main() {
 	}
 	if err := validatePrincipalProviderConfig(&config); err != nil {
 		log.Fatalf("Invalid principal provider configuration: %v", err)
+	}
+	if len(os.Args) == 2 && os.Args[1] == principalSyncCommand {
+		ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+		defer stop()
+		if err := runPrincipalSyncCommand(ctx, &config); err != nil {
+			log.Fatalf("Principal sync failed: %v", err)
+		}
+		return
 	}
 	spiceProxyHost, err := resolveSPICEProxyHost(config.ProxmoxURL, config.ProxmoxSPICEProxyHost)
 	if err != nil {
