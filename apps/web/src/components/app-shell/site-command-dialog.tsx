@@ -60,9 +60,11 @@ export function SiteCommandDialog({
   })
   const isPending = logoutMutation.isPending
 
-  const { data: sessionData, isLoading: isSessionLoading } = useQuery(
-    authSessionQueryOptions
-  )
+  const {
+    data: sessionData,
+    isError: isSessionError,
+    isLoading: isSessionLoading,
+  } = useQuery(authSessionQueryOptions)
   const user = sessionData?.user
   const canManage = canAccessRequestQueue(user?.management_permissions)
   const canAdminister = canAccessAdmin(user?.management_permissions)
@@ -240,6 +242,7 @@ export function SiteCommandDialog({
         isCompletedRequestsLoading)) ||
     (canAdminister && (isUsersLoading || isGroupsLoading || isVnetsLoading))
   const hasIndexError =
+    isSessionError ||
     isInventoryError ||
     isPodCatalogError ||
     isPublishedPodsError ||
@@ -249,18 +252,13 @@ export function SiteCommandDialog({
     isGroupsError ||
     isVnetsError
 
-  const emptyMessage = isIndexing
-    ? "Indexing Kamino..."
-    : hasIndexError
-      ? "Some results could not be loaded."
-      : "No results found."
-
   return (
     <SiteCommandMenu
       open={open}
       onOpenChange={onOpenChange}
       commands={filteredCommands}
-      emptyMessage={emptyMessage}
+      hasIndexError={hasIndexError}
+      loading={isIndexing}
       pending={isPending}
       searchQuery={searchQuery}
       onSearchQueryChange={setSearchQuery}

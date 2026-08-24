@@ -15,6 +15,7 @@ import {
   CommandSeparator,
   CommandShortcut,
 } from "@workspace/ui/components/command"
+import { Skeleton } from "@workspace/ui/components/skeleton"
 import { Spinner } from "@workspace/ui/components/spinner"
 
 import { buildSiteCommandRows, groupLabels } from "./site-command-index"
@@ -26,12 +27,15 @@ import {
 } from "./site-command-menu-utils"
 import type { SiteCommandResult } from "./site-command-index"
 import type { KeyboardEvent } from "react"
+import { InlineErrorAlert } from "@/components/feedback/inline-error-alert"
 
 const COMMAND_ROW_OVERSCAN = 8
+const COMMAND_LIST_INITIAL_RECT = { height: 672, width: 576 }
 
 export type SiteCommandMenuProps = {
   commands: Array<SiteCommandResult>
-  emptyMessage: string
+  hasIndexError: boolean
+  loading: boolean
   open: boolean
   pending: boolean
   searchQuery: string
@@ -41,7 +45,8 @@ export type SiteCommandMenuProps = {
 
 export function SiteCommandMenu({
   commands,
-  emptyMessage,
+  hasIndexError,
+  loading,
   onOpenChange,
   onSearchQueryChange,
   open,
@@ -77,14 +82,25 @@ export function SiteCommandMenu({
     [rows]
   )
 
+  const measureElement = useCallback(
+    (element: Element) => {
+      const measuredHeight = element.getBoundingClientRect().height
+      if (measuredHeight > 0) return measuredHeight
+
+      return estimateSize(Number(element.getAttribute("data-index")))
+    },
+    [estimateSize]
+  )
+
   const virtualizer = useVirtualizer({
     count: rows.length,
     getScrollElement: () => listRef.current,
     getItemKey,
     estimateSize,
-    measureElement: (element) => element.getBoundingClientRect().height,
+    measureElement,
     overscan: COMMAND_ROW_OVERSCAN,
     rangeExtractor,
+    initialRect: COMMAND_LIST_INITIAL_RECT,
   })
 
   const selectRowAtIndex = useCallback(
@@ -176,9 +192,20 @@ export function SiteCommandMenu({
         <CommandList
           ref={listRef}
           className="max-h-[min(70dvh,42rem)] overscroll-contain"
+          aria-busy={loading || undefined}
         >
-          <CommandEmpty>{emptyMessage}</CommandEmpty>
-          {rows.length > 0 ? (
+          {rows.length === 0 ? (
+            loading ? (
+              <SiteCommandMenuSkeleton />
+            ) : hasIndexError ? (
+              <InlineErrorAlert
+                className="m-3 text-left"
+                fallback="Some search results could not be loaded."
+              />
+            ) : (
+              <CommandEmpty>No results found.</CommandEmpty>
+            )
+          ) : (
             <CommandGroup
               style={{
                 height: virtualizer.getTotalSize(),
@@ -266,10 +293,33 @@ export function SiteCommandMenu({
                 )
               })}
             </CommandGroup>
-          ) : null}
+          )}
         </CommandList>
       </Command>
     </CommandDialog>
+  )
+}
+
+function SiteCommandMenuSkeleton() {
+  return (
+    <div
+      className="flex flex-col gap-3 p-4"
+      role="status"
+      aria-live="polite"
+    >
+      {[0, 1, 2].map((row) => (
+        <div key={row} className="flex items-center gap-3">
+          <Skeleton className="size-8 shrink-0" />
+          <div className="flex min-w-0 flex-1 flex-col gap-2">
+            <Skeleton className="h-4 w-2/5" />
+            <Skeleton className="h-3 w-3/5" />
+          </div>
+        </div>
+      ))}
+      <span className="text-center text-xs text-muted-foreground">
+        Indexing Kamino...
+      </span>
+    </div>
   )
 }
 
