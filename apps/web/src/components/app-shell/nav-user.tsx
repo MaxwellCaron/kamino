@@ -84,10 +84,8 @@ export function NavUser({
                 variant="destructive"
                 disabled={isPending}
                 aria-busy={isPending || undefined}
-                onSelect={(event) => {
-                  event.preventDefault()
-                  logoutMutation.mutate()
-                }}
+                closeOnClick={false}
+                onClick={() => logoutMutation.mutate()}
               >
                 {isPending ? (
                   <Spinner />
