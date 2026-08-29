@@ -16,6 +16,7 @@ type stubAllocProvider struct {
 	availableResult map[int]bool
 	availableErr    map[int]error
 	usedVMIDs       map[int]struct{}
+	reservedVMIDs   []int32
 	runErrs         map[int]error
 	runCalls        []int
 }
@@ -42,13 +43,17 @@ func (s *stubAllocProvider) IsVMIDAvailable(_ context.Context, vmid int) (bool, 
 	return true, nil
 }
 
+func (s *stubAllocProvider) ListReservedProxmoxVMIDs(_ context.Context) ([]int32, error) {
+	return append([]int32(nil), s.reservedVMIDs...), nil
+}
+
 func (s *stubAllocProvider) run(vmid int) error {
 	s.runCalls = append(s.runCalls, vmid)
 	return s.runErrs[vmid]
 }
 
 func newTestAllocator(px *stubAllocProvider) *vmidalloc.Allocator {
-	return vmidalloc.New(px)
+	return vmidalloc.New(px, px)
 }
 
 func TestRunWithAvailableVMIDSkipsUnavailableCandidatesAndRetriesConflict(t *testing.T) {

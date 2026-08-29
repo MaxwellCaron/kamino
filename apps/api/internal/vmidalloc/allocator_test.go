@@ -12,6 +12,8 @@ type fakeProvider struct {
 	usedVMIDs      map[int]struct{}
 	usedVMIDsErr   error
 	usedVMIDsCalls int
+	reservedVMIDs  []int32
+	reservedErr    error
 
 	nextID    int
 	nextErr   error
@@ -45,11 +47,18 @@ func (f *fakeProvider) IsVMIDAvailable(_ context.Context, vmid int) (bool, error
 	return true, nil
 }
 
+func (f *fakeProvider) ListReservedProxmoxVMIDs(_ context.Context) ([]int32, error) {
+	if f.reservedErr != nil {
+		return nil, f.reservedErr
+	}
+	return append([]int32(nil), f.reservedVMIDs...), nil
+}
+
 func TestNewBatch_SufficientCapacity(t *testing.T) {
 	t.Parallel()
 
 	px := &fakeProvider{usedVMIDs: map[int]struct{}{100: {}}}
-	alloc := New(px)
+	alloc := New(px, px)
 
 	batch, err := alloc.NewBatch(context.Background(), Range{Min: 101, Max: 110}, 5)
 	if err != nil {
@@ -70,7 +79,7 @@ func TestNewBatch_InsufficientCapacity(t *testing.T) {
 			102: {},
 		},
 	}
-	alloc := New(px)
+	alloc := New(px, px)
 
 	_, err := alloc.NewBatch(context.Background(), Range{Min: 100, Max: 102}, 2)
 	if !IsRangeExhausted(err) {
@@ -81,12 +90,50 @@ func TestNewBatch_InsufficientCapacity(t *testing.T) {
 	}
 }
 
+func TestNewBatch_ReservesDatabaseVMIDs(t *testing.T) {
+	t.Parallel()
+
+	px := &fakeProvider{
+		usedVMIDs:     map[int]struct{}{},
+		reservedVMIDs: []int32{100},
+	}
+	alloc := New(px, px)
+
+	batch, err := alloc.NewBatch(context.Background(), Range{Min: 100, Max: 101}, 1)
+	if err != nil {
+		t.Fatalf("NewBatch returned error: %v", err)
+	}
+	vmid, err := batch.Claim(context.Background(), func(int) error { return nil })
+	if err != nil {
+		t.Fatalf("Claim returned error: %v", err)
+	}
+	if vmid != 101 {
+		t.Fatalf("Claim vmid = %d, want 101 because database reserves 100", vmid)
+	}
+}
+
+func TestNewBatch_DatabaseReservationErrorStopsAllocation(t *testing.T) {
+	t.Parallel()
+
+	wantErr := errors.New("database unavailable")
+	px := &fakeProvider{
+		usedVMIDs:   map[int]struct{}{},
+		reservedErr: wantErr,
+	}
+	alloc := New(px, px)
+
+	_, err := alloc.NewBatch(context.Background(), Range{Min: 100, Max: 101}, 1)
+	if !errors.Is(err, wantErr) {
+		t.Fatalf("NewBatch error = %v, want %v", err, wantErr)
+	}
+}
+
 func TestBatchClaim_ConcurrentUnique(t *testing.T) {
 	t.Parallel()
 
 	const n = 32
 	px := &fakeProvider{usedVMIDs: map[int]struct{}{}}
-	alloc := New(px)
+	alloc := New(px, px)
 
 	batch, err := alloc.NewBatch(context.Background(), Range{Min: 100, Max: 100 + n - 1}, n)
 	if err != nil {
@@ -148,7 +195,7 @@ func TestBatchClaim_ConflictAdvances(t *testing.T) {
 	t.Parallel()
 
 	px := &fakeProvider{usedVMIDs: map[int]struct{}{}}
-	alloc := New(px)
+	alloc := New(px, px)
 
 	batch, err := alloc.NewBatch(context.Background(), Range{Min: 200, Max: 205}, 1)
 	if err != nil {
@@ -184,7 +231,7 @@ func TestBatchClaim_NonConflictErrorPropagates(t *testing.T) {
 	t.Parallel()
 
 	px := &fakeProvider{usedVMIDs: map[int]struct{}{}}
-	alloc := New(px)
+	alloc := New(px, px)
 
 	batch, err := alloc.NewBatch(context.Background(), Range{Min: 300, Max: 305}, 1)
 	if err != nil {
@@ -212,7 +259,7 @@ func TestConcurrentBatches_DisjointClaims(t *testing.T) {
 	t.Parallel()
 
 	px := &fakeProvider{usedVMIDs: map[int]struct{}{}}
-	alloc := New(px)
+	alloc := New(px, px)
 
 	batchA, err := alloc.NewBatch(context.Background(), Range{Min: 100, Max: 110}, 2)
 	if err != nil {
@@ -256,7 +303,7 @@ func TestBatchRelease_FreesInflight(t *testing.T) {
 	t.Parallel()
 
 	px := &fakeProvider{usedVMIDs: map[int]struct{}{}}
-	alloc := New(px)
+	alloc := New(px, px)
 
 	batchA, err := alloc.NewBatch(context.Background(), Range{Min: 100, Max: 110}, 1)
 	if err != nil {
@@ -301,7 +348,7 @@ func TestBatchQuarantine_RemainsUnavailableAfterRelease(t *testing.T) {
 	t.Parallel()
 
 	px := &fakeProvider{usedVMIDs: map[int]struct{}{}}
-	alloc := New(px)
+	alloc := New(px, px)
 
 	batch, err := alloc.NewBatch(context.Background(), Range{Min: 100, Max: 101}, 1)
 	if err != nil {
@@ -340,7 +387,7 @@ func TestNewBatch_CapacityCountsInflight(t *testing.T) {
 	t.Parallel()
 
 	px := &fakeProvider{usedVMIDs: map[int]struct{}{}}
-	alloc := New(px)
+	alloc := New(px, px)
 
 	batchA, err := alloc.NewBatch(context.Background(), Range{Min: 100, Max: 101}, 2)
 	if err != nil {
@@ -373,7 +420,7 @@ func TestRunSingle_SkipsInflight(t *testing.T) {
 		usedVMIDs: map[int]struct{}{},
 		nextID:    100,
 	}
-	alloc := New(px)
+	alloc := New(px, px)
 
 	batch, err := alloc.NewBatch(context.Background(), Range{Min: 100, Max: 110}, 1)
 	if err != nil {
@@ -396,6 +443,33 @@ func TestRunSingle_SkipsInflight(t *testing.T) {
 	}
 
 	_, err = alloc.RunSingle(context.Background(), 100, func(int) error { return nil })
+	if !errors.Is(err, ErrVMIDUnavailable) {
+		t.Fatalf("RunSingle(100) error = %v, want ErrVMIDUnavailable", err)
+	}
+}
+
+func TestRunSingle_SkipsDatabaseReservations(t *testing.T) {
+	t.Parallel()
+
+	px := &fakeProvider{
+		usedVMIDs:     map[int]struct{}{},
+		reservedVMIDs: []int32{100},
+		nextID:        100,
+	}
+	alloc := New(px, px)
+
+	got, err := alloc.RunSingle(context.Background(), 0, func(int) error { return nil })
+	if err != nil {
+		t.Fatalf("RunSingle returned error: %v", err)
+	}
+	if got != 101 {
+		t.Fatalf("RunSingle vmid = %d, want 101 because database reserves 100", got)
+	}
+
+	_, err = alloc.RunSingle(context.Background(), 100, func(int) error {
+		t.Fatal("reserved requested VMID was passed to run")
+		return nil
+	})
 	if !errors.Is(err, ErrVMIDUnavailable) {
 		t.Fatalf("RunSingle(100) error = %v, want ErrVMIDUnavailable", err)
 	}

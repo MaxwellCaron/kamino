@@ -39,32 +39,45 @@ type proxmoxProvider interface {
 	IsVMIDAvailable(ctx context.Context, vmid int) (bool, error)
 }
 
+type reservationProvider interface {
+	ListReservedProxmoxVMIDs(ctx context.Context) ([]int32, error)
+}
+
 // singleAllocAttempts bounds the scan window for ordinary (non-batch) allocation.
 const singleAllocAttempts = 25
 
 // Allocator is the single process-wide VMID coordinator. One instance is constructed
 // at startup and shared across all handlers; no handler may create its own mutex.
 type Allocator struct {
-	px          proxmoxProvider
-	mu          sync.Mutex
-	inflight    map[int]struct{} // VMIDs claimed by unreleased batches; guarded by mu
-	quarantined map[int]struct{} // VMIDs rejected by completed Proxmox tasks; guarded by mu
+	px           proxmoxProvider
+	reservations reservationProvider
+	mu           sync.Mutex
+	inflight     map[int]struct{} // VMIDs claimed by unreleased batches; guarded by mu
+	quarantined  map[int]struct{} // VMIDs rejected by completed Proxmox tasks; guarded by mu
 }
 
-func New(px proxmoxProvider) *Allocator {
+func New(px proxmoxProvider, reservations reservationProvider) *Allocator {
 	return &Allocator{
-		px:          px,
-		inflight:    make(map[int]struct{}),
-		quarantined: make(map[int]struct{}),
+		px:           px,
+		reservations: reservations,
+		inflight:     make(map[int]struct{}),
+		quarantined:  make(map[int]struct{}),
 	}
 }
 
-// NewBatch loads the cluster VMID set once and returns a Batch for r.
+// NewBatch loads the Proxmox and database VMID sets once and returns a Batch for r.
 // Returns *ErrRangeExhausted before any side effect when capacity is insufficient.
 func (a *Allocator) NewBatch(ctx context.Context, r Range, requiredCount int) (*Batch, error) {
 	used, err := a.px.UsedVMIDs(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("load cluster VMID snapshot: %w", err)
+	}
+	reserved, err := a.loadReservedVMIDs(ctx)
+	if err != nil {
+		return nil, err
+	}
+	for id := range reserved {
+		used[id] = struct{}{}
 	}
 	a.mu.Lock()
 	for id := range a.inflight {
@@ -99,7 +112,15 @@ func (a *Allocator) RunSingle(
 	a.mu.Lock()
 	defer a.mu.Unlock()
 
+	reserved, err := a.loadReservedVMIDs(ctx)
+	if err != nil {
+		return 0, err
+	}
+
 	if requestedID > 0 {
+		if _, occupied := reserved[requestedID]; occupied {
+			return 0, ErrVMIDUnavailable
+		}
 		if _, occupied := a.inflight[requestedID]; occupied {
 			return 0, ErrVMIDUnavailable
 		}
@@ -129,6 +150,9 @@ func (a *Allocator) RunSingle(
 	var lastErr error
 	for offset := range singleAllocAttempts {
 		vmid := firstID + offset
+		if _, occupied := reserved[vmid]; occupied {
+			continue
+		}
 		if _, occupied := a.inflight[vmid]; occupied {
 			continue
 		}
@@ -155,6 +179,18 @@ func (a *Allocator) RunSingle(
 		return 0, fmt.Errorf("allocate VMID from %d to %d: %w", firstID, firstID+singleAllocAttempts-1, lastErr)
 	}
 	return 0, fmt.Errorf("no available VMID found from %d to %d", firstID, firstID+singleAllocAttempts-1)
+}
+
+func (a *Allocator) loadReservedVMIDs(ctx context.Context) (map[int]struct{}, error) {
+	ids, err := a.reservations.ListReservedProxmoxVMIDs(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("load database VMID reservations: %w", err)
+	}
+	reserved := make(map[int]struct{}, len(ids))
+	for _, id := range ids {
+		reserved[int(id)] = struct{}{}
+	}
+	return reserved, nil
 }
 
 // Batch holds a snapshot for one bulk allocation; safe for concurrent Claim calls.

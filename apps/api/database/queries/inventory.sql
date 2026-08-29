@@ -115,6 +115,11 @@ FROM proxmox_vms
 WHERE inventory_item_id = $1
 FOR UPDATE;
 
+-- name: ListReservedProxmoxVMIDs :many
+SELECT DISTINCT vmid
+FROM proxmox_vms
+ORDER BY vmid;
+
 -- name: InsertProxmoxVM :exec
 INSERT INTO proxmox_vms (inventory_item_id, node, vmid, guest_type, upstream_uuid, is_template, cpu_count, memory_mb, disk_gb)
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9);
