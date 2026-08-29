@@ -205,7 +205,7 @@ func main() {
 		NetworkScopeReader:    database.New(server.DBPool),
 		NetworkCatalog:        networkCatalog,
 	}
-	vmidAllocator := vmidalloc.New(server.ProxmoxClient)
+	vmidAllocator := vmidalloc.New(server.ProxmoxClient, database.New(server.DBPool))
 	vmHandler.Allocator = vmidAllocator
 	vmCreateHandler := &handlers.VMCreateHandler{
 		PX:                    server.ProxmoxClient,

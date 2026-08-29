@@ -345,16 +345,16 @@ func syncVMConfigSummary(
 
 	if existingByUUID.InventoryItemID != uuid.Nil && existingByLocator.InventoryItemID != uuid.Nil &&
 		existingByUUID.InventoryItemID != existingByLocator.InventoryItemID {
-		if err := q.DeleteInventoryItem(ctx, existingByLocator.InventoryItemID); err != nil {
-			return fmt.Errorf("removing stale inventory item for reused locator: %w", err)
+		if err := removeStaleInventoryItemForReusedLocator(ctx, q, existingByLocator.InventoryItemID, node, vmid); err != nil {
+			return err
 		}
 		existingByLocator = database.GetProxmoxVMByNodeVMIDRow{}
 	}
 
 	if existingByUUID.InventoryItemID == uuid.Nil && existingByLocator.InventoryItemID != uuid.Nil &&
 		existingByLocator.UpstreamUuid != summary.UpstreamUUID {
-		if err := q.DeleteInventoryItem(ctx, existingByLocator.InventoryItemID); err != nil {
-			return fmt.Errorf("removing stale inventory item for reused locator: %w", err)
+		if err := removeStaleInventoryItemForReusedLocator(ctx, q, existingByLocator.InventoryItemID, node, vmid); err != nil {
+			return err
 		}
 		existingByLocator = database.GetProxmoxVMByNodeVMIDRow{}
 	}
@@ -433,6 +433,32 @@ func syncVMConfigSummary(
 	}
 
 	return applyImportedVMNotes(ctx, q, existing.InventoryItemID, summary.Notes)
+}
+
+func removeStaleInventoryItemForReusedLocator(
+	ctx context.Context,
+	q *database.Queries,
+	itemID uuid.UUID,
+	node string,
+	vmid int,
+) error {
+	blockers, err := q.ListInventoryDeletionBlockersInSubtree(ctx, itemID)
+	if err != nil {
+		return fmt.Errorf("checking stale inventory item dependencies for VMID %d on node %s: %w", vmid, node, err)
+	}
+	if len(blockers) > 0 {
+		return fmt.Errorf(
+			"cannot reuse VMID %d on node %s: inventory metadata is reserved by %s %q; restore the missing VM or remove its Kamino reference before retrying",
+			vmid,
+			node,
+			blockers[0].BlockerType,
+			blockers[0].BlockerName,
+		)
+	}
+	if err := q.DeleteInventoryItem(ctx, itemID); err != nil {
+		return fmt.Errorf("removing stale inventory item for reused locator: %w", err)
+	}
+	return nil
 }
 
 func (s *InventoryImporter) ensureVMConfigSummary(

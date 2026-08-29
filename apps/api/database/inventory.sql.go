@@ -620,6 +620,32 @@ func (q *Queries) ListInventoryDeletionBlockersInSubtreeExceptPublishedPod(ctx c
 	return items, nil
 }
 
+const listReservedProxmoxVMIDs = `-- name: ListReservedProxmoxVMIDs :many
+SELECT DISTINCT vmid
+FROM proxmox_vms
+ORDER BY vmid
+`
+
+func (q *Queries) ListReservedProxmoxVMIDs(ctx context.Context) ([]int32, error) {
+	rows, err := q.db.Query(ctx, listReservedProxmoxVMIDs)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []int32
+	for rows.Next() {
+		var vmid int32
+		if err := rows.Scan(&vmid); err != nil {
+			return nil, err
+		}
+		items = append(items, vmid)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const normalizeInventoryItemInheritance = `-- name: NormalizeInventoryItemInheritance :execrows
 UPDATE inventory_items
 SET inherit_permissions = true

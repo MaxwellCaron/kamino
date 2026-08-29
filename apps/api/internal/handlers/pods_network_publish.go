@@ -86,7 +86,7 @@ func applyPublishNetworkAssignments(
 	assignmentByItem map[uuid.UUID]publishNetworkAssignment,
 ) ([]normalizedPublishPodVM, *requestError) {
 	for index := range vms {
-		assignment, ok := assignmentByItem[vms[index].RequestInventoryItemID]
+		assignment, ok := assignmentByItem[vms[index].SourceInventoryItemID]
 		if !ok {
 			return nil, invalidPublishPod("published VM is missing stored network assignment metadata")
 		}
