@@ -7,7 +7,7 @@ import {
   useSyncExternalStore,
 } from "react"
 import { useParams } from "@tanstack/react-router"
-import { useQueries, useQuery } from "@tanstack/react-query"
+import { useQuery } from "@tanstack/react-query"
 import { cn } from "@workspace/ui/lib/utils"
 
 import type {
@@ -32,6 +32,7 @@ type ConsoleTarget = {
 }
 
 type RetainedSession = {
+  itemId: string
   target: ConsoleTarget
   status: VncConnectionStatus
 }
@@ -167,31 +168,21 @@ export function VncSessionWorkspace() {
     resolvePowerStatus,
   ])
 
-  const [sessions, setSessions] = useState<Map<string, RetainedSession>>(
-    () => new Map()
-  )
+  const [retainedSession, setRetainedSession] =
+    useState<RetainedSession | null>(null)
 
-  const fallbackSessionIds = useMemo(
-    () => [...sessions.keys()].filter((id) => !getItemData(id)),
-    [getItemData, sessions]
-  )
-  const fallbackSessionQueries = useQueries({
-    queries: fallbackSessionIds.map((id) => inventoryItemQueryOptions(id)),
+  const retainedItemId = retainedSession?.itemId
+  const needsRetainedFallback =
+    !!retainedItemId && !getItemData(retainedItemId)
+  const { data: retainedFallbackItem, error: retainedFallbackError } = useQuery({
+    ...inventoryItemQueryOptions(retainedItemId ?? ""),
+    enabled: needsRetainedFallback,
   })
-  const fallbackSessionResults = useMemo(
-    () =>
-      new Map(
-        fallbackSessionIds.map((id, index) => [
-          id,
-          fallbackSessionQueries[index],
-        ])
-      ),
-    [fallbackSessionIds, fallbackSessionQueries]
-  )
 
   const buildTarget = useCallback(
     (targetItemId: string): ConsoleTarget | null => {
-      const fallbackSessionItem = fallbackSessionResults.get(targetItemId)?.data
+      const fallbackSessionItem =
+        targetItemId === retainedItemId ? retainedFallbackItem : undefined
       const node =
         getItemData(targetItemId) ??
         (targetItemId === itemId ? routeNode : undefined) ??
@@ -199,7 +190,14 @@ export function VncSessionWorkspace() {
       const powerStatus = resolvePowerStatus(targetItemId, node)
       return resolveConsoleTarget(targetItemId, node, powerStatus)
     },
-    [fallbackSessionResults, getItemData, itemId, routeNode, resolvePowerStatus]
+    [
+      retainedFallbackItem,
+      retainedItemId,
+      getItemData,
+      itemId,
+      routeNode,
+      resolvePowerStatus,
+    ]
   )
 
   const buildTargetRef = useRef(buildTarget)
@@ -209,25 +207,21 @@ export function VncSessionWorkspace() {
 
   const handleStatusChange = useCallback(
     (targetItemId: string, status: VncConnectionStatus) => {
-      setSessions((prev) => {
+      setRetainedSession((prev) => {
         if (isRetainedStatus(status)) {
-          const existing = prev.get(targetItemId)
+          const existing = prev?.itemId === targetItemId ? prev : null
           const target =
             buildTargetRef.current(targetItemId) ?? existing?.target
           if (!target) {
             return prev
           }
-          const next = new Map(prev)
-          next.set(targetItemId, { target, status })
-          return next
+          return { itemId: targetItemId, target, status }
         }
 
-        if (!prev.has(targetItemId)) {
+        if (prev?.itemId !== targetItemId) {
           return prev
         }
-        const next = new Map(prev)
-        next.delete(targetItemId)
-        return next
+        return null
       })
     },
     []
@@ -242,93 +236,88 @@ export function VncSessionWorkspace() {
           : "invalid"
       }
 
-      const fallbackResult = fallbackSessionResults.get(targetItemId)
-      if (fallbackResult?.data) {
-        const fallbackNode = toTreeNode(fallbackResult.data)
+      if (targetItemId === retainedItemId && retainedFallbackItem) {
+        const fallbackNode = toTreeNode(retainedFallbackItem)
         return resolveConsoleTarget(targetItemId, fallbackNode, undefined)
           ? "valid"
           : "invalid"
       }
 
       if (
-        fallbackResult?.isError &&
-        isApiErrorStatus(fallbackResult.error, 404)
+        targetItemId === retainedItemId &&
+        needsRetainedFallback &&
+        retainedFallbackError &&
+        isApiErrorStatus(retainedFallbackError, 404)
       ) {
         return "invalid"
       }
 
+      if (targetItemId === retainedItemId && needsRetainedFallback) {
+        return "unknown"
+      }
+
       return "unknown"
     },
-    [fallbackSessionResults, getItemData]
+    [
+      getItemData,
+      needsRetainedFallback,
+      retainedFallbackError,
+      retainedFallbackItem,
+      retainedItemId,
+    ]
   )
 
-  const retainEligibility = [...sessions.keys()]
-    .map((id) => `${id}:${getRetentionState(id)}`)
-    .join(",")
+  const retainEligibility = retainedItemId
+    ? `${retainedItemId}:${getRetentionState(retainedItemId)}`
+    : ""
 
   useEffect(() => {
-    if (isTreeLoading || treeError) {
+    if (isTreeLoading || treeError || !retainedItemId) {
       return
     }
 
-    setSessions((prev) => {
-      let changed = false
-      const next = new Map(prev)
-
-      for (const id of prev.keys()) {
-        if (getRetentionState(id) === "invalid") {
-          next.delete(id)
-          changed = true
-        }
-      }
-
-      return changed ? next : prev
-    })
-  }, [retainEligibility, getRetentionState, isTreeLoading, treeError])
+    if (getRetentionState(retainedItemId) === "invalid") {
+      setRetainedSession(null)
+    }
+  }, [retainEligibility, getRetentionState, isTreeLoading, retainedItemId, treeError])
 
   const panels = useMemo(() => {
-    const itemIds = new Set(sessions.keys())
-    if (activeTarget) {
-      itemIds.add(activeTarget.itemId)
+    const nextPanels: Array<ConsolePanel> = []
+    const seenIds = new Set<string>()
+
+    if (retainedSession) {
+      const isActive = activeTarget?.itemId === retainedSession.itemId
+      if (
+        isActive ||
+        treeError ||
+        isTreeLoading ||
+        getRetentionState(retainedSession.itemId) !== "invalid"
+      ) {
+        const freshTarget = buildTarget(retainedSession.itemId)
+        const target = freshTarget
+          ? { ...retainedSession.target, ...freshTarget }
+          : retainedSession.target
+
+        nextPanels.push({
+          itemId: retainedSession.itemId,
+          target,
+          isActive,
+        })
+        seenIds.add(retainedSession.itemId)
+      }
     }
 
-    const nextPanels: Array<ConsolePanel> = []
-
-    for (const panelItemId of itemIds) {
-      const isActive = activeTarget?.itemId === panelItemId
-      if (!isActive) {
-        if (!sessions.has(panelItemId)) {
-          continue
-        }
-        if (
-          !treeError &&
-          !isTreeLoading &&
-          getRetentionState(panelItemId) === "invalid"
-        ) {
-          continue
-        }
-      }
-
-      const retained = sessions.get(panelItemId)
-      const freshTarget = buildTarget(panelItemId)
-      const target = freshTarget
-        ? { ...retained?.target, ...freshTarget }
-        : retained?.target
-
-      if (!target) {
-        continue
-      }
-
+    if (activeTarget && !seenIds.has(activeTarget.itemId)) {
       nextPanels.push({
-        itemId: panelItemId,
-        target,
-        isActive,
+        itemId: activeTarget.itemId,
+        target: activeTarget,
+        isActive: true,
       })
     }
 
     return nextPanels
   }, [
-    sessions,
+    retainedSession,
     activeTarget,
     buildTarget,
     getRetentionState,
@@ -343,8 +332,8 @@ export function VncSessionWorkspace() {
   )
 
   const activeRetainedStatus =
-    activeTarget && sessions.has(activeTarget.itemId)
-      ? (sessions.get(activeTarget.itemId)?.status ?? null)
+    activeTarget && retainedSession?.itemId === activeTarget.itemId
+      ? retainedSession.status
       : null
 
   const shouldPinActiveConsole =

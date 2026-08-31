@@ -71,10 +71,10 @@ way. No address appears for a workload a manager left unset.
 From a VM's inventory dashboard, open the **Console** card when the VM is
 running and you have console permission.
 
-- **Connect** opens an embedded VNC session in Kamino. The session stays
-  available as you navigate between VMs. Use **Disconnect** to end it.
-  Sessions close automatically after 30 minutes away from the tab while
-  connected.
+- **Connect** opens an embedded VNC session in Kamino. The current session
+  stays available while you navigate Kamino. Starting a console for another VM
+  closes the previous browser console. Use **Disconnect** to end it. Sessions
+  close automatically after 30 minutes away from the tab while connected.
 - **Download SPICE config** generates a short-lived `.vv` file for a locally
   installed remote-viewer or virt-viewer client. Your workstation must be able
   to reach the configured Proxmox SPICE proxy on TCP 3128.
