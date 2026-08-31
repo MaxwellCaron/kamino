@@ -43,8 +43,6 @@ import {
   EmptyTitle,
 } from "@workspace/ui/components/empty"
 import type { VncScreenClientHandle } from "./vnc-screen-client"
-import { LazyContentFallback } from "@/components/loading-overlay"
-
 import { AppActionButton } from "@/components/actions/app-action-button"
 import { apiFetch, apiUrl } from "@/features/auth/api/auth-api"
 import { vmOverviewQueryOptions } from "@/features/vms/api/vm-api"
@@ -338,14 +336,7 @@ export function VncConsole({
         )}
 
         {session && (
-          <Suspense
-            fallback={
-              <LazyContentFallback
-                label="Loading console"
-                className="absolute inset-0"
-              />
-            }
-          >
+          <Suspense fallback={null}>
             <LazyVncScreen
               key={session.sessionId}
               ref={vncRef}
