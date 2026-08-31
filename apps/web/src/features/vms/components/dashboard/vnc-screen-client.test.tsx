@@ -28,6 +28,7 @@ const {
     resizeSession: boolean
     qualityLevel: number
     compressionLevel: number
+    showDotCursor: boolean
     background: string
     listeners: Map<string, Set<() => void>>
     emit: (event: string) => void
@@ -41,6 +42,7 @@ vi.mock("@novnc/novnc", () => {
     resizeSession = true
     qualityLevel = 0
     compressionLevel = 0
+    showDotCursor = false
     background = ""
     listeners = new Map<string, Set<() => void>>()
 
@@ -117,7 +119,7 @@ describe("VncScreenClient", () => {
     vi.clearAllMocks()
   })
 
-  it("constructs one RFB with quality 6, compression 2, and viewport settings", () => {
+  it("constructs one RFB with performance settings and viewport options", () => {
     renderClient()
 
     expect(rfbInstances).toHaveLength(1)
@@ -129,7 +131,16 @@ describe("VncScreenClient", () => {
     expect(rfb.resizeSession).toBe(false)
     expect(rfb.qualityLevel).toBe(VNC_QUALITY_LEVEL)
     expect(rfb.compressionLevel).toBe(VNC_COMPRESSION_LEVEL)
+    expect(rfb.showDotCursor).toBe(false)
     expect(rfb.background).toBe("transparent")
+  })
+
+  it("hides the host cursor over the console surface", () => {
+    const { container } = renderClient({
+      style: { height: "100%" },
+    })
+
+    expect(container.firstElementChild).toHaveStyle({ cursor: "none" })
   })
 
   it("wires connect, disconnect, and security failure callbacks", () => {

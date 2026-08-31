@@ -6,8 +6,8 @@ import (
 	"crypto/tls"
 	"encoding/hex"
 	"fmt"
-	"io"
 	"log"
+	"net"
 	"net/http"
 	"net/url"
 	"strings"
@@ -22,7 +22,10 @@ import (
 	"github.com/gorilla/websocket"
 )
 
-const vncCloseWriteDeadline = 2 * time.Second
+const (
+	vncCloseWriteDeadline  = 2 * time.Second
+	vncWebSocketBufferSize = 64 * 1024
+)
 
 // VNCHandler handles VNC proxy and WebSocket bridge requests.
 type VNCHandler struct {
@@ -40,6 +43,8 @@ func NewVNCHandler(px *proxmox.Client, frontendURL string) *VNCHandler {
 		PX:       px,
 		sessions: newSessionStore(),
 		upgrader: websocket.Upgrader{
+			ReadBufferSize:  vncWebSocketBufferSize,
+			WriteBufferSize: vncWebSocketBufferSize,
 			CheckOrigin: func(r *http.Request) bool {
 				origin := strings.TrimSpace(r.Header.Get("Origin"))
 				if origin == "" {
@@ -186,6 +191,7 @@ func (h *VNCHandler) WebSocket(c *gin.Context) {
 		return
 	}
 	defer clientConn.Close()
+	configureVNCTCPConn(clientConn)
 
 	sess, ok := h.sessions.consume(c.Query("sessionId"))
 	if !ok {
@@ -224,7 +230,10 @@ func (h *VNCHandler) WebSocket(c *gin.Context) {
 		scheme, pxURL.Host, sess.node, sess.guestType, sess.vmid, sess.port, url.QueryEscape(sess.ticket))
 
 	// Dial Proxmox WebSocket
-	dialer := websocket.Dialer{}
+	dialer := websocket.Dialer{
+		ReadBufferSize:  vncWebSocketBufferSize,
+		WriteBufferSize: vncWebSocketBufferSize,
+	}
 	if h.PX.Insecure() {
 		dialer.TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
 	}
@@ -240,6 +249,7 @@ func (h *VNCHandler) WebSocket(c *gin.Context) {
 		return
 	}
 	defer pxConn.Close()
+	configureVNCTCPConn(pxConn)
 
 	watchCtx, cancelWatch := context.WithCancel(c.Request.Context())
 	defer cancelWatch()
@@ -337,19 +347,25 @@ func bridgeBidirectional(
 
 func bridge(src, dst *websocket.Conn) {
 	for {
-		msgType, r, err := src.NextReader()
+		msgType, data, err := src.ReadMessage()
 		if err != nil {
 			return
 		}
-		w, err := dst.NextWriter(msgType)
-		if err != nil {
-			return
-		}
-		if _, err := io.Copy(w, r); err != nil {
-			return
-		}
-		if err := w.Close(); err != nil {
+		if err := dst.WriteMessage(msgType, data); err != nil {
 			return
 		}
 	}
+}
+
+func configureVNCTCPConn(conn *websocket.Conn) {
+	if conn == nil {
+		return
+	}
+	tcpConn, ok := conn.NetConn().(*net.TCPConn)
+	if !ok {
+		return
+	}
+	_ = tcpConn.SetNoDelay(true)
+	_ = tcpConn.SetReadBuffer(vncWebSocketBufferSize)
+	_ = tcpConn.SetWriteBuffer(vncWebSocketBufferSize)
 }

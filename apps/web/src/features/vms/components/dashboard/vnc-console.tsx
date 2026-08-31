@@ -51,6 +51,10 @@ import { alignVncLayoutAnchorIfOverscrolled } from "@/features/vms/components/da
 import { toastDownloadSpiceConfig } from "@/features/vms/utils/vm-toasts"
 import { supportsNativeSpice } from "@/features/vms/utils/vm-console-utils"
 
+function preloadVncScreenClient() {
+  void import("./vnc-screen-client")
+}
+
 const LazyVncScreen = lazy(() =>
   import("./vnc-screen-client").then((module) => ({
     default: module.VncScreenClient,
@@ -101,6 +105,12 @@ export function VncConsole({
   })
   const showSpiceDownload = supportsNativeSpice(guestType, overview?.display)
 
+  useEffect(() => {
+    if (powerStatus === "running" && itemId) {
+      preloadVncScreenClient()
+    }
+  }, [powerStatus, itemId])
+
   function handleDownloadSpiceConfig() {
     if (spiceDownloadInFlight || !itemId || powerStatus !== "running") {
       return
@@ -118,6 +128,7 @@ export function VncConsole({
 
   async function startConnection() {
     if (connectingRef.current) return
+    preloadVncScreenClient()
     alignVncLayoutAnchorIfOverscrolled()
     connectingRef.current = true
     setStatus("connecting")

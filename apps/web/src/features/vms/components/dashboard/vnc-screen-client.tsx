@@ -1,13 +1,13 @@
-import {
-  forwardRef,
-  useEffect,
-  useImperativeHandle,
-  useRef,
-} from "react"
+import { forwardRef, useEffect, useImperativeHandle, useRef } from "react"
 import RFB from "@novnc/novnc"
+import {
+  VNC_PERFORMANCE_COMPRESSION_LEVEL,
+  VNC_PERFORMANCE_QUALITY_LEVEL,
+  getVncStreamSettings,
+} from "@/features/vms/utils/vm-console-utils"
 
-export const VNC_QUALITY_LEVEL = 6
-export const VNC_COMPRESSION_LEVEL = 2
+export const VNC_QUALITY_LEVEL = VNC_PERFORMANCE_QUALITY_LEVEL
+export const VNC_COMPRESSION_LEVEL = VNC_PERFORMANCE_COMPRESSION_LEVEL
 
 export type VncScreenClientHandle = {
   disconnect: () => void
@@ -29,14 +29,7 @@ export const VncScreenClient = forwardRef<
   VncScreenClientHandle,
   VncScreenClientProps
 >(function VncScreenClientInner(
-  {
-    url,
-    password,
-    onConnect,
-    onDisconnect,
-    onSecurityFailure,
-    ...divProps
-  },
+  { url, password, onConnect, onDisconnect, onSecurityFailure, ...divProps },
   ref
 ) {
   const containerRef = useRef<HTMLDivElement>(null)
@@ -91,14 +84,16 @@ export const VncScreenClient = forwardRef<
     }
 
     suppressDisconnectRef.current = false
+    const streamSettings = getVncStreamSettings()
     const rfb = new RFB(container, url, {
       credentials: { username: "", password, target: "" },
     })
     rfb.focusOnClick = true
     rfb.scaleViewport = true
     rfb.resizeSession = false
-    rfb.qualityLevel = VNC_QUALITY_LEVEL
-    rfb.compressionLevel = VNC_COMPRESSION_LEVEL
+    rfb.showDotCursor = false
+    rfb.qualityLevel = streamSettings.qualityLevel
+    rfb.compressionLevel = streamSettings.compressionLevel
     rfb.background = "transparent"
 
     const handleConnect = () => {
@@ -129,5 +124,13 @@ export const VncScreenClient = forwardRef<
     }
   }, [url, password])
 
-  return <div ref={containerRef} {...divProps} />
+  const { style, ...restDivProps } = divProps
+
+  return (
+    <div
+      ref={containerRef}
+      {...restDivProps}
+      style={{ cursor: "none", ...style }}
+    />
+  )
 })
