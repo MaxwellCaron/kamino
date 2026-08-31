@@ -4,7 +4,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import { useEffect } from "react"
 
 import { VncSessionWorkspace } from "./vnc-session-workspace"
-import { VncSessionVisibilityProvider, useIsVncSessionPinned } from "./vnc-session-visibility-context"
+import {
+  VncSessionVisibilityProvider,
+  useIsVncSessionPinned,
+} from "./vnc-session-visibility-context"
 import type { VncConnectionStatus } from "./vnc-console"
 import type {
   ApiInventoryItem,
@@ -22,6 +25,7 @@ const {
   mockFallbackItems,
   mockDocumentVisibility,
   consoleMounts,
+  consoleStatuses,
   statusHandlers,
 } = vi.hoisted(() => {
   function current<T>(value: T) {
@@ -37,6 +41,7 @@ const {
     mockFallbackItems: current(new Map<string, ApiInventoryItem>()),
     mockDocumentVisibility: current<DocumentVisibilityState>("visible"),
     consoleMounts: current(new Map<string, number>()),
+    consoleStatuses: current(new Map<string, VncConnectionStatus>()),
     statusHandlers: current(
       new Map<string, (status: VncConnectionStatus) => void>()
     ),
@@ -90,6 +95,9 @@ vi.mock("./vnc-console", () => ({
     useEffect(() => {
       const mounts = consoleMounts.current.get(itemId) ?? 0
       consoleMounts.current.set(itemId, mounts + 1)
+      return () => {
+        consoleStatuses.current.delete(itemId)
+      }
     }, [itemId])
 
     useEffect(() => {
@@ -105,6 +113,7 @@ vi.mock("./vnc-console", () => ({
       <div
         data-testid={`console-${itemId}`}
         data-viewed={isViewed ? "true" : "false"}
+        data-status={consoleStatuses.current.get(itemId) ?? "disconnected"}
       />
     )
   },
@@ -153,7 +162,10 @@ function makeInventoryItem(node: ApiTreeNode): ApiInventoryItem {
 function PinnedItemMarker({ itemId }: { itemId: string }) {
   const isPinned = useIsVncSessionPinned(itemId)
   return (
-    <div data-testid={`pinned-marker-${itemId}`} data-pinned={isPinned ? "true" : "false"} />
+    <div
+      data-testid={`pinned-marker-${itemId}`}
+      data-pinned={isPinned ? "true" : "false"}
+    />
   )
 }
 
@@ -189,8 +201,22 @@ function setRoute(itemId: string | undefined) {
 
 function setConsoleStatus(itemId: string, status: VncConnectionStatus) {
   act(() => {
+    consoleStatuses.current.set(itemId, status)
     statusHandlers.current.get(itemId)?.(status)
   })
+}
+
+function countRetainedLiveSessions(): number {
+  return screen
+    .getAllByTestId(/^console-/)
+    .filter((node) => {
+      const itemId = node.getAttribute("data-testid")!.slice("console-".length)
+      const status = consoleStatuses.current.get(itemId)
+      return (
+        status !== undefined &&
+        ["connecting", "connected", "expired"].includes(status)
+      )
+    }).length
 }
 
 describe("VncSessionWorkspace", () => {
@@ -204,6 +230,7 @@ describe("VncSessionWorkspace", () => {
     mockGetItemData.mockReset()
     mockGetStatus.mockReset()
     consoleMounts.current = new Map()
+    consoleStatuses.current = new Map()
     statusHandlers.current = new Map()
     vi.spyOn(document, "visibilityState", "get").mockImplementation(
       () => mockDocumentVisibility.current
@@ -251,24 +278,24 @@ describe("VncSessionWorkspace", () => {
       "data-viewed",
       "true"
     )
+    expect(countRetainedLiveSessions()).toBe(1)
   })
 
-  it("retains connecting B when routing back to A before it settles", () => {
+  it("unmounts A when B enters connecting", () => {
     const { rerenderWorkspace } = renderWorkspace()
     setConsoleStatus("vm-a", "connected")
 
     setRoute("vm-b")
     rerenderWorkspace()
     setConsoleStatus("vm-b", "connecting")
-
-    setRoute("vm-a")
     rerenderWorkspace()
 
+    expect(screen.queryByTestId("console-vm-a")).not.toBeInTheDocument()
     expect(screen.getByTestId("console-vm-b")).toBeInTheDocument()
-    expect(consoleMounts.current.get("vm-b")).toBe(1)
+    expect(countRetainedLiveSessions()).toBe(1)
   })
 
-  it("returns to the original keyed A instance while B stays mounted", () => {
+  it("shows a fresh disconnected A panel after B replaces the retained session", () => {
     const { rerenderWorkspace } = renderWorkspace()
     setConsoleStatus("vm-a", "connected")
 
@@ -279,15 +306,32 @@ describe("VncSessionWorkspace", () => {
     setRoute("vm-a")
     rerenderWorkspace()
 
-    expect(consoleMounts.current.get("vm-a")).toBe(1)
-    expect(consoleMounts.current.get("vm-b")).toBe(1)
-    expect(screen.getByTestId("console-vm-a")).toHaveAttribute(
-      "data-viewed",
-      "true"
-    )
+    expect(screen.getByTestId("console-vm-a")).toBeInTheDocument()
+    expect(screen.getByTestId("console-vm-b")).toBeInTheDocument()
+    expect(consoleMounts.current.get("vm-a")).toBe(2)
+    expect(countRetainedLiveSessions()).toBe(1)
   })
 
-  it("keeps an expired session state mounted without affecting another console", () => {
+  it("ignores a late disconnect from an evicted console", () => {
+    const { rerenderWorkspace } = renderWorkspace()
+    setConsoleStatus("vm-a", "connected")
+
+    setRoute("vm-b")
+    rerenderWorkspace()
+    setConsoleStatus("vm-b", "connecting")
+    rerenderWorkspace()
+    setConsoleStatus("vm-b", "connected")
+
+    act(() => {
+      statusHandlers.current.get("vm-a")?.("disconnected")
+    })
+    rerenderWorkspace()
+
+    expect(screen.getByTestId("console-vm-b")).toBeInTheDocument()
+    expect(countRetainedLiveSessions()).toBe(1)
+  })
+
+  it("keeps an expired retained session mounted while another VM is active", () => {
     const { rerenderWorkspace } = renderWorkspace()
     setConsoleStatus("vm-a", "connected")
 
@@ -298,13 +342,14 @@ describe("VncSessionWorkspace", () => {
     setRoute("vm-a")
     rerenderWorkspace()
     setConsoleStatus("vm-b", "expired")
+    rerenderWorkspace()
 
     expect(screen.getByTestId("console-vm-a")).toBeInTheDocument()
     expect(screen.getByTestId("console-vm-b")).toBeInTheDocument()
-    expect(consoleMounts.current.get("vm-b")).toBe(1)
+    expect(countRetainedLiveSessions()).toBe(1)
   })
 
-  it("unmounts only B when the hidden session disconnects", () => {
+  it("unmounts the hidden retained console when it disconnects", () => {
     const { rerenderWorkspace } = renderWorkspace()
     setConsoleStatus("vm-a", "connected")
 
@@ -315,11 +360,11 @@ describe("VncSessionWorkspace", () => {
     setRoute("vm-a")
     rerenderWorkspace()
     setConsoleStatus("vm-b", "disconnected")
-
     rerenderWorkspace()
 
     expect(screen.getByTestId("console-vm-a")).toBeInTheDocument()
     expect(screen.queryByTestId("console-vm-b")).not.toBeInTheDocument()
+    expect(countRetainedLiveSessions()).toBe(0)
   })
 
   it("stages the workspace offscreen without unmounting A on docs routes", () => {
@@ -400,6 +445,7 @@ describe("VncSessionWorkspace", () => {
 
     expect(screen.getByTestId("console-vm-fallback")).toBeInTheDocument()
     expect(consoleMounts.current.get("vm-fallback")).toBe(1)
+    expect(countRetainedLiveSessions()).toBe(1)
   })
 
   it("removes retained sessions after permission is revoked on a successful tree refresh", () => {
@@ -452,7 +498,6 @@ describe("VncSessionWorkspace", () => {
 
     setRoute("vm-b")
     rerenderWorkspace()
-    setConsoleStatus("vm-b", "connected")
 
     const workspace = screen.getByTestId("vnc-session-workspace")
     expect(workspace.className).toContain("grid")
@@ -525,20 +570,17 @@ describe("VncSessionWorkspace", () => {
       expect(workspace.className).not.toContain("absolute")
     })
 
-    it("stays pinned when switching between retained connected consoles", () => {
+    it("stays pinned when returning to the retained connected console", () => {
       const { rerenderWorkspace } = renderWorkspace()
       setConsoleStatus("vm-a", "connected")
 
       setRoute("vm-b")
       rerenderWorkspace()
-      setConsoleStatus("vm-b", "connected")
-
-      const workspace = screen.getByTestId("vnc-session-workspace")
-      expect(workspace).toHaveAttribute("data-pinned", "true")
 
       setRoute("vm-a")
       rerenderWorkspace()
 
+      const workspace = screen.getByTestId("vnc-session-workspace")
       expect(workspace).toHaveAttribute("data-pinned", "true")
     })
 
@@ -553,7 +595,6 @@ describe("VncSessionWorkspace", () => {
       expect(workspace).toHaveAttribute("data-pinned", "false")
       expect(workspace.className).not.toContain("absolute")
     })
-
   })
 
   describe("pinned visibility context", () => {
@@ -602,23 +643,20 @@ describe("VncSessionWorkspace", () => {
       )
     })
 
-    it("publishes only the active route item when switching retained consoles", () => {
+    it("publishes only the active retained console", () => {
       const { rerenderWorkspace } = renderWorkspace({ markerItemId: "vm-a" })
       setConsoleStatus("vm-a", "connected")
 
       setRoute("vm-b")
       rerenderWorkspace("vm-b")
-      setConsoleStatus("vm-b", "connected")
-
       expect(screen.getByTestId("pinned-marker-vm-b")).toHaveAttribute(
         "data-pinned",
-        "true"
+        "false"
       )
 
-      setRoute("vm-a")
-      rerenderWorkspace("vm-a")
-
-      expect(screen.getByTestId("pinned-marker-vm-a")).toHaveAttribute(
+      setConsoleStatus("vm-b", "connected")
+      rerenderWorkspace("vm-b")
+      expect(screen.getByTestId("pinned-marker-vm-b")).toHaveAttribute(
         "data-pinned",
         "true"
       )

@@ -42,9 +42,7 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from "@workspace/ui/components/empty"
-import type { VncScreenHandle } from "react-vnc"
-import { LazyContentFallback } from "@/components/loading-overlay"
-
+import type { VncScreenClientHandle } from "./vnc-screen-client"
 import { AppActionButton } from "@/components/actions/app-action-button"
 import { apiFetch, apiUrl } from "@/features/auth/api/auth-api"
 import { vmOverviewQueryOptions } from "@/features/vms/api/vm-api"
@@ -52,6 +50,10 @@ import { downloadSpiceConfig } from "@/features/vms/api/vm-console-api"
 import { alignVncLayoutAnchorIfOverscrolled } from "@/features/vms/components/dashboard/vnc-layout-anchor"
 import { toastDownloadSpiceConfig } from "@/features/vms/utils/vm-toasts"
 import { supportsNativeSpice } from "@/features/vms/utils/vm-console-utils"
+
+function preloadVncScreenClient() {
+  void import("./vnc-screen-client")
+}
 
 const LazyVncScreen = lazy(() =>
   import("./vnc-screen-client").then((module) => ({
@@ -89,7 +91,7 @@ export function VncConsole({
   isViewed,
   onStatusChange,
 }: VncConsoleProps) {
-  const vncRef = useRef<VncScreenHandle>(null)
+  const vncRef = useRef<VncScreenClientHandle>(null)
   const connectingRef = useRef(false)
   const activeSessionIdRef = useRef<string | null>(null)
   const [session, setSession] = useState<Session | null>(null)
@@ -102,6 +104,12 @@ export function VncConsole({
     enabled: Boolean(itemId) && guestType === "qemu",
   })
   const showSpiceDownload = supportsNativeSpice(guestType, overview?.display)
+
+  useEffect(() => {
+    if (powerStatus === "running" && itemId) {
+      preloadVncScreenClient()
+    }
+  }, [powerStatus, itemId])
 
   function handleDownloadSpiceConfig() {
     if (spiceDownloadInFlight || !itemId || powerStatus !== "running") {
@@ -120,6 +128,7 @@ export function VncConsole({
 
   async function startConnection() {
     if (connectingRef.current) return
+    preloadVncScreenClient()
     alignVncLayoutAnchorIfOverscrolled()
     connectingRef.current = true
     setStatus("connecting")
@@ -231,12 +240,7 @@ export function VncConsole({
     let secondFrameId = 0
     const firstFrameId = requestAnimationFrame(() => {
       secondFrameId = requestAnimationFrame(() => {
-        const rfb = vncRef.current?.rfb
-        if (!rfb) {
-          return
-        }
-        rfb.scaleViewport = false
-        rfb.scaleViewport = true
+        vncRef.current?.refreshViewport()
       })
     })
 
@@ -343,25 +347,12 @@ export function VncConsole({
         )}
 
         {session && (
-          <Suspense
-            fallback={
-              <LazyContentFallback
-                label="Loading console"
-                className="absolute inset-0"
-              />
-            }
-          >
+          <Suspense fallback={null}>
             <LazyVncScreen
               key={session.sessionId}
               ref={vncRef}
               url={session.url}
-              rfbOptions={{ credentials: { password: session.password } }}
-              focusOnClick
-              scaleViewport
-              resizeSession={false}
-              qualityLevel={8}
-              compressionLevel={2}
-              background="transparent"
+              password={session.password}
               onConnect={() => handleConnect(session.sessionId)}
               onDisconnect={() => handleDisconnect(session.sessionId)}
               onSecurityFailure={() => handleSecurityFailure(session.sessionId)}
@@ -451,19 +442,19 @@ function useVncIdleExpiry(
 const KEY_COMBOS = [
   {
     label: "Ctrl + Alt + Del",
-    action: (ref: VncScreenHandle) => ref.sendCtrlAltDel(),
+    action: (ref: VncScreenClientHandle) => ref.sendCtrlAltDel(),
   },
   {
     label: "Tab",
-    action: (ref: VncScreenHandle) => ref.sendKey(0xff09, "Tab"),
+    action: (ref: VncScreenClientHandle) => ref.sendKey(0xff09, "Tab"),
   },
   {
     label: "Escape",
-    action: (ref: VncScreenHandle) => ref.sendKey(0xff1b, "Escape"),
+    action: (ref: VncScreenClientHandle) => ref.sendKey(0xff1b, "Escape"),
   },
   {
     label: "F11",
-    action: (ref: VncScreenHandle) => ref.sendKey(0xffc8, "F11"),
+    action: (ref: VncScreenClientHandle) => ref.sendKey(0xffc8, "F11"),
   },
 ] as const
 
@@ -479,7 +470,7 @@ function ConsoleToolbar({
   error: string | undefined
   connectedAt: number | null
   isViewed: boolean
-  vncRef: React.RefObject<VncScreenHandle | null>
+  vncRef: React.RefObject<VncScreenClientHandle | null>
   onDisconnect: () => void
 }) {
   const elapsed = useElapsed(
@@ -487,7 +478,7 @@ function ConsoleToolbar({
     isViewed
   )
 
-  function send(action: (ref: VncScreenHandle) => void) {
+  function send(action: (ref: VncScreenClientHandle) => void) {
     if (vncRef.current) {
       action(vncRef.current)
       vncRef.current.focus()

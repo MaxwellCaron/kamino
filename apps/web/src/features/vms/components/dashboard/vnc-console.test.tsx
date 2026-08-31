@@ -5,13 +5,14 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
 import { VncConsole } from "./vnc-console"
 import type { ComponentProps } from "react"
-import type { VncScreenHandle } from "react-vnc"
+import type { VncScreenClientHandle } from "./vnc-screen-client"
 import { renderWithQueryClient } from "@/test/test-utils"
 
 const {
   mockApiFetch,
   mockApiUrl,
   mockDisconnect,
+  mockRefreshViewport,
   mockAlignVncLayoutAnchor,
   mockToastDownloadSpiceConfig,
   mockDownloadSpiceConfig,
@@ -20,6 +21,7 @@ const {
   mockApiFetch: vi.fn(),
   mockApiUrl: vi.fn((path: string) => path),
   mockDisconnect: vi.fn(),
+  mockRefreshViewport: vi.fn(),
   mockAlignVncLayoutAnchor: vi.fn(),
   mockToastDownloadSpiceConfig: vi.fn(),
   mockDownloadSpiceConfig: vi.fn(),
@@ -27,14 +29,11 @@ const {
 }))
 
 let screenMountCount = 0
-let scaleViewportValue = true
-const scaleViewportWrites: Array<boolean> = []
 type FakeVncScreenProps = {
   onConnect?: () => void
   onDisconnect?: () => void
   url?: string
-  rfbOptions?: { credentials?: { password?: string } }
-  focusOnClick?: boolean
+  password?: string
 }
 
 let latestScreenProps: FakeVncScreenProps | null = null
@@ -74,7 +73,7 @@ vi.mock("./vnc-layout-anchor", () => ({
 }))
 
 vi.mock("./vnc-screen-client", () => ({
-  VncScreenClient: forwardRef<VncScreenHandle, FakeVncScreenProps>(
+  VncScreenClient: forwardRef<VncScreenClientHandle, FakeVncScreenProps>(
     function FakeVncScreen(props, ref) {
       useEffect(() => {
         latestScreenProps = props
@@ -86,24 +85,13 @@ vi.mock("./vnc-screen-client", () => ({
 
       useImperativeHandle(
         ref,
-        () =>
-          ({
+        () => ({
             disconnect: mockDisconnect,
             focus: vi.fn(),
             sendCtrlAltDel: vi.fn(),
             sendKey: vi.fn(),
-            get rfb() {
-              return {
-                get scaleViewport() {
-                  return scaleViewportValue
-                },
-                set scaleViewport(value: boolean) {
-                  scaleViewportValue = value
-                  scaleViewportWrites.push(value)
-                },
-              }
-            },
-          }) as unknown as VncScreenHandle
+            refreshViewport: mockRefreshViewport,
+          })
       )
 
       return <div data-testid="vnc-screen" />
@@ -188,6 +176,7 @@ describe("VncConsole", () => {
     mockApiUrl.mockReset()
     mockApiUrl.mockImplementation((path: string) => path)
     mockDisconnect.mockReset()
+    mockRefreshViewport.mockReset()
     mockAlignVncLayoutAnchor.mockReset()
     mockToastDownloadSpiceConfig.mockReset()
     mockDownloadSpiceConfig.mockReset()
@@ -196,8 +185,6 @@ describe("VncConsole", () => {
     mockOverviewQuery("qxl")
     screenMountCount = 0
     latestScreenProps = null
-    scaleViewportValue = true
-    scaleViewportWrites.length = 0
   })
 
   afterEach(() => {
@@ -223,10 +210,10 @@ describe("VncConsole", () => {
       { method: "POST" }
     )
     expect(latestScreenProps?.url).toContain("sessionId=sess-1")
-    expect(latestScreenProps?.rfbOptions?.credentials?.password).toBe("secret")
+    expect(latestScreenProps?.password).toBe("secret")
   })
 
-  it("enables screen focus on the first console click", async () => {
+  it("passes the session password to the local screen client", async () => {
     mockApiFetch.mockResolvedValue({
       ok: true,
       json: () => Promise.resolve({ sessionId: "sess-1", password: "secret" }),
@@ -237,7 +224,7 @@ describe("VncConsole", () => {
     fireEvent.click(screen.getByRole("button", { name: "Connect" }))
     await waitForVncScreen()
 
-    expect(latestScreenProps?.focusOnClick).toBe(true)
+    expect(latestScreenProps?.password).toBe("secret")
   })
 
   it("exposes an accessible name for the disconnect control when connected", async () => {
@@ -436,7 +423,7 @@ describe("VncConsole", () => {
     frames.flush()
 
     const mountsBeforeToggle = screenMountCount
-    scaleViewportWrites.length = 0
+    mockRefreshViewport.mockClear()
     onStatusChange.mockClear()
 
     rerenderConsole({ isViewed: false })
@@ -444,7 +431,7 @@ describe("VncConsole", () => {
     frames.flush()
 
     expect(screenMountCount).toBe(mountsBeforeToggle)
-    expect(scaleViewportWrites).toEqual([false, true])
+    expect(mockRefreshViewport).toHaveBeenCalledTimes(1)
     expect(onStatusChange).not.toHaveBeenCalled()
   })
 
@@ -464,13 +451,13 @@ describe("VncConsole", () => {
     })
     frames.flush()
 
-    scaleViewportWrites.length = 0
+    mockRefreshViewport.mockClear()
     rerenderConsole({ isViewed: false })
     rerenderConsole({ isViewed: true })
     clickDisconnect()
     frames.flush()
 
-    expect(scaleViewportWrites).toEqual([])
+    expect(mockRefreshViewport).not.toHaveBeenCalled()
   })
 
   it("expires and disconnects a session after 30 minutes away", async () => {

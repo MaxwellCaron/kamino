@@ -32,12 +32,13 @@
     "motion": "^13.1.0",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
-    "react-vnc": "^3.2.0",
+    "@novnc/novnc": "^1.7.0",
     "sonner": "^2.0.8",
     "tailwindcss": "^4.3.3",
     "zod": "^4.4.3"
   },
   "devDependencies": {
+    "@types/novnc__novnc": "^1.6.0",
     "@tanstack/eslint-config": "^0.4.0",
     "@types/node": "^26.2.0",
     "@types/react": "^19.2.18",
