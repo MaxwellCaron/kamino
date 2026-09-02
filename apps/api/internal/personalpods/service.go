@@ -284,9 +284,26 @@ func (s pgStore) InsertPersonalPod(
 ) (database.InsertPersonalPodRow, error) {
 	var row database.InsertPersonalPodRow
 	err := podnetworks.WithPodNetworkAllocation(ctx, s.pool, func(ctx context.Context, tx pgx.Tx) error {
+		q := database.New(tx)
 		var err error
-		row, err = database.New(tx).InsertPersonalPod(ctx, params)
-		return err
+		row, err = q.InsertPersonalPod(ctx, params)
+		if err != nil {
+			return err
+		}
+
+		// PostgreSQL cannot reliably update a row inserted by a sibling data-modifying CTE.
+		linkedRows, err := q.LinkPersonalPodNetworkAllocation(ctx, database.LinkPersonalPodNetworkAllocationParams{
+			PersonalPodID: &row.ID,
+			AllocationID:  row.AllocationID,
+			FolderID:      row.FolderID,
+		})
+		if err != nil {
+			return fmt.Errorf("link personal pod network allocation: %w", err)
+		}
+		if linkedRows != 1 {
+			return fmt.Errorf("linked %d personal pod network allocations", linkedRows)
+		}
+		return nil
 	})
 	return row, err
 }

@@ -127,22 +127,19 @@ inserted AS (
         clone_target_key,
         created_at,
         updated_at
-),
-_link AS (
-    UPDATE pod_network_allocations AS pna
-    SET personal_pod_id = inserted.id
-    FROM inserted, allocation
-    WHERE pna.id = allocation.id
 )
 SELECT
-    id,
-    user_principal_id,
-    folder_id,
-    network_number,
-    clone_target_key,
-    created_at,
-    updated_at
+    inserted.id,
+    inserted.user_principal_id,
+    inserted.folder_id,
+    inserted.network_number,
+    inserted.clone_target_key,
+    inserted.created_at,
+    inserted.updated_at,
+    allocation.id AS allocation_id
 FROM inserted
+JOIN allocation
+  ON allocation.network_number = inserted.network_number
 `
 
 type InsertPersonalPodParams struct {
@@ -162,6 +159,7 @@ type InsertPersonalPodRow struct {
 	CloneTargetKey  string             `json:"clone_target_key"`
 	CreatedAt       pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt       pgtype.Timestamptz `json:"updated_at"`
+	AllocationID    uuid.UUID          `json:"allocation_id"`
 }
 
 func (q *Queries) InsertPersonalPod(ctx context.Context, arg InsertPersonalPodParams) (InsertPersonalPodRow, error) {
@@ -182,8 +180,32 @@ func (q *Queries) InsertPersonalPod(ctx context.Context, arg InsertPersonalPodPa
 		&i.CloneTargetKey,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.AllocationID,
 	)
 	return i, err
+}
+
+const linkPersonalPodNetworkAllocation = `-- name: LinkPersonalPodNetworkAllocation :execrows
+UPDATE pod_network_allocations
+SET personal_pod_id = $1
+WHERE id = $2
+  AND folder_id = $3
+  AND kind = 'personal_pod'
+  AND personal_pod_id IS NULL
+`
+
+type LinkPersonalPodNetworkAllocationParams struct {
+	PersonalPodID *uuid.UUID `json:"personal_pod_id"`
+	AllocationID  uuid.UUID  `json:"allocation_id"`
+	FolderID      uuid.UUID  `json:"folder_id"`
+}
+
+func (q *Queries) LinkPersonalPodNetworkAllocation(ctx context.Context, arg LinkPersonalPodNetworkAllocationParams) (int64, error) {
+	result, err := q.db.Exec(ctx, linkPersonalPodNetworkAllocation, arg.PersonalPodID, arg.AllocationID, arg.FolderID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
 }
 
 const setPersonalPodRouterInventoryItem = `-- name: SetPersonalPodRouterInventoryItem :execrows
