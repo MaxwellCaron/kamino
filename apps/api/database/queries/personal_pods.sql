@@ -62,22 +62,27 @@ inserted AS (
         clone_target_key,
         created_at,
         updated_at
-),
-_link AS (
-    UPDATE pod_network_allocations AS pna
-    SET personal_pod_id = inserted.id
-    FROM inserted, allocation
-    WHERE pna.id = allocation.id
 )
 SELECT
-    id,
-    user_principal_id,
-    folder_id,
-    network_number,
-    clone_target_key,
-    created_at,
-    updated_at
-FROM inserted;
+    inserted.id,
+    inserted.user_principal_id,
+    inserted.folder_id,
+    inserted.network_number,
+    inserted.clone_target_key,
+    inserted.created_at,
+    inserted.updated_at,
+    allocation.id AS allocation_id
+FROM inserted
+JOIN allocation
+  ON allocation.network_number = inserted.network_number;
+
+-- name: LinkPersonalPodNetworkAllocation :execrows
+UPDATE pod_network_allocations
+SET personal_pod_id = sqlc.arg(personal_pod_id)
+WHERE id = sqlc.arg(allocation_id)
+  AND folder_id = sqlc.arg(folder_id)
+  AND kind = 'personal_pod'
+  AND personal_pod_id IS NULL;
 
 -- name: SetPersonalPodRouterInventoryItem :execrows
 UPDATE pod_network_allocations
