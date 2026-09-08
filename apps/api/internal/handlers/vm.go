@@ -39,6 +39,7 @@ type vmProxmox interface {
 	GetNextVMID(ctx context.Context) (int, error)
 	IsVMIDAvailable(ctx context.Context, vmid int) (bool, error)
 	CloneVM(ctx context.Context, node string, vmid int, newid int, name string, full bool, target string) error
+	MigrateVM(ctx context.Context, gt proxmox.GuestType, node string, vmid int, target string) error
 	SetVMUpstreamUUID(ctx context.Context, node string, vmid int, upstreamUUID uuid.UUID) error
 	SyncVMPoolMembership(ctx context.Context, node string, vmid int, desiredPool string, path []string) error
 	GetSnapshots(ctx context.Context, gt proxmox.GuestType, node string, vmid int) ([]proxmox.Snapshot, error)

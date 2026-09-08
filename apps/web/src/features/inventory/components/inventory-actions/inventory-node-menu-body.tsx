@@ -48,6 +48,7 @@ export function InventoryNodeMenuBody({
     openCreateVm,
     openSnapshot,
     openClone,
+    openMigrateVm,
     openRenameVm,
     openEditVmHardware,
     openPermissions,
@@ -268,6 +269,20 @@ export function InventoryNodeMenuBody({
               currentName: data.name,
               currentVmid: data.vm.vmid,
               isTemplate: data.vm.is_template,
+            })
+          }}
+          onMigrate={() => {
+            if (!data.vm?.node) return
+
+            openMigrateVm({
+              items: [
+                {
+                  id: itemId,
+                  name: data.name,
+                  node: data.vm.node,
+                  vmid: data.vm.vmid,
+                },
+              ],
             })
           }}
           onRename={() => {

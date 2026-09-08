@@ -1,5 +1,6 @@
 import { HugeiconsIcon } from "@hugeicons/react"
 import {
+  ArrowDataTransferHorizontalIcon,
   Camera01Icon,
   Copy02Icon,
   CopyIcon,
@@ -44,6 +45,7 @@ export function VmMenuItems({
   onManagePermissions,
   onSnapshot,
   onClone,
+  onMigrate,
   onRename,
   onEditHardware,
   disabled,
@@ -60,6 +62,7 @@ export function VmMenuItems({
   onManagePermissions: () => void
   onSnapshot: (mode: "direct" | "request") => void
   onClone: () => void
+  onMigrate: () => void
   onRename: () => void
   onEditHardware: () => void
   disabled?: boolean
@@ -131,6 +134,15 @@ export function VmMenuItems({
                   className="text-muted-foreground"
                 />
                 Clone
+              </DropdownMenuItem>
+            )}
+            {capabilities.migrate.visible && (
+              <DropdownMenuItem onClick={onMigrate} disabled={disabled}>
+                <HugeiconsIcon
+                  icon={ArrowDataTransferHorizontalIcon}
+                  className="text-muted-foreground"
+                />
+                Migrate
               </DropdownMenuItem>
             )}
             {capabilities.snapshot.visible && (

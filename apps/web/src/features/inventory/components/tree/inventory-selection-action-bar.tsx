@@ -8,12 +8,14 @@ import {
   ActionBarSeparator,
 } from "@workspace/ui/components/action-bar"
 import { InventorySelectionPowerActions } from "./inventory-selection-power-actions"
+import { InventorySelectionMigrationAction } from "./inventory-selection-migration-action"
 import { InventorySelectionTemplateDeleteActions } from "./inventory-selection-template-delete-actions"
 import { useInventorySelectionActions } from "./use-inventory-selection-actions"
 
 export function InventorySelectionActionBar() {
   const {
     canDelete,
+    canMigrate,
     canPower,
     canTemplate,
     clearSelection,
@@ -22,13 +24,14 @@ export function InventorySelectionActionBar() {
     openConfirm,
     powerSelectionLabel,
     runDeleteAction,
+    openMigrateAction,
     runPowerAction,
     runTemplateAction,
     selectedItems,
     templateSelectionLabel,
   } = useInventorySelectionActions()
 
-  if (!(open && (canDelete || canPower || canTemplate))) {
+  if (!(open && (canDelete || canMigrate || canPower || canTemplate))) {
     return null
   }
 
@@ -48,11 +51,16 @@ export function InventorySelectionActionBar() {
       <ActionBarGroup>
         {canPower && (
           <InventorySelectionPowerActions
-            canTemplate={canTemplate}
-            canDelete={canDelete}
+            showTrailingSeparator={canMigrate || canTemplate || canDelete}
             powerSelectionLabel={powerSelectionLabel}
             openConfirm={openConfirm}
             runPowerAction={runPowerAction}
+          />
+        )}
+        {canMigrate && (
+          <InventorySelectionMigrationAction
+            onMigrate={openMigrateAction}
+            showTrailingSeparator={canTemplate || canDelete}
           />
         )}
         <InventorySelectionTemplateDeleteActions

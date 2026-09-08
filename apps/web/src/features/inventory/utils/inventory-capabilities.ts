@@ -141,6 +141,10 @@ export function getVmCapabilities(
     permissions,
     "managePermissions"
   )
+  const migrate =
+    options.isTemplate || isLxc
+      ? directCapability(false)
+      : getDirectInventoryCapability(permissions, "createVm")
   const notes = getDirectInventoryCapability(permissions, "renameVm")
   const power = options.isTemplate
     ? modeCapability(null)
@@ -158,7 +162,8 @@ export function getVmCapabilities(
     "viewSnapshots"
   )
 
-  const hasActionItems = clone.visible || snapshot.visible || template.visible
+  const hasActionItems =
+    clone.visible || migrate.visible || snapshot.visible || template.visible
   const hasEditItems =
     rename.visible || editHardware.visible || managePermissions.visible
 
@@ -177,6 +182,7 @@ export function getVmCapabilities(
       console.visible,
     hasEditItems,
     managePermissions,
+    migrate,
     notes,
     power,
     rename,

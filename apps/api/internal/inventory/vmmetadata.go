@@ -30,6 +30,13 @@ func (s *Service) UpdateInventoryVMIsTemplate(ctx context.Context, itemID uuid.U
 	return nil
 }
 
+func (s *Service) UpdateInventoryVMNode(ctx context.Context, itemID uuid.UUID, node string) error {
+	return database.New(s.db).UpdateProxmoxVMNode(ctx, database.UpdateProxmoxVMNodeParams{
+		InventoryItemID: itemID,
+		Node:            node,
+	})
+}
+
 func (s *Service) UpdateInventoryVMNotes(ctx context.Context, itemID uuid.UUID, notes string) error {
 	if err := database.New(s.db).UpdateProxmoxVMNotesByItemID(ctx, database.UpdateProxmoxVMNotesByItemIDParams{
 		Notes:           &notes,

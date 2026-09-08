@@ -95,6 +95,28 @@ export async function deleteVM(params: {
   )
 }
 
+export async function migrateVMs(params: {
+  itemIds: Array<string>
+  target: string
+}): Promise<ApiBulkVmMutationResponse> {
+  if (params.itemIds.length === 0) {
+    throw new Error("At least one VM is required")
+  }
+
+  return apiJson<ApiBulkVmMutationResponse>(
+    "/api/v1/inventory/vms/migrate",
+    "migrate selected VMs",
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        item_ids: params.itemIds,
+        target: params.target,
+      }),
+    }
+  )
+}
+
 export async function renameVM(params: {
   itemId: string
   name: string

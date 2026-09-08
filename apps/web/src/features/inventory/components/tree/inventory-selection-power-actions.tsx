@@ -12,16 +12,14 @@ import {
 import type { ConfirmConfig } from "@/components/dialogs/confirm-dialog"
 
 type InventorySelectionPowerActionsProps = {
-  canTemplate: boolean
-  canDelete: boolean
+  showTrailingSeparator: boolean
   powerSelectionLabel: string
   openConfirm: (config: ConfirmConfig) => void
   runPowerAction: (action: "start" | "shutdown" | "reboot" | "stop") => void
 }
 
 export function InventorySelectionPowerActions({
-  canTemplate,
-  canDelete,
+  showTrailingSeparator,
   powerSelectionLabel,
   openConfirm,
   runPowerAction,
@@ -102,7 +100,7 @@ export function InventorySelectionPowerActions({
       >
         <HugeiconsIcon icon={StopIcon} />
       </ActionBarItem>
-      {(canTemplate || canDelete) && <ActionBarSeparator />}
+      {showTrailingSeparator && <ActionBarSeparator />}
     </>
   )
 }

@@ -6,6 +6,7 @@ import {
   createSnapshot,
   deleteSnapshot,
   deleteVM,
+  migrateVMs,
   renameVM,
   rollbackSnapshot,
   submitInventoryPowerRequest,
@@ -65,6 +66,24 @@ export function useDeleteVM() {
       if (activeItemId && result.succeeded.includes(activeItemId)) {
         navigate({ to: "/", replace: true })
       }
+    },
+  })
+}
+
+export function useMigrateVMs() {
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: migrateVMs,
+    onSuccess: (result) => {
+      if (result.succeeded.length === 0) {
+        return
+      }
+
+      queryClient.invalidateQueries({
+        queryKey: inventoryTreeQueryOptions.queryKey,
+      })
+      queryClient.invalidateQueries({ queryKey: ["inventory", "item"] })
     },
   })
 }
