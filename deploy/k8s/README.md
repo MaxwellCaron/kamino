@@ -8,12 +8,16 @@ Both the production (`kamino`) and development (`kamino-dev`) environments share
 the same Kustomize base and Dockerfile targets. They differ only in namespace,
 hostname, image repositories, and the independently configured cluster secrets.
 
-The shared base also installs `kamino-principal-sync`, a mandatory Kubernetes
-CronJob that runs every 30 minutes. It uses the API image and the environment's
-existing `kamino-config` ConfigMap and `kamino-secrets` Secret to perform the
-same full provider-to-database sync as the administrator-triggered sync. The
-CronJob runs regardless of `PRINCIPAL_INITIAL_SYNC_ENABLED`; that setting only
-controls the additional sync performed when the API starts.
+The shared base also installs two mandatory Kubernetes CronJobs that run every
+30 minutes. `kamino-principal-sync` performs the same full provider-to-database
+sync as the administrator-triggered principal sync. `kamino-proxmox-sync`
+performs the same Sync All operation as the Proxmox Sync admin page, applying
+all current additions and updates and removing stale inventory items when they
+have no deletion blockers. Both use the API image and the environment's
+existing `kamino-config` ConfigMap and `kamino-secrets` Secret. They run
+regardless of `PRINCIPAL_INITIAL_SYNC_ENABLED` and
+`PROXMOX_INITIAL_SYNC_ENABLED`; those settings only control the additional
+syncs performed when the API starts.
 
 ## Common prerequisites
 

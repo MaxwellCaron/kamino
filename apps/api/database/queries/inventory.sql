@@ -136,6 +136,11 @@ SET node = $2,
     disk_gb = $9
 WHERE inventory_item_id = $1;
 
+-- name: UpdateProxmoxVMNode :exec
+UPDATE proxmox_vms
+SET node = $2
+WHERE inventory_item_id = $1;
+
 -- name: DeleteInventoryItem :exec
 DELETE FROM inventory_items WHERE id = $1;
 

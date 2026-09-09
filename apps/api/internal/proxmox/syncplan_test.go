@@ -403,6 +403,38 @@ func TestComputeSyncDiffBlockersFnCallDiscipline(t *testing.T) {
 	}
 }
 
+func TestSyncAllChangesOrdersEveryPlannedChangeLikeAdminAction(t *testing.T) {
+	diff := SyncDiff{
+		Adds: []SyncChange{
+			{ID: "node-a/100", Kind: SyncChangeAdd, Actionable: true},
+		},
+		Removes: []SyncChange{
+			{ID: "node-a/200", Kind: SyncChangeRemove, Actionable: true},
+			{ID: "node-a/201", Kind: SyncChangeRemove, Actionable: false},
+		},
+		Updates: []SyncChange{
+			{ID: "node-a/300", Kind: SyncChangeUpdate, Actionable: true},
+		},
+	}
+
+	got := syncAllChanges(diff)
+	want := []SyncChange{
+		{ID: "node-a/100", Kind: SyncChangeAdd},
+		{ID: "node-a/300", Kind: SyncChangeUpdate},
+		{ID: "node-a/200", Kind: SyncChangeRemove},
+		{ID: "node-a/201", Kind: SyncChangeRemove},
+	}
+	if len(got) != len(want) {
+		t.Fatalf("syncAllChanges() len = %d, want %d", len(got), len(want))
+	}
+
+	for i := range want {
+		if got[i].ID != want[i].ID || got[i].Kind != want[i].Kind {
+			t.Fatalf("syncAllChanges()[%d] = %s %s, want %s %s", i, got[i].Kind, got[i].ID, want[i].Kind, want[i].ID)
+		}
+	}
+}
+
 func assertSyncDiffEqual(t *testing.T, want, got SyncDiff) {
 	t.Helper()
 

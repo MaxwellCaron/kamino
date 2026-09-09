@@ -141,7 +141,7 @@ All configuration is loaded from environment variables (or `apps/api/.env`). Cop
 | `PROXMOX_NODES` | yes | — | Comma-separated Proxmox node names |
 | `PROXMOX_SPICE_PROXY_HOST` | no | `PROXMOX_URL` hostname | Client-reachable Proxmox SPICE proxy hostname or IP literal (no scheme or port; native clients use TCP 3128) |
 | `PROXMOX_INSECURE` | no | `false` | Skip TLS verification (lab only) |
-| `PROXMOX_INITIAL_SYNC_ENABLED` | no | `true` | Run the startup Proxmox-to-database inventory import |
+| `PROXMOX_INITIAL_SYNC_ENABLED` | no | `true` | Run Proxmox Sync All at startup; it does not control the mandatory deployment CronJob |
 | `PRINCIPAL_PROVIDER` | yes | — | `active_directory` or `proxmox` |
 | `PRINCIPAL_INITIAL_SYNC_ENABLED` | no | `true` | Run the startup principal sync for the selected provider; it does not control the mandatory deployment CronJob |
 | `PRINCIPAL_BOOTSTRAP_ADMIN_GROUP` | no | — | Initial admin group seed: AD DN in AD mode, Proxmox group ID in Proxmox mode |
@@ -297,7 +297,7 @@ On startup the API performs these steps in order:
 
 1. Connect to Postgres and initialize the query layer.
 2. Connect to Proxmox and verify API access.
-3. Run an initial inventory import from Proxmox into the database, unless `PROXMOX_INITIAL_SYNC_ENABLED` is `false`. This import adopts every live Proxmox resource pool as a matching inventory folder (creating nested folders as needed and importing the pool's comment as the folder description), then imports VMs and containers into the folder for their live pool. Pool structure and comments always flow Proxmox → database on import; Kamino never deletes a pool just because it has no matching folder yet.
+3. Run the same Sync All operation as the Proxmox Sync admin page, unless `PROXMOX_INITIAL_SYNC_ENABLED` is `false`. This applies every current addition and update, then removes stale inventory items that have no deletion blockers. Blocked removals are skipped, and removals are suppressed when Proxmox unexpectedly reports zero VMs.
 4. Run principal sync for the configured provider (`active_directory` or `proxmox`), unless `PRINCIPAL_INITIAL_SYNC_ENABLED` is `false`. Proxmox mode authenticates users through Proxmox `/access/ticket`, then issues Kamino JWT/session cookies. Kamino never stores user Proxmox tickets or passwords and continues using the configured Proxmox API token for inventory and VM operations.
 5. Start event notifiers (inventory, VM status, requests).
 6. Reconcile Proxmox mirror state against the database. This step is not controlled by `PROXMOX_INITIAL_SYNC_ENABLED`.
@@ -311,7 +311,7 @@ When `PRINCIPAL_PROVIDER=active_directory`, startup, manual (`POST /api/v1/princ
 
 ### Mirror reconcile and pool structure
 
-During step 6, Kamino compares its database state with Proxmox. The only pool write the reconcile performs is creating a Proxmox pool for a database folder that doesn't have one yet (e.g. a newly created pod folder) — it never updates an existing pool's comment and never deletes a pool. Pool structure and comments are kept in sync in the other direction, by the startup/manual VM-and-pool import (step 3) adopting whatever currently exists in Proxmox. The only path that removes a Proxmox pool is explicitly deleting the pod/folder that owns it in Kamino, which deletes that specific pool as part of the same request.
+During step 6, Kamino compares its database state with Proxmox. The only pool write the reconcile performs is creating a Proxmox pool for a database folder that doesn't have one yet (e.g. a newly created pod folder) — it never updates an existing pool's comment and never deletes a pool. Proxmox Sync All creates the inventory folder path needed for an added or moved VM. It runs at startup, every 30 minutes in the deployment, and when an administrator presses **Sync All**. The only path that removes a Proxmox pool is explicitly deleting the pod/folder that owns it in Kamino, which deletes that specific pool as part of the same request.
 
 ### Pod router prerequisites
 

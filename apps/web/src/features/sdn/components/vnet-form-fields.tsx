@@ -1,13 +1,5 @@
-import { HugeiconsIcon } from "@hugeicons/react"
 import { Globe02Icon } from "@hugeicons/core-free-icons"
 import { Checkbox } from "@workspace/ui/components/checkbox"
-import {
-  Empty,
-  EmptyDescription,
-  EmptyHeader,
-  EmptyMedia,
-  EmptyTitle,
-} from "@workspace/ui/components/empty"
 import {
   Field,
   FieldContent,
@@ -28,6 +20,7 @@ import {
 import type { ComponentType } from "react"
 import type { z } from "zod"
 import type { ApiSDNZone } from "@/features/sdn/types/sdn-types"
+import { AppEmptyState } from "@/components/feedback/app-empty-state"
 import {
   formatFieldError,
   isTouchedInvalid,
@@ -141,17 +134,12 @@ export function VNetAliasField({
 
 export function VNetZonesUnavailableState() {
   return (
-    <Empty className="border">
-      <EmptyHeader>
-        <EmptyMedia variant="icon">
-          <HugeiconsIcon icon={Globe02Icon} className="text-muted-foreground" />
-        </EmptyMedia>
-        <EmptyTitle>No SDN zones available</EmptyTitle>
-        <EmptyDescription>
-          Configure an SDN zone in Proxmox before creating a VNet.
-        </EmptyDescription>
-      </EmptyHeader>
-    </Empty>
+    <AppEmptyState
+      className="border"
+      icon={Globe02Icon}
+      title="No SDN zones available"
+      description="Configure an SDN zone in Proxmox before creating a VNet."
+    />
   )
 }
 

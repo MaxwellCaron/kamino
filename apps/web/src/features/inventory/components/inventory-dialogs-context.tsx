@@ -46,6 +46,18 @@ export type CloneDialogConfig = {
   isTemplate?: boolean
 }
 
+export type MigrateVmDialogItem = {
+  id: string
+  name: string
+  node: string
+  vmid: number
+}
+
+export type MigrateVmDialogConfig = {
+  items: Array<MigrateVmDialogItem>
+  onSettled?: (failedItemIds: Array<string>) => void
+}
+
 export type RenameVmDialogConfig = {
   itemId: string
   currentName: string
@@ -66,6 +78,7 @@ export type InventoryDialogsContextValue = {
   openCreateVm: (config: CreateVmDialogConfig) => void
   openSnapshot: (config: SnapshotDialogConfig) => void
   openClone: (config: CloneDialogConfig) => void
+  openMigrateVm: (config: MigrateVmDialogConfig) => void
   openRenameVm: (config: RenameVmDialogConfig) => void
   openEditVmHardware: (config: EditVmHardwareDialogConfig) => void
   openPermissions: (config: PermissionsDialogConfig) => void

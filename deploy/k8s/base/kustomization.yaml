@@ -5,5 +5,6 @@ resources:
   - api-service.yaml
   - api-networkpolicy.yaml
   - principal-sync-cronjob.yaml
+  - proxmox-sync-cronjob.yaml
   - web-deployment.yaml
   - web-service.yaml

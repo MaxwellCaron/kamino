@@ -2,7 +2,7 @@ import { useMemo, useState } from "react"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { UserAdd01Icon, UserMinusIcon } from "@hugeicons/core-free-icons"
 import { DialogFooter } from "@workspace/ui/components/dialog"
-import type { RowSelectionState } from "@tanstack/react-table"
+import type { OnChangeFn, RowSelectionState } from "@tanstack/react-table"
 import type { ApiPrincipal } from "@/features/principals/types/principals-types"
 import type { PrincipalSelectionItem } from "@/components/principals/principal-selection-table"
 import { formatPrincipalReference } from "@/components/principals/principal-label"
@@ -32,6 +32,82 @@ type UserGroupBulkDialogProps = {
 
 function membershipOperationId(groupId: string, userId: string): string {
   return `${groupId}:${userId}`
+}
+
+function UserGroupBulkDialogContent({
+  emptyMessage,
+  error,
+  isLoading,
+  mode,
+  onConfirm,
+  onRowSelectionChange,
+  onSearchChange,
+  rowSelection,
+  search,
+  selectedGroupCount,
+  userCount,
+  visibleGroups,
+}: {
+  emptyMessage: string
+  error: Error | null
+  isLoading: boolean
+  mode: "add" | "remove"
+  onConfirm: () => void
+  onRowSelectionChange: OnChangeFn<RowSelectionState>
+  onSearchChange: (search: string) => void
+  rowSelection: RowSelectionState
+  search: string
+  selectedGroupCount: number
+  userCount: number
+  visibleGroups: Array<PrincipalSelectionItem>
+}) {
+  if (isLoading) {
+    return (
+      <div className="relative min-h-66">
+        <PreloadOverlay active label="Loading groups" />
+      </div>
+    )
+  }
+
+  if (error) {
+    return <InlineErrorAlert error={error} fallback="Failed to load groups." />
+  }
+
+  return (
+    <>
+      <SearchInputGroup
+        aria-label="Search groups"
+        placeholder="Search groups..."
+        value={search}
+        onValueChange={onSearchChange}
+        resultCount={visibleGroups.length}
+        resultLabel={(count) => `${count} ${count === 1 ? "group" : "groups"}`}
+      />
+      <AppDialogScrollBody className="-mx-6 -mb-8 p-0">
+        <PrincipalSelectionTable
+          data={visibleGroups}
+          emptyMessage={emptyMessage}
+          rowSelection={rowSelection}
+          onRowSelectionChange={onRowSelectionChange}
+          selectAllLabel="Select all visible groups"
+        />
+      </AppDialogScrollBody>
+      <DialogFooter>
+        <AppDialogPrimaryButton
+          type="button"
+          disabled={selectedGroupCount === 0 || userCount === 0}
+          variant={mode === "add" ? "default" : "destructive"}
+          onClick={onConfirm}
+        >
+          {mode === "add" ? "Add" : "Remove"}{" "}
+          <span className="tabular-nums">{userCount}</span>{" "}
+          {userCount === 1 ? "user" : "users"} {mode === "add" ? "to" : "from"}{" "}
+          <span className="tabular-nums">{selectedGroupCount}</span>{" "}
+          {selectedGroupCount === 1 ? "group" : "groups"}
+        </AppDialogPrimaryButton>
+      </DialogFooter>
+    </>
+  )
 }
 
 export function UserGroupBulkDialog({
@@ -152,50 +228,20 @@ export function UserGroupBulkDialog({
       }
       descriptionProps={{ render: <div /> }}
     >
-      {isLoading ? (
-        <div className="relative min-h-66">
-          <PreloadOverlay active label="Loading groups" />
-        </div>
-      ) : error ? (
-        <InlineErrorAlert error={error} fallback="Failed to load groups." />
-      ) : (
-        <>
-          <SearchInputGroup
-            aria-label="Search groups"
-            placeholder="Search groups..."
-            value={search}
-            onValueChange={setSearch}
-            resultCount={visibleGroups.length}
-            resultLabel={(count) =>
-              `${count} ${count === 1 ? "group" : "groups"}`
-            }
-          />
-          <AppDialogScrollBody className="-mx-6 -mb-8 p-0">
-            <PrincipalSelectionTable
-              data={visibleGroups}
-              emptyMessage={emptyMessage}
-              rowSelection={rowSelection}
-              onRowSelectionChange={setRowSelection}
-              selectAllLabel="Select all visible groups"
-            />
-          </AppDialogScrollBody>
-          <DialogFooter>
-            <AppDialogPrimaryButton
-              type="button"
-              disabled={selectedGroups.length === 0 || users.length === 0}
-              variant={mode === "add" ? "default" : "destructive"}
-              onClick={handleConfirm}
-            >
-              {mode === "add" ? "Add" : "Remove"}{" "}
-              <span className="tabular-nums">{users.length}</span>{" "}
-              {users.length === 1 ? "user" : "users"}{" "}
-              {mode === "add" ? "to" : "from"}{" "}
-              <span className="tabular-nums">{selectedGroups.length}</span>{" "}
-              {selectedGroups.length === 1 ? "group" : "groups"}
-            </AppDialogPrimaryButton>
-          </DialogFooter>
-        </>
-      )}
+      <UserGroupBulkDialogContent
+        emptyMessage={emptyMessage}
+        error={error}
+        isLoading={isLoading}
+        mode={mode}
+        onConfirm={handleConfirm}
+        onRowSelectionChange={setRowSelection}
+        onSearchChange={setSearch}
+        rowSelection={rowSelection}
+        search={search}
+        selectedGroupCount={selectedGroups.length}
+        userCount={users.length}
+        visibleGroups={visibleGroups}
+      />
     </AppDialog>
   )
 }

@@ -47,6 +47,7 @@ export function VmOptionsMenu({
     openCreateVm,
     openSnapshot,
     openClone,
+    openMigrateVm,
     openRenameVm,
     openEditVmHardware,
     openPermissions,
@@ -173,6 +174,20 @@ export function VmOptionsMenu({
                   currentName: name ?? "",
                   currentVmid: vmid,
                   isTemplate,
+                })
+              }}
+              onMigrate={() => {
+                if (!pveNode || vmid === undefined) return
+
+                openMigrateVm({
+                  items: [
+                    {
+                      id: itemId,
+                      name: name ?? "",
+                      node: pveNode,
+                      vmid,
+                    },
+                  ],
                 })
               }}
               onRename={() => {

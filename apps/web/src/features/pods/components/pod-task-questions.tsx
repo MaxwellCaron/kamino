@@ -83,6 +83,70 @@ export function PodTaskQuestions({
   )
 }
 
+function QuestionHint({
+  disabled,
+  hint,
+}: {
+  disabled: boolean
+  hint: string | undefined
+}) {
+  if (!hint) return null
+
+  return (
+    <Dialog>
+      <DialogTrigger
+        render={
+          <Button
+            type="button"
+            variant="secondary"
+            size="icon"
+            disabled={disabled}
+            className="bg-amber-600/20 text-amber-600 hover:bg-amber-600/15 dark:bg-amber-400/10 dark:text-amber-400 dark:hover:bg-amber-400/5"
+          />
+        }
+      >
+        <HugeiconsIcon icon={BulbIcon} />
+        <span className="sr-only">Show hint</span>
+      </DialogTrigger>
+      <AppDialogContent icon={BulbIcon} title="Hint" description="">
+        <p className="text-sm leading-6 whitespace-pre-wrap">{hint}</p>
+      </AppDialogContent>
+    </Dialog>
+  )
+}
+
+function QuestionFeedback({
+  answerIsIncorrect,
+  description,
+  error,
+  questionId,
+}: {
+  answerIsIncorrect: boolean
+  description: string | undefined
+  error: Error | null
+  questionId: string
+}) {
+  return (
+    <>
+      {description ? <FieldDescription>{description}</FieldDescription> : null}
+      {answerIsIncorrect ? (
+        <FieldError id={`${questionId}-error`}>
+          That answer is incorrect.
+        </FieldError>
+      ) : null}
+      {error ? <FieldDescription>{error.message}</FieldDescription> : null}
+    </>
+  )
+}
+
+function getQuestionValue(
+  draft: { answer: string | undefined; value: string } | null,
+  answer: PodTaskQuestionAnswer | undefined
+) {
+  if (draft !== null && draft.answer === answer?.answer) return draft.value
+  return answer?.answer ?? ""
+}
+
 function PodTaskQuestionField({
   question,
   questionNumber,
@@ -103,10 +167,7 @@ function PodTaskQuestionField({
     answer: string | undefined
     value: string
   } | null>(null)
-  const value =
-    draft !== null && draft.answer === answer?.answer
-      ? draft.value
-      : (answer?.answer ?? "")
+  const value = getQuestionValue(draft, answer)
   const mutation = useMutation({
     mutationFn: answerClonedPodQuestion,
     onSuccess: async (clonedPod) => {
@@ -158,27 +219,7 @@ function PodTaskQuestionField({
             setDraft({ answer: answer?.answer, value: event.target.value })
           }
         />
-        {hint && (
-          <Dialog>
-            <DialogTrigger
-              render={
-                <Button
-                  type="button"
-                  variant="secondary"
-                  size="icon"
-                  disabled={controlsDisabled}
-                  className="bg-amber-600/20 text-amber-600 hover:bg-amber-600/15 dark:bg-amber-400/10 dark:text-amber-400 dark:hover:bg-amber-400/5"
-                />
-              }
-            >
-              <HugeiconsIcon icon={BulbIcon} />
-              <span className="sr-only">Show hint</span>
-            </DialogTrigger>
-            <AppDialogContent icon={BulbIcon} title="Hint" description="">
-              <p className="text-sm leading-6 whitespace-pre-wrap">{hint}</p>
-            </AppDialogContent>
-          </Dialog>
-        )}
+        <QuestionHint disabled={controlsDisabled} hint={hint} />
         <AppActionButton
           type="button"
           disabled={!canSubmit}
@@ -196,17 +237,12 @@ function PodTaskQuestionField({
           {answerIsCorrect ? "Correct" : "Submit"}
         </AppActionButton>
       </div>
-      {question.description && (
-        <FieldDescription>{question.description}</FieldDescription>
-      )}
-      {answerIsIncorrect ? (
-        <FieldError id={`${question.id}-error`}>
-          That answer is incorrect.
-        </FieldError>
-      ) : null}
-      {mutation.isError && (
-        <FieldDescription>{mutation.error.message}</FieldDescription>
-      )}
+      <QuestionFeedback
+        answerIsIncorrect={answerIsIncorrect}
+        description={question.description}
+        error={mutation.error}
+        questionId={question.id}
+      />
     </Field>
   )
 }

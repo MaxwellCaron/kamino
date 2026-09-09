@@ -34,7 +34,7 @@ export function useInventorySelectionActions() {
   const { getItemData, getStatus } = useInventoryTreeDataContext()
   const { clearSelection, replaceSelection, selectedItemIds } =
     useInventoryTreeViewContext()
-  const { openConfirm } = useInventoryDialogs()
+  const { openConfirm, openMigrateVm } = useInventoryDialogs()
   const queryClient = useQueryClient()
   const deleteVm = useDeleteVM()
   const deleteFolder = useDeleteFolder()
@@ -107,6 +107,15 @@ export function useInventorySelectionActions() {
     selectedVmItems.every((item) =>
       hasDirectInventoryCapability(item.permissions, "templateVm")
     )
+  const canMigrate =
+    !hasSelectedFolders &&
+    !anySelectedTemplate &&
+    selectedVmItems.length > 0 &&
+    selectedVmItems.every(
+      (item) =>
+        item.vm.guest_type === "qemu" &&
+        hasDirectInventoryCapability(item.permissions, "createVm")
+    )
 
   const open =
     selectedItemIds.length > 1 &&
@@ -122,6 +131,24 @@ export function useInventorySelectionActions() {
           clearSelection()
         } else {
           replaceSelection(result.failed.map((failure) => failure.id))
+        }
+      },
+    })
+  }
+
+  function openMigrateAction() {
+    openMigrateVm({
+      items: selectedVmItems.map((item) => ({
+        id: item.id,
+        name: item.name,
+        node: item.vm.node,
+        vmid: item.vm.vmid,
+      })),
+      onSettled: (failedItemIds) => {
+        if (failedItemIds.length === 0) {
+          clearSelection()
+        } else {
+          replaceSelection(failedItemIds)
         }
       },
     })
@@ -236,6 +263,7 @@ export function useInventorySelectionActions() {
 
   return {
     canDelete,
+    canMigrate,
     canPower,
     canTemplate,
     clearSelection,
@@ -243,6 +271,7 @@ export function useInventorySelectionActions() {
     getStatus,
     open,
     openConfirm,
+    openMigrateAction,
     powerSelectionLabel,
     powerVmItems,
     runDeleteAction,

@@ -95,6 +95,64 @@ function XAxisWhenReady(props: XAxisProps) {
   return <XAxis {...props} />
 }
 
+function getUsageChartLayout(
+  compact: boolean,
+  showXAxis: boolean,
+  xAxisConfig: ReturnType<typeof getXAxisConfig>
+) {
+  const margin = compact
+    ? showXAxis
+      ? { top: 4, right: 6, bottom: 18, left: 6 }
+      : { top: 4, right: 6, bottom: 4, left: 6 }
+    : { top: 8, right: 6, bottom: 28, left: 6 }
+
+  return {
+    margin,
+    gridTicks: compact ? 2 : 3,
+    usageStrokeWidth: compact ? 1.5 : 2,
+    tooltipClassName: compact
+      ? "-translate-y-[calc(30%+0.5rem)]"
+      : undefined,
+    xAxisTicks: compact ? 2 : xAxisConfig.numTicks,
+    xAxisTickerHalfWidth: compact ? 18 : xAxisConfig.tickerHalfWidth,
+  }
+}
+
+function CapacityArea({ compact, show }: { compact: boolean; show: boolean }) {
+  if (!show) return null
+
+  return (
+    <Area
+      dataKey="total"
+      fadeEdges
+      fill="var(--color-primary)"
+      fillOpacity={0.08}
+      gradientToOpacity={0.01}
+      loadingStyle="sweep"
+      showHighlight={false}
+      stroke="var(--color-primary)"
+      strokeWidth={compact ? 1 : 1.5}
+    />
+  )
+}
+
+function UsageChartXAxis({
+  formatLabel,
+  numTicks,
+  show,
+  tickerHalfWidth,
+}: XAxisProps & { show: boolean }) {
+  if (!show) return null
+
+  return (
+    <XAxisWhenReady
+      formatLabel={formatLabel}
+      numTicks={numTicks}
+      tickerHalfWidth={tickerHalfWidth}
+    />
+  )
+}
+
 function UsageChartBody({
   chartData,
   color,
@@ -119,11 +177,7 @@ function UsageChartBody({
   isLoading: boolean
 }) {
   const xAxisConfig = useMemo(() => getXAxisConfig(timeframe), [timeframe])
-  const margin = compact
-    ? showXAxis
-      ? { top: 4, right: 6, bottom: 18, left: 6 }
-      : { top: 4, right: 6, bottom: 4, left: 6 }
-    : { top: 8, right: 6, bottom: 28, left: 6 }
+  const layout = getUsageChartLayout(compact, showXAxis, xAxisConfig)
 
   return (
     <>
@@ -134,30 +188,18 @@ function UsageChartBody({
         animationDuration={600}
         aspectRatio={aspectRatio}
         data={chartData}
-        margin={margin}
+        margin={layout.margin}
         status={isLoading ? "loading" : "ready"}
         yDomainTweenDuration={250}
         loadingLabel="Loading..."
       >
         <Grid
           fadeHorizontal={false}
-          numTicksRows={compact ? 2 : 3}
+          numTicksRows={layout.gridTicks}
           strokeDasharray="3,3"
           strokeOpacity={0.5}
         />
-        {showCapacitySeries ? (
-          <Area
-            dataKey="total"
-            fadeEdges
-            fill="var(--color-primary)"
-            fillOpacity={0.08}
-            gradientToOpacity={0.01}
-            loadingStyle="sweep"
-            showHighlight={false}
-            stroke="var(--color-primary)"
-            strokeWidth={compact ? 1 : 1.5}
-          />
-        ) : null}
+        <CapacityArea compact={compact} show={showCapacitySeries} />
         <Area
           dataKey="value"
           fadeEdges
@@ -168,17 +210,16 @@ function UsageChartBody({
           loadingStyle="sweep"
           showHighlight={false}
           stroke={color}
-          strokeWidth={compact ? 1.5 : 2}
+          strokeWidth={layout.usageStrokeWidth}
         />
-        {showXAxis ? (
-          <XAxisWhenReady
-            formatLabel={xAxisConfig.formatLabel}
-            numTicks={compact ? 2 : xAxisConfig.numTicks}
-            tickerHalfWidth={compact ? 18 : xAxisConfig.tickerHalfWidth}
-          />
-        ) : null}
+        <UsageChartXAxis
+          formatLabel={xAxisConfig.formatLabel}
+          numTicks={layout.xAxisTicks}
+          show={showXAxis}
+          tickerHalfWidth={layout.xAxisTickerHalfWidth}
+        />
         <ChartTooltip
-          className={compact ? "-translate-y-[calc(30%+0.5rem)]" : undefined}
+          className={layout.tooltipClassName}
           content={({ point }) => {
             const used = Number(point.used ?? 0)
             const total = Number(point.total ?? 0)

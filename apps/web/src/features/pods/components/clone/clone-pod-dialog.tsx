@@ -41,6 +41,54 @@ import {
 } from "@/features/pods/api/clone-pod-api"
 import { podCatalogQueryOptions } from "@/features/pods/api/publish-pod-api"
 
+type CloneProgressState = "running" | "success" | "error" | undefined
+
+function getCloneProcessState({
+  currentStep,
+  mutationIsError,
+  mutationIsPending,
+  mutationIsSuccess,
+  progressState,
+}: {
+  currentStep: number
+  mutationIsError: boolean
+  mutationIsPending: boolean
+  mutationIsSuccess: boolean
+  progressState: CloneProgressState
+}) {
+  const isError = mutationIsError || progressState === "error"
+  const isFinished = mutationIsSuccess && !isError
+  const isCloning =
+    mutationIsPending ||
+    mutationIsSuccess ||
+    mutationIsError ||
+    progressState === "running" ||
+    progressState === "success" ||
+    progressState === "error"
+  const tasks: Array<CloneStatusTask> = DEFAULT_CLONE_TASKS.map((task) => {
+    if (!isCloning) return { ...task, status: "pending" }
+    if (isFinished || currentStep > task.id) {
+      return { ...task, status: "completed" }
+    }
+    if (currentStep === task.id) return { ...task, status: "in-progress" }
+    return { ...task, status: "pending" }
+  })
+  const completedTasks = tasks.filter(
+    (task) => task.status === "completed"
+  ).length
+
+  return {
+    isCloning,
+    isError,
+    isFinished,
+    tasks,
+    progress: isCloning ? (completedTasks / tasks.length) * 100 : 0,
+    colors: getProgressStepColors(
+      tasks.find((task) => task.status === "in-progress")?.id
+    ),
+  }
+}
+
 function useCloneProcess({
   open,
   pod,
@@ -87,30 +135,14 @@ function useCloneProcess({
     (cloneMutation.isPending || cloneMutation.isSuccess || cloneMutation.isError
       ? 1
       : 0)
-  const isError = cloneMutation.isError || progressState === "error"
-  const isFinished = cloneMutation.isSuccess && !isError
-  const isCloning =
-    cloneMutation.isPending ||
-    cloneMutation.isSuccess ||
-    cloneMutation.isError ||
-    progressState === "running" ||
-    progressState === "success" ||
-    progressState === "error"
-
-  const tasks: Array<CloneStatusTask> = DEFAULT_CLONE_TASKS.map((task) => {
-    if (!isCloning) return { ...task, status: "pending" }
-    if (isFinished || currentStep > task.id) {
-      return { ...task, status: "completed" }
-    }
-    if (currentStep === task.id) return { ...task, status: "in-progress" }
-    return { ...task, status: "pending" }
-  })
-
-  const completedTasks = tasks.filter((t) => t.status === "completed").length
-  const totalTasks = tasks.length
-  const progress = isCloning ? (completedTasks / totalTasks) * 100 : 0
-  const activeTask = tasks.find((t) => t.status === "in-progress")
-  const colors = getProgressStepColors(activeTask?.id)
+  const { isCloning, isError, isFinished, tasks, progress, colors } =
+    getCloneProcessState({
+      currentStep,
+      mutationIsError: cloneMutation.isError,
+      mutationIsPending: cloneMutation.isPending,
+      mutationIsSuccess: cloneMutation.isSuccess,
+      progressState,
+    })
 
   useEffect(() => {
     if (!isCloning || isFinished || isError) return
@@ -146,6 +178,98 @@ function formatTime(seconds: number) {
   return `${mins}:${secs.toString().padStart(2, "0")}`
 }
 
+function CloneDialogStatusIcon({
+  colors,
+  isCloning,
+  isError,
+  isFinished,
+}: {
+  colors: typeof FAILED_PROGRESS_COLORS
+  isCloning: boolean
+  isError: boolean
+  isFinished: boolean
+}) {
+  if (!isCloning) {
+    return (
+      <m.span
+        key="approval-loader"
+        initial={{ opacity: 0, scale: 0.8 }}
+        animate={{ opacity: 1, scale: 1 }}
+        exit={{ opacity: 0, scale: 0.8 }}
+        className={IDLE_PROGRESS_COLORS.text}
+      >
+        <HugeiconsIcon icon={CopyIcon} className="size-8" aria-hidden="true" />
+      </m.span>
+    )
+  }
+
+  if (isError) {
+    return (
+      <m.span
+        key="failed-loader"
+        initial={{ opacity: 0, scale: 0.8 }}
+        animate={{ opacity: 1, scale: 1 }}
+        exit={{ opacity: 0, scale: 0.8 }}
+        className={FAILED_PROGRESS_COLORS.text}
+      >
+        <HugeiconsIcon
+          icon={CancelCircleIcon}
+          className="size-8"
+          aria-hidden="true"
+        />
+      </m.span>
+    )
+  }
+
+  if (isFinished) {
+    return (
+      <m.span
+        key="finished-loader"
+        initial={{ opacity: 0, scale: 0.8 }}
+        animate={{ opacity: 1, scale: 1 }}
+        exit={{ opacity: 0, scale: 0.8 }}
+        className={COMPLETE_PROGRESS_COLORS.text}
+      >
+        <HugeiconsIcon
+          icon={CheckmarkCircle01Icon}
+          className="size-8"
+          aria-hidden="true"
+        />
+      </m.span>
+    )
+  }
+
+  return (
+    <m.span
+      key="cloning-loader"
+      initial={{ opacity: 0, scale: 0.8 }}
+      animate={{ opacity: 1, scale: 1 }}
+      exit={{ opacity: 0, scale: 0.8 }}
+      className={cn(
+        "transition-colors duration-500",
+        colors.border,
+        colors.text
+      )}
+    >
+      <Spinner className="size-8" />
+    </m.span>
+  )
+}
+
+function getCloneDialogCopy(isReclone: boolean) {
+  return isReclone
+    ? {
+        actionLabel: "Re-clone",
+        dialogTitle: "Re-clone Pod",
+        pendingLabel: "Re-cloning...",
+      }
+    : {
+        actionLabel: "Clone",
+        dialogTitle: "Clone Pod",
+        pendingLabel: "Cloning...",
+      }
+}
+
 export function ClonePodDialog({
   open,
   onOpenChange,
@@ -175,9 +299,8 @@ export function ClonePodDialog({
 
   const podTitle = pod?.title ?? "Pod"
   const isReclone = clonedPodId != null
-  const dialogTitle = isReclone ? "Re-clone Pod" : "Clone Pod"
-  const actionLabel = isReclone ? "Re-clone" : "Clone"
-  const pendingLabel = isReclone ? "Re-cloning..." : "Cloning..."
+  const { actionLabel, dialogTitle, pendingLabel } =
+    getCloneDialogCopy(isReclone)
   const isBusy = isCloning && !isFinished && !isError
   const displayColors = isError ? FAILED_PROGRESS_COLORS : colors
   const handleOpenChange = (val: boolean) => {
@@ -195,65 +318,12 @@ export function ClonePodDialog({
           <AlertDialogTitle className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <AnimatePresence mode="wait">
-                {isCloning ? (
-                  isError ? (
-                    <m.span
-                      key="failed-loader"
-                      initial={{ opacity: 0, scale: 0.8 }}
-                      animate={{ opacity: 1, scale: 1 }}
-                      exit={{ opacity: 0, scale: 0.8 }}
-                      className={FAILED_PROGRESS_COLORS.text}
-                    >
-                      <HugeiconsIcon
-                        icon={CancelCircleIcon}
-                        className="size-8"
-                        aria-hidden="true"
-                      />
-                    </m.span>
-                  ) : isFinished ? (
-                    <m.span
-                      key="finished-loader"
-                      initial={{ opacity: 0, scale: 0.8 }}
-                      animate={{ opacity: 1, scale: 1 }}
-                      exit={{ opacity: 0, scale: 0.8 }}
-                      className={COMPLETE_PROGRESS_COLORS.text}
-                    >
-                      <HugeiconsIcon
-                        icon={CheckmarkCircle01Icon}
-                        className="size-8"
-                        aria-hidden="true"
-                      />
-                    </m.span>
-                  ) : (
-                    <m.span
-                      key="cloning-loader"
-                      initial={{ opacity: 0, scale: 0.8 }}
-                      animate={{ opacity: 1, scale: 1 }}
-                      exit={{ opacity: 0, scale: 0.8 }}
-                      className={cn(
-                        "transition-colors duration-500",
-                        displayColors.border,
-                        displayColors.text
-                      )}
-                    >
-                      <Spinner className="size-8" />
-                    </m.span>
-                  )
-                ) : (
-                  <m.span
-                    key="approval-loader"
-                    initial={{ opacity: 0, scale: 0.8 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    exit={{ opacity: 0, scale: 0.8 }}
-                    className={IDLE_PROGRESS_COLORS.text}
-                  >
-                    <HugeiconsIcon
-                      icon={CopyIcon}
-                      className="size-8"
-                      aria-hidden="true"
-                    />
-                  </m.span>
-                )}
+                <CloneDialogStatusIcon
+                  colors={displayColors}
+                  isCloning={isCloning}
+                  isError={isError}
+                  isFinished={isFinished}
+                />
               </AnimatePresence>
               <span className="scroll-m-20 text-4xl font-extrabold tracking-tight text-balance">
                 {dialogTitle}

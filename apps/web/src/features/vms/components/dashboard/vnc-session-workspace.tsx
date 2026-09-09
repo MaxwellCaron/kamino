@@ -93,9 +93,7 @@ function isPinnedConsoleStatus(
   status: VncConnectionStatus | null
 ): status is "connecting" | "connected" | "expired" {
   return (
-    status === "connecting" ||
-    status === "connected" ||
-    status === "expired"
+    status === "connecting" || status === "connected" || status === "expired"
   )
 }
 
@@ -110,6 +108,36 @@ function getDocumentVisibility(): boolean {
 
 function getServerDocumentVisibility(): boolean {
   return true
+}
+
+function getVncWorkspaceClassName(
+  activeTarget: ConsoleTarget | null,
+  shouldPinActiveConsole: boolean
+) {
+  if (shouldPinActiveConsole) {
+    return "absolute inset-x-0 bottom-0 top-0 z-20 overflow-y-auto bg-background px-4 pt-4 pb-4 md:pt-6 md:pb-6 lg:px-6"
+  }
+  if (activeTarget) return "px-4 pb-4 md:pb-6 lg:px-6"
+  return "fixed inset-0 invisible pointer-events-none"
+}
+
+function VncSessionPanels({
+  isDocumentVisible,
+  onStatusChange,
+  panels,
+}: {
+  isDocumentVisible: boolean
+  onStatusChange: (itemId: string, status: VncConnectionStatus) => void
+  panels: Array<ConsolePanel>
+}) {
+  return panels.map((panel) => (
+    <VncSessionPanel
+      key={panel.itemId}
+      panel={panel}
+      isViewed={panel.isActive && isDocumentVisible}
+      onStatusChange={onStatusChange}
+    />
+  ))
 }
 
 export function VncSessionWorkspace() {
@@ -172,12 +200,13 @@ export function VncSessionWorkspace() {
     useState<RetainedSession | null>(null)
 
   const retainedItemId = retainedSession?.itemId
-  const needsRetainedFallback =
-    !!retainedItemId && !getItemData(retainedItemId)
-  const { data: retainedFallbackItem, error: retainedFallbackError } = useQuery({
-    ...inventoryItemQueryOptions(retainedItemId ?? ""),
-    enabled: needsRetainedFallback,
-  })
+  const needsRetainedFallback = !!retainedItemId && !getItemData(retainedItemId)
+  const { data: retainedFallbackItem, error: retainedFallbackError } = useQuery(
+    {
+      ...inventoryItemQueryOptions(retainedItemId ?? ""),
+      enabled: needsRetainedFallback,
+    }
+  )
 
   const buildTarget = useCallback(
     (targetItemId: string): ConsoleTarget | null => {
@@ -279,7 +308,13 @@ export function VncSessionWorkspace() {
     if (getRetentionState(retainedItemId) === "invalid") {
       setRetainedSession(null)
     }
-  }, [retainEligibility, getRetentionState, isTreeLoading, retainedItemId, treeError])
+  }, [
+    retainEligibility,
+    getRetentionState,
+    isTreeLoading,
+    retainedItemId,
+    treeError,
+  ])
 
   const panels = useMemo(() => {
     const nextPanels: Array<ConsolePanel> = []
@@ -364,23 +399,16 @@ export function VncSessionWorkspace() {
       data-pinned={shouldPinActiveConsole ? "true" : "false"}
       className={cn(
         "grid grid-cols-1",
-        shouldPinActiveConsole
-          ? "absolute inset-x-0 bottom-0 top-0 z-20 overflow-y-auto bg-background px-4 pt-4 pb-4 md:pt-6 md:pb-6 lg:px-6"
-          : activeTarget
-            ? "px-4 pb-4 md:pb-6 lg:px-6"
-            : "fixed inset-0 invisible pointer-events-none"
+        getVncWorkspaceClassName(activeTarget, shouldPinActiveConsole)
       )}
       aria-hidden={activeTarget ? undefined : true}
       inert={activeTarget ? undefined : true}
     >
-      {panels.map((panel) => (
-        <VncSessionPanel
-          key={panel.itemId}
-          panel={panel}
-          isViewed={panel.isActive && isDocumentVisible}
-          onStatusChange={handleStatusChange}
-        />
-      ))}
+      <VncSessionPanels
+        isDocumentVisible={isDocumentVisible}
+        onStatusChange={handleStatusChange}
+        panels={panels}
+      />
     </div>
   )
 }
@@ -403,7 +431,7 @@ function VncSessionPanel({
     <div
       className={cn(
         "col-start-1 row-start-1 min-w-0",
-        !panel.isActive && "invisible pointer-events-none"
+        !panel.isActive && "pointer-events-none invisible"
       )}
       aria-hidden={!panel.isActive}
       inert={!panel.isActive}

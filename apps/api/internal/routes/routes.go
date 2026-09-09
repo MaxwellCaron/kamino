@@ -84,6 +84,7 @@ func RegisterRoutes(
 	// VM endpoints
 	protected.GET("/vms/status", vm.GetStatuses)
 	protected.POST("/inventory/vms/power", vm.PowerAction)
+	protected.POST("/inventory/vms/migrate", vm.MigrateVMs)
 	protected.POST("/inventory/vms/template", vm.ConvertToTemplate)
 	protected.DELETE("/inventory/vms", vm.DeleteVM)
 	protected.GET("/inventory/items/:id/vm/resources", vm.GetResources)

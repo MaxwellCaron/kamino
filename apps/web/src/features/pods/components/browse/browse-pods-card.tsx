@@ -12,6 +12,7 @@ import {
   cutoutCardSurfaceClassName,
   useCutoutContentStaggerVariants,
 } from "@workspace/ui/components/cutout-card"
+import { cn } from "@workspace/ui/lib/utils"
 import { Link } from "@tanstack/react-router"
 import type { PodCatalogSummary } from "@/features/pods/types/pod-types"
 import { FormatPodCreatorsShort } from "@/features/pods/components/pod-creators"
@@ -42,9 +43,11 @@ export function BrowsePodsCard({
       to="/pods/$podSlug"
       params={{ podSlug: pod.slug }}
       aria-label={`Open ${pod.title}${hasClonedInstance ? ", cloned" : ""}`}
-      className="block rounded-[28px] outline-none focus-visible:ring-3 focus-visible:ring-ring/30"
+      className="block h-full rounded-[28px] outline-none focus-visible:ring-3 focus-visible:ring-ring/30"
     >
-      <CutoutCard className={cutoutCardSurfaceClassName}>
+      <CutoutCard
+        className={cn(cutoutCardSurfaceClassName, "flex h-full flex-col")}
+      >
         <CutoutCardMedia className="h-72">
           <CutoutCardImage
             alt={pod.title}
@@ -75,10 +78,10 @@ export function BrowsePodsCard({
             </CutoutCardPin>
           ) : null}
         </CutoutCardMedia>
-        <CutoutCardContent>
+        <CutoutCardContent className="flex flex-1 flex-col">
           <m.div
             animate="show"
-            className="contents"
+            className="flex flex-1 flex-col"
             initial={animate ? "hidden" : false}
             variants={stagger.container}
           >
@@ -94,7 +97,7 @@ export function BrowsePodsCard({
             >
               {pod.description}
             </m.p>
-            <m.div variants={stagger.item}>
+            <m.div className="mt-auto" variants={stagger.item}>
               <CutoutCardFooter className="border-t border-border/80 pt-4">
                 {FormatPodCreatorsShort(pod.creators)}
                 <span className="pr-1 text-xs text-muted-foreground tabular-nums">

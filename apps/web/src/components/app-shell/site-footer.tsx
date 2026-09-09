@@ -12,10 +12,10 @@ export function SiteFooter() {
             © <span suppressHydrationWarning>{new Date().getFullYear()}</span>{" "}
             Kamino, created by
             <a
-              href="https://github.com/MaxwellCaron"
+              href="https://maxwellcaron.com"
               target="_blank"
               rel="noreferrer"
-              className={`${buttonVariants({ variant: "link" })} px-1! text-foreground!`}
+              className={`${buttonVariants({ variant: "link" })} px-0.5! text-foreground!`}
             >
               MaxwellCaron
             </a>

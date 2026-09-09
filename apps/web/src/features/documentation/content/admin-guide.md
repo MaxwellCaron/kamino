@@ -96,9 +96,9 @@ published pod; existing development pods and clones are not moved.
 ## Proxmox sync
 
 Open [Proxmox Sync](/admin/proxmox-sync) to import out-of-band Proxmox
-changes into Kamino's inventory. Kamino reconciles its Proxmox mirror at
-API startup and when you run sync from this page — not after every
-inventory mutation elsewhere in the app.
+changes into Kamino's inventory. The same Sync All operation runs at API
+startup when enabled and every 30 minutes through the deployment CronJob.
+Kamino does not run it after every inventory mutation elsewhere in the app.
 
 1. Open the page to load current drift, classified as additions, removals,
    or updates. Unsafe removals are marked blocked.

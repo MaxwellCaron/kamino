@@ -841,6 +841,22 @@ func (q *Queries) UpdateProxmoxVMIsTemplateByItemID(ctx context.Context, invento
 	return err
 }
 
+const updateProxmoxVMNode = `-- name: UpdateProxmoxVMNode :exec
+UPDATE proxmox_vms
+SET node = $2
+WHERE inventory_item_id = $1
+`
+
+type UpdateProxmoxVMNodeParams struct {
+	InventoryItemID uuid.UUID `json:"inventory_item_id"`
+	Node            string    `json:"node"`
+}
+
+func (q *Queries) UpdateProxmoxVMNode(ctx context.Context, arg UpdateProxmoxVMNodeParams) error {
+	_, err := q.db.Exec(ctx, updateProxmoxVMNode, arg.InventoryItemID, arg.Node)
+	return err
+}
+
 const updateProxmoxVMNotesByItemID = `-- name: UpdateProxmoxVMNotesByItemID :exec
 UPDATE proxmox_vms
 SET notes = $1

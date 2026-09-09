@@ -19,6 +19,7 @@ import (
 // the VM mutation handlers without a live database.
 type fakeVMAuthz struct {
 	requireErr        error
+	lastRequired      authorization.Mask
 	vmRecord          authorization.VMRecord
 	vmRecordErr       error
 	filterStatuses    map[int]string
@@ -45,6 +46,7 @@ func (f *fakeVMAuthz) ResolveVMItems(
 	required authorization.Mask,
 	lock bool,
 ) (map[uuid.UUID]authorization.VMItemAccess, error) {
+	f.lastRequired = required
 	if f.requireErr != nil {
 		switch {
 		case errors.Is(f.requireErr, authorization.ErrForbidden):
@@ -168,6 +170,10 @@ func (f *fakeVMProxmox) IsVMIDAvailable(ctx context.Context, vmid int) (bool, er
 
 func (f *fakeVMProxmox) CloneVM(ctx context.Context, node string, vmid int, newid int, name string, full bool, target string) error {
 	panic("fakeVMProxmox: CloneVM not configured for this test")
+}
+
+func (f *fakeVMProxmox) MigrateVM(ctx context.Context, gt proxmox.GuestType, node string, vmid int, target string) error {
+	panic("fakeVMProxmox: MigrateVM not configured for this test")
 }
 
 func (f *fakeVMProxmox) SetVMUpstreamUUID(ctx context.Context, node string, vmid int, upstreamUUID uuid.UUID) error {

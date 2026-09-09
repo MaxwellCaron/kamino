@@ -12,7 +12,6 @@ import {
   ComboboxChipsInput,
   ComboboxContent,
   ComboboxEmpty,
-  ComboboxItem,
   ComboboxList,
   ComboboxValue,
   useComboboxAnchor,
@@ -30,6 +29,7 @@ import { HugeiconsIcon } from "@hugeicons/react"
 import { LockedIcon } from "@hugeicons/core-free-icons"
 import { PublishPodStepLayout } from "./publish-pod-step-layout"
 import { toPodAudiencePrincipal } from "./publish-pod-form"
+import { PublishPodPrincipalOption } from "./publish-pod-principal-option"
 import type { PublishPodFormApi } from "./publish-pod-form"
 import type { PrincipalOption } from "@/features/inventory/types/inventory-types"
 
@@ -142,21 +142,10 @@ export function PublishPodAccessStep({
                           <ComboboxEmpty>No principals found.</ComboboxEmpty>
                           <ComboboxList>
                             {(principal) => (
-                              <ComboboxItem
+                              <PublishPodPrincipalOption
                                 key={principal.id}
-                                value={principal}
-                              >
-                                <div className="flex min-w-0 flex-col">
-                                  <span className="truncate">
-                                    {principal.label}
-                                  </span>
-                                  <span className="text-xs text-muted-foreground">
-                                    {principal.type === "group"
-                                      ? "Group"
-                                      : "User"}
-                                  </span>
-                                </div>
-                              </ComboboxItem>
+                                principal={principal}
+                              />
                             )}
                           </ComboboxList>
                         </ComboboxContent>

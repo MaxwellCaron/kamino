@@ -12,6 +12,7 @@ import type {
   AdminStats,
   DashboardStorageSummary,
 } from "../utils/admin-dashboard"
+import type { ApiNode } from "@/features/vms/types/vm-types"
 import { inventoryTreeQueryOptions } from "@/features/inventory/api/inventory-api"
 import {
   groupsQueryOptions,
@@ -33,6 +34,68 @@ const EMPTY_STORAGE_SUMMARY: DashboardStorageSummary = {
   localTotal: { total: 0, used: 0 },
   sharedTotal: { total: 0, used: 0 },
   clusterTotal: { total: 0, used: 0 },
+}
+
+function getAdminDashboardState({
+  adminStats,
+  completedRequestsTotalError,
+  inventoryError,
+  isClusterCapacityLoading,
+  isCompletedRequestsTotalLoading,
+  isGroupsLoading,
+  isInventoryLoading,
+  isPendingRequestsLoading,
+  isPendingRequestsTotalLoading,
+  isUsersLoading,
+  nodesData,
+  nodesError,
+  storageSummary,
+}: {
+  adminStats: AdminStats | null
+  completedRequestsTotalError: Error | null
+  inventoryError: Error | null
+  isClusterCapacityLoading: boolean
+  isCompletedRequestsTotalLoading: boolean
+  isGroupsLoading: boolean
+  isInventoryLoading: boolean
+  isPendingRequestsLoading: boolean
+  isPendingRequestsTotalLoading: boolean
+  isUsersLoading: boolean
+  nodesData: Array<ApiNode> | undefined
+  nodesError: Error | null
+  storageSummary: DashboardStorageSummary | null
+}) {
+  const nodes = nodesData ?? []
+  const primaryStatsError =
+    inventoryError ??
+    completedRequestsTotalError
+  const isLoading =
+    isUsersLoading ||
+    isGroupsLoading ||
+    isInventoryLoading ||
+    isPendingRequestsLoading ||
+    isPendingRequestsTotalLoading ||
+    isCompletedRequestsTotalLoading ||
+    isClusterCapacityLoading
+  const isEmpty =
+    !isLoading &&
+    !primaryStatsError &&
+    !nodesError &&
+    adminStats !== null &&
+    Object.values(adminStats).every((value) => value === 0) &&
+    nodes.length === 0
+
+  return {
+    cluster: {
+      nodes,
+      storageSummary: storageSummary ?? EMPTY_STORAGE_SUMMARY,
+    },
+    state: {
+      error: primaryStatsError,
+      isEmpty,
+      isLoading,
+    },
+  }
 }
 
 export function useAdminDashboardData(
@@ -74,9 +137,11 @@ export function useAdminDashboardData(
     isLoading: isNodesLoading,
   } = useQuery(nodesQueryOptions)
 
-  const storageQueries = useQueries({
-    queries: (nodesData ?? []).map((node) => storagesQueryOptions(node.node)),
-  })
+  const storageQueryOptions = useMemo(
+    () => (nodesData ?? []).map((node) => storagesQueryOptions(node.node)),
+    [nodesData]
+  )
+  const storageQueries = useQueries({ queries: storageQueryOptions })
 
   const requestColumns = useMemo(
     () =>
@@ -170,32 +235,30 @@ export function useAdminDashboardData(
       nodesData.length > 0 &&
       storageQueries.some((query) => query.isLoading))
 
-  const nodes = nodesData ?? []
-  const primaryStatsError =
-    inventoryError ?? pendingRequestsTotalError ?? completedRequestsTotalError
-  const isMainDashboardLoading =
-    isUsersLoading ||
-    isGroupsLoading ||
-    isInventoryLoading ||
-    isPendingRequestsLoading ||
-    isPendingRequestsTotalLoading ||
-    isCompletedRequestsTotalLoading ||
-    isClusterCapacityLoading
-  const isDashboardEmpty =
-    !isMainDashboardLoading &&
-    !primaryStatsError &&
-    !nodesError &&
-    adminStats !== null &&
-    Object.values(adminStats).every((value) => value === 0) &&
-    nodes.length === 0
+  const dashboardState = getAdminDashboardState({
+    adminStats,
+    completedRequestsTotalError:
+      pendingRequestsTotalError ?? completedRequestsTotalError,
+    inventoryError,
+    isClusterCapacityLoading,
+    isCompletedRequestsTotalLoading,
+    isGroupsLoading,
+    isInventoryLoading,
+    isPendingRequestsLoading,
+    isPendingRequestsTotalLoading,
+    isUsersLoading,
+    nodesData,
+    nodesError,
+    storageSummary,
+  })
 
   return {
     cluster: {
       isCapacityLoading: isClusterCapacityLoading,
-      nodes,
+      nodes: dashboardState.cluster.nodes,
       nodesError,
       storageError,
-      storageSummary: storageSummary ?? EMPTY_STORAGE_SUMMARY,
+      storageSummary: dashboardState.cluster.storageSummary,
     },
     header: { stats: adminStats },
     inventoryTree,
@@ -215,10 +278,6 @@ export function useAdminDashboardData(
       usersError,
       isUsersLoading,
     },
-    state: {
-      error: primaryStatsError,
-      isEmpty: isDashboardEmpty,
-      isLoading: isMainDashboardLoading,
-    },
+    state: dashboardState.state,
   }
 }

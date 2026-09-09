@@ -36,6 +36,45 @@ import {
 import { requestSummariesQueryOptions } from "@/features/requests/api/requests-api"
 import { vnetsQueryOptions } from "@/features/sdn/api/sdn-api"
 
+type SiteCommandIndexState = {
+  canAdminister: boolean
+  canManage: boolean
+  loading: {
+    session: boolean
+    inventory: boolean
+    podCatalog: boolean
+    publishedPods: boolean
+    pendingRequests: boolean
+    completedRequests: boolean
+    users: boolean
+    groups: boolean
+    vnets: boolean
+  }
+  errors: Array<boolean>
+}
+
+function getSiteCommandIndexState({
+  canAdminister,
+  canManage,
+  loading,
+  errors,
+}: SiteCommandIndexState) {
+  const isIndexing =
+    loading.session ||
+    loading.inventory ||
+    loading.podCatalog ||
+    (canManage &&
+      (loading.publishedPods ||
+        loading.pendingRequests ||
+        loading.completedRequests)) ||
+    (canAdminister && (loading.users || loading.groups || loading.vnets))
+
+  return {
+    hasIndexError: errors.some(Boolean),
+    isIndexing,
+  }
+}
+
 export function SiteCommandDialog({
   open,
   onOpenChange,
@@ -232,25 +271,32 @@ export function SiteCommandDialog({
     searchQuery,
   ])
 
-  const isIndexing =
-    isSessionLoading ||
-    isInventoryLoading ||
-    isPodCatalogLoading ||
-    (canManage &&
-      (isPublishedPodsLoading ||
-        isPendingRequestsLoading ||
-        isCompletedRequestsLoading)) ||
-    (canAdminister && (isUsersLoading || isGroupsLoading || isVnetsLoading))
-  const hasIndexError =
-    isSessionError ||
-    isInventoryError ||
-    isPodCatalogError ||
-    isPublishedPodsError ||
-    isPendingRequestsError ||
-    isCompletedRequestsError ||
-    isUsersError ||
-    isGroupsError ||
-    isVnetsError
+  const { hasIndexError, isIndexing } = getSiteCommandIndexState({
+    canAdminister,
+    canManage,
+    loading: {
+      session: isSessionLoading,
+      inventory: isInventoryLoading,
+      podCatalog: isPodCatalogLoading,
+      publishedPods: isPublishedPodsLoading,
+      pendingRequests: isPendingRequestsLoading,
+      completedRequests: isCompletedRequestsLoading,
+      users: isUsersLoading,
+      groups: isGroupsLoading,
+      vnets: isVnetsLoading,
+    },
+    errors: [
+      isSessionError,
+      isInventoryError,
+      isPodCatalogError,
+      isPublishedPodsError,
+      isPendingRequestsError,
+      isCompletedRequestsError,
+      isUsersError,
+      isGroupsError,
+      isVnetsError,
+    ],
+  })
 
   return (
     <SiteCommandMenu

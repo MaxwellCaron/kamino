@@ -20,13 +20,6 @@ import {
 } from "@workspace/ui/components/collapsible"
 import { Dialog, DialogFooter } from "@workspace/ui/components/dialog"
 import {
-  Empty,
-  EmptyDescription,
-  EmptyHeader,
-  EmptyMedia,
-  EmptyTitle,
-} from "@workspace/ui/components/empty"
-import {
   Item,
   ItemActions,
   ItemContent,
@@ -47,6 +40,7 @@ import type {
 } from "../../types/inventory-types"
 import type { ApiPrincipal } from "@/features/principals/types/principals-types"
 import { SearchInputGroup } from "@/components/forms/search-input-group"
+import { AppEmptyState } from "@/components/feedback/app-empty-state"
 import { formatVmReference } from "@/features/shared/utils/format"
 import {
   groupsQueryOptions,
@@ -245,36 +239,20 @@ function InventoryPermissionsFormBody({
               ))}
             </div>
           ) : (
-            <Empty className="border">
-              <EmptyHeader>
-                <EmptyMedia variant="icon">
-                  <HugeiconsIcon
-                    icon={Search01Icon}
-                    className="text-muted-foreground"
-                  />
-                </EmptyMedia>
-                <EmptyTitle>No Matching Principals</EmptyTitle>
-                <EmptyDescription>
-                  No added principals match your search.
-                </EmptyDescription>
-              </EmptyHeader>
-            </Empty>
+            <AppEmptyState
+              className="border"
+              icon={Search01Icon}
+              title="No Matching Principals"
+              description="No added principals match your search."
+            />
           )
         ) : (
-          <Empty className="border">
-            <EmptyHeader>
-              <EmptyMedia variant="icon">
-                <HugeiconsIcon
-                  icon={UserGroupIcon}
-                  className="text-muted-foreground"
-                />
-              </EmptyMedia>
-              <EmptyTitle>No Principals Configured</EmptyTitle>
-              <EmptyDescription>
-                Add a user or group to configure permissions for this item.
-              </EmptyDescription>
-            </EmptyHeader>
-          </Empty>
+          <AppEmptyState
+            className="border"
+            icon={UserGroupIcon}
+            title="No Principals Configured"
+            description="Add a user or group to configure permissions for this item."
+          />
         )}
       </AppDialogScrollBody>
 

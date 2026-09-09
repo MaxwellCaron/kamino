@@ -10,6 +10,7 @@ import type {
   EditVmHardwareDialogConfig,
   FolderLimitDialogConfig,
   InventoryDialogsContextValue,
+  MigrateVmDialogConfig,
   PermissionsDialogConfig,
   RenameFolderDialogConfig,
   RenameVmDialogConfig,
@@ -21,6 +22,7 @@ import { ConfirmDialog } from "@/components/dialogs/confirm-dialog"
 import { CloneDialog } from "@/features/vms/components/clone-dialog"
 import { CreateVmDialog } from "@/features/vms/components/create/create-vm-dialog"
 import { SnapshotDialog } from "@/features/vms/components/snapshot-dialog"
+import { MigrateVmDialog } from "@/features/vms/components/migrate-vm-dialog"
 import { VmHardwareDialog } from "@/features/vms/components/hardware/hardware-dialog"
 
 type InventoryDialogsState = {
@@ -31,6 +33,7 @@ type InventoryDialogsState = {
   createVm: CreateVmDialogConfig | null
   snapshot: SnapshotDialogConfig | null
   clone: CloneDialogConfig | null
+  migrateVm: MigrateVmDialogConfig | null
   renameVm: RenameVmDialogConfig | null
   editVmHardware: EditVmHardwareDialogConfig | null
   permissions: PermissionsDialogConfig | null
@@ -51,6 +54,8 @@ type InventoryDialogsAction =
   | { type: "closeSnapshot" }
   | { type: "openClone"; config: CloneDialogConfig }
   | { type: "closeClone" }
+  | { type: "openMigrateVm"; config: MigrateVmDialogConfig }
+  | { type: "closeMigrateVm" }
   | { type: "openRenameVm"; config: RenameVmDialogConfig }
   | { type: "closeRenameVm" }
   | { type: "openEditVmHardware"; config: EditVmHardwareDialogConfig }
@@ -66,6 +71,7 @@ const initialInventoryDialogsState: InventoryDialogsState = {
   createVm: null,
   snapshot: null,
   clone: null,
+  migrateVm: null,
   renameVm: null,
   editVmHardware: null,
   permissions: null,
@@ -104,6 +110,10 @@ function inventoryDialogsReducer(
       return { ...state, clone: action.config }
     case "closeClone":
       return { ...state, clone: null }
+    case "openMigrateVm":
+      return { ...state, migrateVm: action.config }
+    case "closeMigrateVm":
+      return { ...state, migrateVm: null }
     case "openRenameVm":
       return { ...state, renameVm: action.config }
     case "closeRenameVm":
@@ -143,6 +153,7 @@ export function InventoryDialogsProvider({
       openCreateVm: (config) => dispatch({ type: "openCreateVm", config }),
       openSnapshot: (config) => dispatch({ type: "openSnapshot", config }),
       openClone: (config) => dispatch({ type: "openClone", config }),
+      openMigrateVm: (config) => dispatch({ type: "openMigrateVm", config }),
       openRenameVm: (config) => dispatch({ type: "openRenameVm", config }),
       openEditVmHardware: (config) =>
         dispatch({ type: "openEditVmHardware", config }),
@@ -238,6 +249,16 @@ export function InventoryDialogsProvider({
           open={true}
           onOpenChange={(open) => {
             if (!open) dispatch({ type: "closeRenameVm" })
+          }}
+        />
+      )}
+      {state.migrateVm && (
+        <MigrateVmDialog
+          items={state.migrateVm.items}
+          onSettled={state.migrateVm.onSettled}
+          open={true}
+          onOpenChange={(open) => {
+            if (!open) dispatch({ type: "closeMigrateVm" })
           }}
         />
       )}

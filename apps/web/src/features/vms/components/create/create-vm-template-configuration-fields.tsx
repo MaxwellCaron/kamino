@@ -13,15 +13,8 @@ import {
   ComboboxContent,
   ComboboxEmpty,
   ComboboxInput,
-  ComboboxItem,
   ComboboxList,
 } from "@workspace/ui/components/combobox"
-import {
-  ItemContent,
-  ItemDescription,
-  ItemMedia,
-  ItemTitle,
-} from "@workspace/ui/components/item"
 import {
   CloneFullCloneField,
   CloneNameField,
@@ -36,7 +29,7 @@ import { formatFieldError } from "./create-vm-step-utils"
 import type { VmTemplateOption } from "./create-vm-form"
 import type { ApiNode } from "@/features/vms/types/vm-types"
 import { VMIDField } from "@/components/vms/vmid-field"
-import { VmIcon } from "@/components/status/vm-icon"
+import { VmTemplateComboboxItem } from "@/components/inventory/vm-template-combobox-item"
 
 export const TemplateConfigurationFields = withCreateVmForm({
   ...createVmFormOptions,
@@ -65,10 +58,8 @@ export const TemplateConfigurationFields = withCreateVmForm({
                       template.label
                     }
                     value={
-                      getSelectedTemplate(
-                        templateOptions,
-                        field.state.value
-                      ) ?? null
+                      getSelectedTemplate(templateOptions, field.state.value) ??
+                      null
                     }
                     onValueChange={(template: VmTemplateOption | null) =>
                       field.handleChange(template?.id ?? "")
@@ -86,17 +77,10 @@ export const TemplateConfigurationFields = withCreateVmForm({
                       <ComboboxEmpty>No templates found.</ComboboxEmpty>
                       <ComboboxList>
                         {(template: VmTemplateOption) => (
-                          <ComboboxItem key={template.id} value={template}>
-                            <ItemMedia variant="icon">
-                              <VmIcon isTemplate status={undefined} />
-                            </ItemMedia>
-                            <ItemContent>
-                              <ItemTitle>{template.name}</ItemTitle>
-                              <ItemDescription>
-                                {template.node}/{template.vmid}
-                              </ItemDescription>
-                            </ItemContent>
-                          </ComboboxItem>
+                          <VmTemplateComboboxItem
+                            key={template.id}
+                            template={template}
+                          />
                         )}
                       </ComboboxList>
                     </ComboboxContent>

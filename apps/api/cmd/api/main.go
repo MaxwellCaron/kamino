@@ -54,6 +54,14 @@ func main() {
 		}
 		return
 	}
+	if len(os.Args) == 2 && os.Args[1] == proxmoxSyncCommand {
+		ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+		defer stop()
+		if err := runProxmoxSyncCommand(ctx, &config); err != nil {
+			log.Fatalf("Proxmox sync failed: %v", err)
+		}
+		return
+	}
 	spiceProxyHost, err := resolveSPICEProxyHost(config.ProxmoxURL, config.ProxmoxSPICEProxyHost)
 	if err != nil {
 		log.Fatalf("Invalid SPICE proxy host configuration: %v", err)
@@ -90,7 +98,7 @@ func main() {
 	runInitialSyncs(
 		context.Background(),
 		&config,
-		server.ProxmoxImport.Run,
+		server.ProxmoxImport.SyncAll,
 		server.PrincipalSync,
 	)
 

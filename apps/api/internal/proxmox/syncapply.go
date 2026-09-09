@@ -2,6 +2,7 @@ package proxmox
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log"
 
@@ -61,6 +62,83 @@ func (s *InventoryImporter) ApplySync(
 	if err != nil {
 		return nil, fmt.Errorf("re-deriving live diff: %w", err)
 	}
+	return s.applySyncDiff(ctx, diff, sel), nil
+}
+
+// SyncAll applies every change in the current drift plan, matching the admin
+// page's Sync All action. Non-actionable changes are reported and skipped.
+func (s *InventoryImporter) SyncAll(ctx context.Context) error {
+	log.Println("Starting Proxmox Sync All")
+
+	diff, err := s.Plan(ctx)
+	if err != nil {
+		return fmt.Errorf("planning Proxmox Sync All: %w", err)
+	}
+	if diff.Warning != "" {
+		log.Printf("Proxmox Sync All warning: %s", diff.Warning)
+	}
+
+	applied := 0
+	skipped := 0
+	var syncErrs []error
+	for _, change := range syncAllChanges(diff) {
+		results, applyErr := s.ApplySync(ctx, syncSelectionForChange(change))
+		if applyErr != nil {
+			syncErrs = append(syncErrs, fmt.Errorf("%s %s: %w", change.Kind, change.ID, applyErr))
+			if ctx.Err() != nil {
+				break
+			}
+			continue
+		}
+
+		for _, result := range results {
+			switch result.Status {
+			case "success":
+				applied++
+			case "skipped":
+				skipped++
+				log.Printf("Proxmox Sync All skipped %s %s: %s", result.Kind, result.ID, result.Error)
+			case "error":
+				syncErrs = append(syncErrs, fmt.Errorf("%s %s: %s", result.Kind, result.ID, result.Error))
+			}
+		}
+	}
+
+	log.Printf(
+		"Proxmox Sync All complete: %d applied, %d skipped, %d failed",
+		applied,
+		skipped,
+		len(syncErrs),
+	)
+	return errors.Join(syncErrs...)
+}
+
+func syncAllChanges(diff SyncDiff) []SyncChange {
+	changes := make([]SyncChange, 0, len(diff.Adds)+len(diff.Updates)+len(diff.Removes))
+	changes = append(changes, diff.Adds...)
+	changes = append(changes, diff.Updates...)
+	changes = append(changes, diff.Removes...)
+	return changes
+}
+
+func syncSelectionForChange(change SyncChange) SyncSelection {
+	selection := SyncSelection{}
+	switch change.Kind {
+	case SyncChangeAdd:
+		selection.AddIDs = []string{change.ID}
+	case SyncChangeRemove:
+		selection.RemoveIDs = []string{change.ID}
+	case SyncChangeUpdate:
+		selection.UpdateIDs = []string{change.ID}
+	}
+	return selection
+}
+
+func (s *InventoryImporter) applySyncDiff(
+	ctx context.Context,
+	diff SyncDiff,
+	sel SyncSelection,
+) []SyncApplyResult {
 
 	// Index the live diff by ID and kind so we can look up the DB item IDs.
 	addsByID := indexChanges(diff.Adds)
@@ -101,7 +179,7 @@ func (s *InventoryImporter) ApplySync(
 		results = append(results, s.applyRemove(ctx, q, change))
 	}
 
-	return results, nil
+	return results
 }
 
 func (s *InventoryImporter) applyAdd(

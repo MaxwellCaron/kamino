@@ -3,15 +3,11 @@ import { useForm } from "@tanstack/react-form"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import {
   Add01Icon,
-  NotebookIcon,
   PencilEdit01Icon,
-  RegexIcon,
   UserIcon,
 } from "@hugeicons/core-free-icons"
-import { HugeiconsIcon } from "@hugeicons/react"
 import { DialogFooter } from "@workspace/ui/components/dialog"
 import { FieldError } from "@workspace/ui/components/field"
-import { Tabs, TabsTrigger } from "@workspace/ui/components/tabs"
 import type {
   ApiBulkCreateResponse,
   ApiPrincipal,
@@ -21,8 +17,6 @@ import type {
 import type { CreateMode } from "@/features/principals/components/users/user-dialog-utils"
 import { formatPrincipalReference } from "@/components/principals/principal-label"
 import {
-  AppDialog,
-  AppDialogHeaderTabs,
   AppDialogPrimaryButton,
   AppDialogScrollBody,
   nestedDialogAnimationClassName,
@@ -40,6 +34,7 @@ import {
 } from "@/features/principals/api/principals-api"
 import { UserDialogCreateForm } from "@/features/principals/components/users/user-dialog-create-form"
 import { UserDialogEditForm } from "@/features/principals/components/users/user-dialog-edit-form"
+import { PrincipalDialogShell } from "@/features/principals/components/principal-dialog-shell"
 import {
   buildCreateUsers,
   getDefaultUserFormValues,
@@ -257,45 +252,15 @@ export function UserDialog({
     />
   ) : null
 
-  if (isEdit) {
-    return (
-      <>
-        <AppDialog {...dialogProps}>{formContent}</AppDialog>
-        {resultSummaryDialog}
-      </>
-    )
-  }
-
   return (
-    <>
-      <Tabs
-        value={mode}
-        onValueChange={(value) => setMode(value as CreateMode)}
-        className="gap-0"
-      >
-        <AppDialog
-          {...dialogProps}
-          headerAfter={
-            <AppDialogHeaderTabs>
-              <TabsTrigger value="single">
-                <HugeiconsIcon icon={UserIcon} />
-                Single
-              </TabsTrigger>
-              <TabsTrigger value="list">
-                <HugeiconsIcon icon={NotebookIcon} />
-                List
-              </TabsTrigger>
-              <TabsTrigger value="prefix">
-                <HugeiconsIcon icon={RegexIcon} />
-                Prefix
-              </TabsTrigger>
-            </AppDialogHeaderTabs>
-          }
-        >
-          {formContent}
-        </AppDialog>
-      </Tabs>
-      {resultSummaryDialog}
-    </>
+    <PrincipalDialogShell
+      dialogProps={dialogProps}
+      formContent={formContent}
+      isEdit={isEdit}
+      mode={mode}
+      onModeChange={setMode}
+      resultSummaryDialog={resultSummaryDialog}
+      singleIcon={UserIcon}
+    />
   )
 }

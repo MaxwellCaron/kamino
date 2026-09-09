@@ -46,6 +46,7 @@ import type {
   ExpandedState,
   OnChangeFn,
   PaginationState,
+  ReactTable,
   RowData,
   RowSelectionState,
   SortingState,
@@ -88,6 +89,218 @@ interface DataTableProps<TData extends RowData, TValue> {
   getRowCanExpand?: (row: TData) => boolean
   serverPagination?: DataTableServerPagination
   searchLabel?: string
+}
+
+function DataTableToolbar<TData extends RowData>({
+  disabled,
+  enablePagination,
+  searchLabel,
+  searchValue,
+  serverPagination,
+  table,
+}: {
+  disabled: boolean
+  enablePagination: boolean
+  searchLabel: string
+  searchValue: string
+  serverPagination?: DataTableServerPagination
+  table: ReactTable<AppTableFeatures, TData>
+}) {
+  return (
+    <div className="flex items-center justify-between gap-6 px-6">
+      <InputGroup className="max-w-sm">
+        <InputGroupAddon>
+          <HugeiconsIcon icon={Search01Icon} />
+        </InputGroupAddon>
+        <InputGroupInput
+          aria-label={searchLabel}
+          placeholder="Search..."
+          value={searchValue}
+          onChange={(event) => {
+            const value = String(event.target.value)
+            if (serverPagination) {
+              serverPagination.onSearchChange(value)
+              serverPagination.onPaginationChange((previous) => ({
+                ...previous,
+                pageIndex: 0,
+              }))
+              return
+            }
+            table.setGlobalFilter(value)
+          }}
+          disabled={disabled}
+        />
+      </InputGroup>
+
+      {enablePagination ? (
+        <div className="flex items-center gap-2">
+          <p className="hidden text-sm font-medium lg:block">Rows per page</p>
+          <Select
+            value={`${table.state.pagination.pageSize}`}
+            onValueChange={(value) => {
+              if (serverPagination) {
+                serverPagination.onPaginationChange((previous) => ({
+                  ...previous,
+                  pageSize: Number(value),
+                  pageIndex: 0,
+                }))
+                return
+              }
+              table.setPageSize(Number(value))
+            }}
+            disabled={disabled}
+          >
+            <SelectTrigger aria-label="Rows per page">
+              <SelectValue placeholder={table.state.pagination.pageSize} />
+            </SelectTrigger>
+            <SelectContent alignItemWithTrigger={false} align="end">
+              <SelectGroup>
+                <SelectLabel>Rows</SelectLabel>
+                {ROWS_PER_PAGE_OPTIONS.map((pageSize) => (
+                  <SelectItem key={pageSize} value={`${pageSize}`}>
+                    {pageSize}
+                  </SelectItem>
+                ))}
+              </SelectGroup>
+            </SelectContent>
+          </Select>
+        </div>
+      ) : null}
+    </div>
+  )
+}
+
+function DataTableContent<TData extends RowData, TValue>({
+  columns,
+  emptyMessage,
+  error,
+  ExpandedRowComponent,
+  isLoading,
+  table,
+}: {
+  columns: Array<ColumnDef<AppTableFeatures, TData, TValue>>
+  emptyMessage?: string
+  error: Error | null
+  ExpandedRowComponent?: ComponentType<{ row: TData }>
+  isLoading: boolean
+  table: ReactTable<AppTableFeatures, TData>
+}) {
+  return (
+    <div className="overflow-hidden py-6">
+      <Table className="border-y">
+        <TableHeader className="bg-muted hover:bg-muted [&_tr]:border-b">
+          {table.getHeaderGroups().map((headerGroup) => (
+            <TableRow key={headerGroup.id}>
+              {headerGroup.headers.map((header) => (
+                <TableHead
+                  key={header.id}
+                  aria-sort={
+                    header.column.getIsSorted() === "asc"
+                      ? "ascending"
+                      : header.column.getIsSorted() === "desc"
+                        ? "descending"
+                        : undefined
+                  }
+                  className={header.column.columnDef.meta?.className}
+                >
+                  {header.isPlaceholder
+                    ? null
+                    : flexRender(
+                        header.column.columnDef.header,
+                        header.getContext()
+                      )}
+                </TableHead>
+              ))}
+            </TableRow>
+          ))}
+        </TableHeader>
+        <TableBody className="overflow-hidden [&_tr:last-child]:border-0">
+          {isLoading ? (
+            LOADING_ROW_IDS.map((rowID) => (
+              <TableRow key={rowID}>
+                <TableCell className="pl-6">
+                  <Skeleton className="size-5 rounded" />
+                </TableCell>
+                {table
+                  .getAllLeafColumns()
+                  .slice(1)
+                  .map((column) => (
+                    <TableCell key={column.id}>
+                      <Skeleton className="h-6 w-3/4 rounded" />
+                    </TableCell>
+                  ))}
+              </TableRow>
+            ))
+          ) : table.getRowModel().rows.length ? (
+            table.getRowModel().rows.map((row) => (
+              <Fragment key={row.id}>
+                <TableRow data-state={row.getIsSelected() && "selected"}>
+                  {row.getVisibleCells().map((cell) => (
+                    <TableCell
+                      key={cell.id}
+                      className={cell.column.columnDef.meta?.className}
+                    >
+                      {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                    </TableCell>
+                  ))}
+                </TableRow>
+                {row.getIsExpanded() && ExpandedRowComponent ? (
+                  <TableRow className="hover:bg-transparent">
+                    <TableCell
+                      colSpan={row.getVisibleCells().length}
+                      className="p-0"
+                    >
+                      <ExpandedRowComponent row={row.original} />
+                    </TableCell>
+                  </TableRow>
+                ) : null}
+              </Fragment>
+            ))
+          ) : (
+            <DataTableStateRow
+              colSpan={columns.length}
+              error={error}
+              emptyMessage={emptyMessage}
+            />
+          )}
+        </TableBody>
+      </Table>
+    </div>
+  )
+}
+
+function DataTableSelectionBar<TData extends RowData>({
+  clearSelection,
+  selectedRows,
+  selectionActions,
+}: {
+  clearSelection: () => void
+  selectedRows: Array<TData>
+  selectionActions?: (
+    context: DataTableSelectionActionsContext<TData>
+  ) => ReactNode
+}) {
+  if (!selectionActions) return null
+
+  return (
+    <ActionBar
+      open={selectedRows.length > 0}
+      onOpenChange={(open) => {
+        if (!open) clearSelection()
+      }}
+    >
+      <ActionBarSelection role="status" aria-live="polite" aria-atomic>
+        {selectedRows.length} <span className="hidden lg:block">selected</span>
+      </ActionBarSelection>
+      <ActionBarSeparator />
+      <ActionBarGroup>
+        {selectionActions({ clearSelection, selectedRows })}
+      </ActionBarGroup>
+      <ActionBarClose aria-label="Clear selection">
+        <HugeiconsIcon icon={Cancel01Icon} />
+      </ActionBarClose>
+    </ActionBar>
+  )
 }
 
 export function DataTable<TData extends RowData, TValue>({
@@ -167,179 +380,33 @@ export function DataTable<TData extends RowData, TValue>({
 
   return (
     <div>
-      <div className="flex items-center justify-between gap-6 px-6">
-        <InputGroup className="max-w-sm">
-          <InputGroupAddon>
-            <HugeiconsIcon icon={Search01Icon} />
-          </InputGroupAddon>
-          <InputGroupInput
-            aria-label={searchLabel}
-            placeholder="Search..."
-            value={searchValue}
-            onChange={(e) => {
-              const value = String(e.target.value)
-              if (isServerMode) {
-                serverPagination.onSearchChange(value)
-                serverPagination.onPaginationChange((prev) => ({
-                  ...prev,
-                  pageIndex: 0,
-                }))
-              } else {
-                table.setGlobalFilter(value)
-              }
-            }}
-            disabled={notReady}
-          />
-        </InputGroup>
-
-        {enablePagination && (
-          <div className="flex items-center gap-2">
-            <p className="hidden text-sm font-medium lg:block">Rows per page</p>
-            <Select
-              value={`${table.state.pagination.pageSize}`}
-              onValueChange={(value) => {
-                if (isServerMode) {
-                  serverPagination.onPaginationChange((prev) => ({
-                    ...prev,
-                    pageSize: Number(value),
-                    pageIndex: 0,
-                  }))
-                } else {
-                  table.setPageSize(Number(value))
-                }
-              }}
-              disabled={notReady}
-            >
-              <SelectTrigger aria-label="Rows per page">
-                <SelectValue
-                  placeholder={table.state.pagination.pageSize}
-                />
-              </SelectTrigger>
-              <SelectContent alignItemWithTrigger={false} align="end">
-                <SelectGroup>
-                  <SelectLabel>Rows</SelectLabel>
-                  {ROWS_PER_PAGE_OPTIONS.map((pageSize) => (
-                    <SelectItem key={pageSize} value={`${pageSize}`}>
-                      {pageSize}
-                    </SelectItem>
-                  ))}
-                </SelectGroup>
-              </SelectContent>
-            </Select>
-          </div>
-        )}
-      </div>
-      <div className="overflow-hidden py-6">
-        <Table className="border-y">
-          <TableHeader className="bg-muted hover:bg-muted [&_tr]:border-b">
-            {table.getHeaderGroups().map((headerGroup) => (
-              <TableRow key={headerGroup.id}>
-                {headerGroup.headers.map((header) => {
-                  return (
-                    <TableHead
-                      key={header.id}
-                      aria-sort={
-                        header.column.getIsSorted() === "asc"
-                          ? "ascending"
-                          : header.column.getIsSorted() === "desc"
-                            ? "descending"
-                            : undefined
-                      }
-                      className={header.column.columnDef.meta?.className}
-                    >
-                      {header.isPlaceholder
-                        ? null
-                        : flexRender(
-                            header.column.columnDef.header,
-                            header.getContext()
-                          )}
-                    </TableHead>
-                  )
-                })}
-              </TableRow>
-            ))}
-          </TableHeader>
-          <TableBody className="overflow-hidden [&_tr:last-child]:border-0">
-            {isLoading ? (
-              LOADING_ROW_IDS.map((rowID) => (
-                <TableRow key={rowID}>
-                  <TableCell className="pl-6">
-                    <Skeleton className="size-5 rounded" />
-                  </TableCell>
-                  {table
-                    .getAllLeafColumns()
-                    .slice(1)
-                    .map((column) => (
-                      <TableCell key={column.id}>
-                        <Skeleton className="h-6 w-3/4 rounded" />
-                      </TableCell>
-                    ))}
-                </TableRow>
-              ))
-            ) : table.getRowModel().rows.length ? (
-              table.getRowModel().rows.map((row) => (
-                <Fragment key={row.id}>
-                  <TableRow data-state={row.getIsSelected() && "selected"}>
-                    {row.getVisibleCells().map((cell) => (
-                      <TableCell
-                        key={cell.id}
-                        className={cell.column.columnDef.meta?.className}
-                      >
-                        {flexRender(
-                          cell.column.columnDef.cell,
-                          cell.getContext()
-                        )}
-                      </TableCell>
-                    ))}
-                  </TableRow>
-                  {row.getIsExpanded() && ExpandedRowComponent && (
-                    <TableRow className="hover:bg-transparent">
-                      <TableCell
-                        colSpan={row.getVisibleCells().length}
-                        className="p-0"
-                      >
-                        <ExpandedRowComponent row={row.original} />
-                      </TableCell>
-                    </TableRow>
-                  )}
-                </Fragment>
-              ))
-            ) : (
-              <DataTableStateRow
-                colSpan={columns.length}
-                error={error}
-                emptyMessage={emptyMessage}
-              />
-            )}
-          </TableBody>
-        </Table>
-      </div>
+      <DataTableToolbar
+        disabled={notReady}
+        enablePagination={enablePagination}
+        searchLabel={searchLabel}
+        searchValue={searchValue}
+        serverPagination={serverPagination}
+        table={table}
+      />
+      <DataTableContent
+        columns={columns}
+        emptyMessage={emptyMessage}
+        error={error}
+        ExpandedRowComponent={ExpandedRowComponent}
+        isLoading={isLoading}
+        table={table}
+      />
       {enablePagination ? (
         <DataTablePagination
           table={table}
           showSelectionSummary={showSelectionSummary}
         />
       ) : null}
-      {selectionActions && (
-        <ActionBar
-          open={selectedRows.length > 0}
-          onOpenChange={(open) => {
-            if (!open) clearSelection()
-          }}
-        >
-          <ActionBarSelection role="status" aria-live="polite" aria-atomic>
-            {selectedRows.length}{" "}
-            <span className="hidden lg:block">selected</span>
-          </ActionBarSelection>
-          <ActionBarSeparator />
-          <ActionBarGroup>
-            {selectionActions({ clearSelection, selectedRows })}
-          </ActionBarGroup>
-          <ActionBarClose aria-label="Clear selection">
-            <HugeiconsIcon icon={Cancel01Icon} />
-          </ActionBarClose>
-        </ActionBar>
-      )}
+      <DataTableSelectionBar
+        clearSelection={clearSelection}
+        selectedRows={selectedRows}
+        selectionActions={selectionActions}
+      />
     </div>
   )
 }
