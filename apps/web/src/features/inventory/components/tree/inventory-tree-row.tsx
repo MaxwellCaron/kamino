@@ -98,6 +98,238 @@ function applySelectionFromClick(
   focusTreeItem(item)
 }
 
+function FolderToggleButton({
+  item,
+  vm,
+}: {
+  item: ItemInstance<ApiTreeNode>
+  vm: InventoryTreeRowVm
+}) {
+  if (!vm.isFolder) return null
+
+  return (
+    <button
+      type="button"
+      tabIndex={-1}
+      aria-label={`${vm.isExpanded ? "Collapse" : "Expand"} ${vm.name}`}
+      className="-my-1 -ml-1 flex size-6 shrink-0 cursor-pointer items-center justify-center rounded-md transition-colors hover:bg-muted/80"
+      onMouseDown={(event) => {
+        event.preventDefault()
+        event.stopPropagation()
+      }}
+      onClick={(event) => {
+        event.stopPropagation()
+        toggleFolder(item)
+      }}
+      onDoubleClick={(event) => {
+        event.stopPropagation()
+      }}
+    >
+      <HugeiconsIcon
+        icon={ChevronDownIcon}
+        className="size-4 text-muted-foreground in-aria-[expanded=false]:-rotate-90"
+      />
+    </button>
+  )
+}
+
+function FolderLimitBadge({ vm }: { vm: InventoryTreeRowVm }) {
+  if (!vm.isFolder || vm.vmLimit == null) return null
+
+  return (
+    <Badge variant="secondary">
+      {vm.vmCount ?? 0} / {vm.vmLimit}
+    </Badge>
+  )
+}
+
+function TreeRowActions({
+  data,
+  isMenuMounted,
+  itemId,
+  menuOpen,
+  onMenuOpenChange,
+  onMountMenu,
+  vm,
+}: {
+  data: ApiTreeNode
+  isMenuMounted: boolean
+  itemId: string
+  menuOpen: boolean
+  onMenuOpenChange: (open: boolean) => void
+  onMountMenu: () => void
+  vm: InventoryTreeRowVm
+}) {
+  if (!vm.hasActions) return null
+
+  if (!isMenuMounted) {
+    return (
+      <Button
+        type="button"
+        size="icon-xs"
+        variant="ghost"
+        aria-label={`Actions for ${vm.name}`}
+        aria-haspopup="menu"
+        className={rowMenuButtonClassName}
+        onClick={(event) => {
+          stopTreeItemEvent(event)
+          onMountMenu()
+        }}
+        onPointerDown={stopTreeItemEvent}
+      >
+        <HugeiconsIcon icon={MoreHorizontalIcon} />
+      </Button>
+    )
+  }
+
+  return (
+    <InventoryNodeMenu
+      itemId={itemId}
+      data={data}
+      canPower={vm.canPower}
+      open={menuOpen}
+      onOpenChange={onMenuOpenChange}
+      className={rowMenuButtonClassName}
+    />
+  )
+}
+
+function InventoryTreeRowContent({
+  data,
+  isMenuMounted,
+  item,
+  menuOpen,
+  onMenuOpenChange,
+  onMountMenu,
+  onToggleFavorite,
+  vm,
+}: {
+  data: ApiTreeNode
+  isMenuMounted: boolean
+  item: ItemInstance<ApiTreeNode>
+  menuOpen: boolean
+  onMenuOpenChange: (open: boolean) => void
+  onMountMenu: () => void
+  onToggleFavorite: (itemId: string) => void
+  vm: InventoryTreeRowVm
+}) {
+  return (
+    <span
+      data-slot="tree-item-label"
+      className="flex h-8 w-full items-center gap-1 rounded-3xl px-2 py-0 text-sm transition-colors not-in-data-[folder=true]:ps-7 group-has-[button[data-popup-open]]/row:bg-muted hover:bg-muted in-focus-visible:ring-[3px] in-focus-visible:ring-ring/50 in-data-[drag-target=true]:bg-muted in-data-[search-match=true]:bg-blue-50! in-data-[selected=true]:bg-sidebar-border! in-data-[selected=true]:text-foreground [&_svg]:pointer-events-none [&_svg]:shrink-0"
+    >
+      <FolderToggleButton item={item} vm={vm} />
+      <InventoryNodeIcon
+        node={data}
+        status={vm.status}
+        isExpanded={vm.isExpanded}
+      />
+      <span
+        className={cn("ml-1 flex-1 truncate", vm.isFolder && "font-semibold")}
+      >
+        {vm.name}
+      </span>
+      <div className="ml-auto flex items-center gap-0.5">
+        <FolderLimitBadge vm={vm} />
+        <Button
+          type="button"
+          size="icon-xs"
+          variant="ghost"
+          aria-label={
+            vm.isFavorite
+              ? `Remove ${vm.name} from favorites`
+              : `Add ${vm.name} to favorites`
+          }
+          className={cn(
+            vm.isFavorite
+              ? "bg-transparent! opacity-100!"
+              : "opacity-0 transition-opacity group-hover/row:opacity-100 group-has-focus-visible/row:opacity-100 focus-visible:opacity-100"
+          )}
+          onClick={(event) => {
+            event.stopPropagation()
+            onToggleFavorite(vm.id)
+          }}
+        >
+          <HugeiconsIcon
+            icon={StarIcon}
+            className={cn(
+              vm.isFavorite &&
+                "fill-muted-foreground dark:fill-muted-foreground"
+            )}
+          />
+        </Button>
+        <TreeRowActions
+          data={data}
+          isMenuMounted={isMenuMounted}
+          itemId={vm.id}
+          menuOpen={menuOpen}
+          onMenuOpenChange={onMenuOpenChange}
+          onMountMenu={onMountMenu}
+          vm={vm}
+        />
+      </div>
+    </span>
+  )
+}
+
+function InventoryTreeRowGuides({
+  cornerRadius,
+  tickWidth,
+  vm,
+}: {
+  cornerRadius: number
+  tickWidth: number
+  vm: InventoryTreeRowVm
+}) {
+  return (
+    <>
+      {vm.guideContinues.slice(0, -1).map((continues, guideLevel) =>
+        continues ? (
+          <span
+            key={guideLevel}
+            className="pointer-events-none absolute top-0 -bottom-0.5 w-px bg-foreground/10"
+            style={{
+              left: guideLevel * TREE_INDENT + CHEVRON_CENTER_OFFSET,
+            }}
+          />
+        ) : null
+      )}
+      {vm.level > 0 ? (
+        <svg
+          className="pointer-events-none absolute top-0 text-foreground/10"
+          style={{
+            left: (vm.level - 1) * TREE_INDENT + CHEVRON_CENTER_OFFSET,
+          }}
+          width={tickWidth}
+          height={
+            vm.guideContinues[vm.level - 1]
+              ? INVENTORY_TREE_ROW_HEIGHT
+              : ROW_MIDPOINT
+          }
+        >
+          <path
+            fill="currentColor"
+            d={
+              vm.guideContinues[vm.level - 1]
+                ? buildJunctionConnectorPath(tickWidth, cornerRadius)
+                : buildElbowConnectorPath(tickWidth, cornerRadius)
+            }
+          />
+        </svg>
+      ) : null}
+      {vm.isFolder && vm.isExpanded && vm.hasChildren ? (
+        <span
+          className="pointer-events-none absolute -bottom-0.5 w-px bg-foreground/10"
+          style={{
+            left: vm.level * TREE_INDENT + CHEVRON_CENTER_OFFSET,
+            top: CHEVRON_CENTER_OFFSET + CHEVRON_GUIDE_INSET,
+          }}
+        />
+      ) : null}
+    </>
+  )
+}
+
 export const InventoryTreeRow = memo(function InventoryTreeRowImpl({
   vm,
   data,
@@ -169,151 +401,24 @@ export const InventoryTreeRow = memo(function InventoryTreeRowImpl({
         toggleFolder(item)
       }}
     >
-      <span
-        data-slot="tree-item-label"
-        className="flex h-8 w-full items-center gap-1 rounded-3xl px-2 py-0 text-sm transition-colors not-in-data-[folder=true]:ps-7 group-has-[button[data-popup-open]]/row:bg-muted hover:bg-muted in-focus-visible:ring-[3px] in-focus-visible:ring-ring/50 in-data-[drag-target=true]:bg-muted in-data-[search-match=true]:bg-blue-50! in-data-[selected=true]:bg-sidebar-border! in-data-[selected=true]:text-foreground [&_svg]:pointer-events-none [&_svg]:shrink-0"
-      >
-        {vm.isFolder ? (
-          <button
-            type="button"
-            tabIndex={-1}
-            aria-label={`${vm.isExpanded ? "Collapse" : "Expand"} ${vm.name}`}
-            className="-my-1 -ml-1 flex size-6 shrink-0 cursor-pointer items-center justify-center rounded-md transition-colors hover:bg-muted/80"
-            onMouseDown={(event) => {
-              event.preventDefault()
-              event.stopPropagation()
-            }}
-            onClick={(event) => {
-              event.stopPropagation()
-              toggleFolder(item)
-            }}
-            onDoubleClick={(event) => {
-              event.stopPropagation()
-            }}
-          >
-            <HugeiconsIcon
-              icon={ChevronDownIcon}
-              className="size-4 text-muted-foreground in-aria-[expanded=false]:-rotate-90"
-            />
-          </button>
-        ) : null}
-        <InventoryNodeIcon
-          node={data}
-          status={vm.status}
-          isExpanded={vm.isExpanded}
-        />
-        <span
-          className={cn("ml-1 flex-1 truncate", vm.isFolder && "font-semibold")}
-        >
-          {vm.name}
-        </span>
-        <div className="ml-auto flex items-center gap-0.5">
-          {vm.isFolder && vm.vmLimit != null ? (
-            <Badge variant="secondary">
-              {vm.vmCount ?? 0} / {vm.vmLimit}
-            </Badge>
-          ) : null}
-          <Button
-            type="button"
-            size="icon-xs"
-            variant="ghost"
-            aria-label={
-              vm.isFavorite
-                ? `Remove ${vm.name} from favorites`
-                : `Add ${vm.name} to favorites`
-            }
-            className={cn(
-              vm.isFavorite
-                ? "bg-transparent! opacity-100!"
-                : "opacity-0 transition-opacity group-hover/row:opacity-100 group-has-focus-visible/row:opacity-100 focus-visible:opacity-100"
-            )}
-            onClick={(event) => {
-              event.stopPropagation()
-              onToggleFavorite(vm.id)
-            }}
-          >
-            <HugeiconsIcon
-              icon={StarIcon}
-              className={cn(
-                vm.isFavorite &&
-                  "fill-muted-foreground dark:fill-muted-foreground"
-              )}
-            />
-          </Button>
-          {vm.hasActions ? (
-            !isMenuMounted ? (
-              <Button
-                type="button"
-                size="icon-xs"
-                variant="ghost"
-                aria-label={`Actions for ${vm.name}`}
-                aria-haspopup="menu"
-                className={rowMenuButtonClassName}
-                onClick={(event) => {
-                  stopTreeItemEvent(event)
-                  setIsMenuMounted(true)
-                  setMenuOpen(true)
-                }}
-                onPointerDown={stopTreeItemEvent}
-              >
-                <HugeiconsIcon icon={MoreHorizontalIcon} />
-              </Button>
-            ) : (
-              <InventoryNodeMenu
-                itemId={vm.id}
-                data={data}
-                canPower={vm.canPower}
-                open={menuOpen}
-                onOpenChange={setMenuOpen}
-                className={rowMenuButtonClassName}
-              />
-            )
-          ) : null}
-        </div>
-      </span>
-      {vm.guideContinues.slice(0, -1).map((continues, guideLevel) =>
-        continues ? (
-          <span
-            key={guideLevel}
-            className="pointer-events-none absolute top-0 -bottom-0.5 w-px bg-foreground/10"
-            style={{
-              left: guideLevel * TREE_INDENT + CHEVRON_CENTER_OFFSET,
-            }}
-          />
-        ) : null
-      )}
-      {vm.level > 0 ? (
-        <svg
-          className="pointer-events-none absolute top-0 text-foreground/10"
-          style={{
-            left: (vm.level - 1) * TREE_INDENT + CHEVRON_CENTER_OFFSET,
-          }}
-          width={tickWidth}
-          height={
-            vm.guideContinues[vm.level - 1]
-              ? INVENTORY_TREE_ROW_HEIGHT
-              : ROW_MIDPOINT
-          }
-        >
-          <path
-            fill="currentColor"
-            d={
-              vm.guideContinues[vm.level - 1]
-                ? buildJunctionConnectorPath(tickWidth, cornerRadius)
-                : buildElbowConnectorPath(tickWidth, cornerRadius)
-            }
-          />
-        </svg>
-      ) : null}
-      {vm.isFolder && vm.isExpanded && vm.hasChildren ? (
-        <span
-          className="pointer-events-none absolute -bottom-0.5 w-px bg-foreground/10"
-          style={{
-            left: vm.level * TREE_INDENT + CHEVRON_CENTER_OFFSET,
-            top: CHEVRON_CENTER_OFFSET + CHEVRON_GUIDE_INSET,
-          }}
-        />
-      ) : null}
+      <InventoryTreeRowContent
+        data={data}
+        isMenuMounted={isMenuMounted}
+        item={item}
+        menuOpen={menuOpen}
+        onMenuOpenChange={setMenuOpen}
+        onMountMenu={() => {
+          setIsMenuMounted(true)
+          setMenuOpen(true)
+        }}
+        onToggleFavorite={onToggleFavorite}
+        vm={vm}
+      />
+      <InventoryTreeRowGuides
+        cornerRadius={cornerRadius}
+        tickWidth={tickWidth}
+        vm={vm}
+      />
     </div>
   )
 })

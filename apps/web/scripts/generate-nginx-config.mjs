@@ -40,13 +40,14 @@ if (missingAssets.length > 0) {
   )
 }
 
-const inlineScripts = [
-  ...shell.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script>/gi),
-]
-  .filter(([, attributes, script]) => {
-    return !/\bsrc\s*=/i.test(attributes) && script.length > 0
-  })
-  .map(([, , script]) => script)
+const inlineScripts = []
+for (const [, attributes, script] of shell.matchAll(
+  /<script\b([^>]*)>([\s\S]*?)<\/script>/gi
+)) {
+  if (!/\bsrc\s*=/i.test(attributes) && script.length > 0) {
+    inlineScripts.push(script)
+  }
+}
 
 if (inlineScripts.length === 0) {
   throw new Error(`No inline scripts found in ${shellPath}`)

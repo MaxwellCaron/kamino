@@ -26,6 +26,104 @@ type StorageOption = {
   storage: string
 }
 
+function canLoadHardware(open: boolean, node: string, vmid: number) {
+  return open && node !== "" && vmid > 0
+}
+
+function getHardwareLoadState({
+  hardwareError,
+  isHardwareError,
+  isHardwareLoading,
+  isItemLoading,
+  isNetworksLoading,
+  isStoragesLoading,
+  itemError,
+  networksError,
+  storagesError,
+}: {
+  hardwareError: unknown
+  isHardwareError: boolean
+  isHardwareLoading: boolean
+  isItemLoading: boolean
+  isNetworksLoading: boolean
+  isStoragesLoading: boolean
+  itemError: unknown
+  networksError: unknown
+  storagesError: unknown
+}) {
+  return {
+    error: itemError ?? hardwareError ?? storagesError ?? networksError,
+    isError:
+      !!itemError || isHardwareError || !!storagesError || !!networksError,
+    isLoading:
+      isItemLoading ||
+      isHardwareLoading ||
+      isStoragesLoading ||
+      isNetworksLoading,
+  }
+}
+
+function HardwareDialogBody({
+  bridgeOptions,
+  hardware,
+  isLoadError,
+  isLoading,
+  itemId,
+  loadError,
+  networkOptions,
+  onOpenChange,
+  scopedNetwork,
+  storageOptions,
+  vmid,
+  vmName,
+  vnetOptions,
+}: {
+  bridgeOptions: Parameters<typeof VmHardwareDialogForm>[0]["bridgeOptions"]
+  hardware: Parameters<typeof VmHardwareDialogForm>[0]["hardware"] | undefined
+  isLoadError: boolean
+  isLoading: boolean
+  itemId: string
+  loadError: unknown
+  networkOptions: Parameters<typeof VmHardwareDialogForm>[0]["networkOptions"]
+  onOpenChange: (open: boolean) => void
+  scopedNetwork: Parameters<typeof VmHardwareDialogForm>[0]["scopedNetwork"]
+  storageOptions: Array<StorageOption>
+  vmid: number
+  vmName: string
+  vnetOptions: Parameters<typeof VmHardwareDialogForm>[0]["vnetOptions"]
+}) {
+  if (isLoadError) {
+    return (
+      <InlineErrorAlert
+        error={loadError}
+        fallback="Failed to load VM hardware."
+      />
+    )
+  }
+
+  if (hardware) {
+    return (
+      <VmHardwareDialogForm
+        key={itemId}
+        itemId={itemId}
+        vmName={vmName}
+        vmid={vmid}
+        hardware={hardware}
+        bridgeOptions={bridgeOptions}
+        vnetOptions={vnetOptions}
+        networkOptions={networkOptions}
+        storageOptions={storageOptions}
+        onOpenChange={onOpenChange}
+        scopedNetwork={scopedNetwork}
+      />
+    )
+  }
+
+  return isLoading ? null : (
+    <InlineErrorAlert fallback="Failed to load VM hardware." />
+  )
+}
+
 export function VmHardwareDialog({
   itemId,
   vmName,
@@ -43,7 +141,7 @@ export function VmHardwareDialog({
   })
   const node = item?.vm?.node ?? ""
   const vmid = item?.vm?.vmid ?? 0
-  const isDialogOpen = open && node !== "" && vmid > 0
+  const isDialogOpen = canLoadHardware(open, node, vmid)
   const {
     data: hardware,
     error: hardwareError,
@@ -73,11 +171,21 @@ export function VmHardwareDialog({
   const { bridgeOptions, vnetOptions, networkOptions } =
     buildVmHardwareNetworkOptions(networks ?? {})
   const storageOptions = (storages ?? []) as Array<StorageOption>
-  const loadError = itemError ?? hardwareError ?? storagesError ?? networksError
-  const isLoadError =
-    !!itemError || isHardwareError || !!storagesError || !!networksError
-  const isLoadingHardware =
-    isItemLoading || isHardwareLoading || isStoragesLoading || isNetworksLoading
+  const {
+    error: loadError,
+    isError: isLoadError,
+    isLoading: isLoadingHardware,
+  } = getHardwareLoadState({
+    hardwareError,
+    isHardwareError,
+    isHardwareLoading,
+    isItemLoading,
+    isNetworksLoading,
+    isStoragesLoading,
+    itemError,
+    networksError,
+    storagesError,
+  })
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -91,29 +199,25 @@ export function VmHardwareDialog({
         )}.`}
       >
         <div className="min-h-[40vh]">
-          <PreloadOverlay active={isLoadingHardware} label="Loading VM hardware" />
-          {isLoadError ? (
-            <InlineErrorAlert
-              error={loadError}
-              fallback="Failed to load VM hardware."
-            />
-          ) : hardware ? (
-            <VmHardwareDialogForm
-              key={itemId}
-              itemId={itemId}
-              vmName={vmName}
-              vmid={initialVmid ?? vmid}
-              hardware={hardware}
-              bridgeOptions={bridgeOptions}
-              vnetOptions={vnetOptions}
-              networkOptions={networkOptions}
-              storageOptions={storageOptions}
-              onOpenChange={onOpenChange}
-              scopedNetwork={networks?.scoped_network}
-            />
-          ) : !isLoadingHardware ? (
-            <InlineErrorAlert fallback="Failed to load VM hardware." />
-          ) : null}
+          <PreloadOverlay
+            active={isLoadingHardware}
+            label="Loading VM hardware"
+          />
+          <HardwareDialogBody
+            bridgeOptions={bridgeOptions}
+            hardware={hardware}
+            isLoadError={isLoadError}
+            isLoading={isLoadingHardware}
+            itemId={itemId}
+            loadError={loadError}
+            networkOptions={networkOptions}
+            onOpenChange={onOpenChange}
+            scopedNetwork={networks?.scoped_network}
+            storageOptions={storageOptions}
+            vmid={initialVmid ?? vmid}
+            vmName={vmName}
+            vnetOptions={vnetOptions}
+          />
         </div>
       </AppDialogContent>
     </Dialog>

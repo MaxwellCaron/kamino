@@ -38,6 +38,74 @@ export type SnapshotTablePermissions = {
   canRequest: boolean
 }
 
+function SnapshotDialogs({
+  confirm,
+  guestType,
+  itemId,
+  onCloseConfirm,
+  onCloseRollbackRequest,
+  onSnapshotOpenChange,
+  permissions,
+  requestRollbackSnapshot,
+  snapshotOpen,
+  submitRollbackRequest,
+  vmid,
+  vmName,
+  vmReference,
+}: {
+  confirm: ConfirmConfig | null
+  guestType?: "qemu" | "lxc"
+  itemId: string
+  onCloseConfirm: () => void
+  onCloseRollbackRequest: () => void
+  onSnapshotOpenChange: (open: boolean) => void
+  permissions: SnapshotTablePermissions
+  requestRollbackSnapshot: string | null
+  snapshotOpen: boolean
+  submitRollbackRequest: ReturnType<
+    typeof useSubmitInventorySnapshotRollbackRequest
+  >
+  vmid: number | null
+  vmName?: string
+  vmReference: string
+}) {
+  const canCreateSnapshot = permissions.canManage || permissions.canRequest
+
+  return (
+    <>
+      <ConfirmDialog config={confirm} onClose={onCloseConfirm} />
+      <SnapshotRequestRollbackDialog
+        open={requestRollbackSnapshot !== null}
+        snapshotName={requestRollbackSnapshot}
+        vmReference={vmReference}
+        itemId={itemId}
+        submitRollbackRequest={submitRollbackRequest}
+        onClose={onCloseRollbackRequest}
+        toastSubmitRollbackRequest={toastSubmitRollbackRequest}
+      />
+      {canCreateSnapshot && itemId && vmid != null ? (
+        <SnapshotDialog
+          itemId={itemId}
+          vmid={vmid}
+          vmName={vmName}
+          guestType={guestType}
+          mode={permissions.canManage ? "direct" : "request"}
+          open={snapshotOpen}
+          onOpenChange={onSnapshotOpenChange}
+        />
+      ) : null}
+    </>
+  )
+}
+
+function getSnapshotsDescription(permissions: SnapshotTablePermissions) {
+  if (permissions.canManage) return "Point in time snapshots of the VM."
+  if (permissions.canRequest) {
+    return "Browse snapshots and submit rollback requests."
+  }
+  return "Browse point in time snapshots of the VM."
+}
+
 export function SnapshotsTable({
   itemId,
   vmid,
@@ -108,11 +176,7 @@ export function SnapshotsTable({
           Snapshots
         </CardTitle>
         <CardDescription>
-          {permissions.canManage
-            ? "Point in time snapshots of the VM."
-            : permissions.canRequest
-              ? "Browse snapshots and submit rollback requests."
-              : "Browse point in time snapshots of the VM."}
+          {getSnapshotsDescription(permissions)}
         </CardDescription>
         {(permissions.canManage || permissions.canRequest) && (
           <CardAction>
@@ -138,29 +202,21 @@ export function SnapshotsTable({
       <CardFooter className="justify-end text-muted-foreground">
         {filtered.length} result{filtered.length !== 1 && "s"}
       </CardFooter>
-      <ConfirmDialog config={confirm} onClose={() => setConfirm(null)} />
-      <SnapshotRequestRollbackDialog
-        open={requestRollbackSnapshot !== null}
-        snapshotName={requestRollbackSnapshot}
-        vmReference={vmReference}
+      <SnapshotDialogs
+        confirm={confirm}
+        guestType={guestType}
         itemId={itemId}
+        onCloseConfirm={() => setConfirm(null)}
+        onCloseRollbackRequest={closeRequestRollbackDialog}
+        onSnapshotOpenChange={setSnapshotOpen}
+        permissions={permissions}
+        requestRollbackSnapshot={requestRollbackSnapshot}
+        snapshotOpen={snapshotOpen}
         submitRollbackRequest={submitRollbackRequest}
-        onClose={closeRequestRollbackDialog}
-        toastSubmitRollbackRequest={toastSubmitRollbackRequest}
+        vmid={vmid}
+        vmName={vmName}
+        vmReference={vmReference}
       />
-      {(permissions.canManage || permissions.canRequest) &&
-        itemId &&
-        vmid != null && (
-          <SnapshotDialog
-            itemId={itemId}
-            vmid={vmid}
-            vmName={vmName}
-            guestType={guestType}
-            mode={permissions.canManage ? "direct" : "request"}
-            open={snapshotOpen}
-            onOpenChange={setSnapshotOpen}
-          />
-        )}
     </Card>
   )
 }

@@ -82,6 +82,175 @@ type Session = {
 
 const VNC_IDLE_TIMEOUT_MS = 30 * 60 * 1000
 
+function getDisconnectedConsoleCopy(isRunning: boolean, isExpired: boolean) {
+  if (!isRunning) {
+    return {
+      description: "The VM must be running to open a console.",
+      icon: PowerIcon,
+      title: "VM Not Running",
+    }
+  }
+
+  if (isExpired) {
+    return {
+      description:
+        "This console was closed after 30 minutes away. Connect to start a new session.",
+      icon: Clock01Icon,
+      title: "Session Expired",
+    }
+  }
+
+  return {
+    description: "Connect to start an in-app console session.",
+    icon: ConnectIcon,
+    title: "Not Connected",
+  }
+}
+
+function DisconnectedConsoleState({
+  isRunning,
+  isExpired,
+  itemId,
+  onConnect,
+  onDownloadSpiceConfig,
+  showSpiceDownload,
+  spiceDownloadInFlight,
+  status,
+}: {
+  isRunning: boolean
+  isExpired: boolean
+  itemId: string
+  onConnect: () => void
+  onDownloadSpiceConfig: () => void
+  showSpiceDownload: boolean
+  spiceDownloadInFlight: boolean
+  status: VncConnectionStatus
+}) {
+  const copy = getDisconnectedConsoleCopy(isRunning, isExpired)
+
+  return (
+    <Empty className="w-full max-w-md">
+      <EmptyHeader>
+        <EmptyMedia variant="icon">
+          <HugeiconsIcon icon={copy.icon} className="text-muted-foreground" />
+        </EmptyMedia>
+        <EmptyTitle>{copy.title}</EmptyTitle>
+        <EmptyDescription>{copy.description}</EmptyDescription>
+      </EmptyHeader>
+      <EmptyContent className="flex flex-row flex-wrap justify-center gap-2">
+        <AppActionButton
+          onClick={onConnect}
+          disabled={!isRunning || !itemId}
+          pending={status === "connecting"}
+          pendingLabel="Connecting..."
+        >
+          Connect
+        </AppActionButton>
+        {showSpiceDownload ? (
+          <AppActionButton
+            variant="outline"
+            onClick={onDownloadSpiceConfig}
+            disabled={!isRunning || !itemId || spiceDownloadInFlight}
+          >
+            <HugeiconsIcon icon={Download01Icon} data-icon="inline-start" />
+            Download SPICE config
+          </AppActionButton>
+        ) : null}
+      </EmptyContent>
+    </Empty>
+  )
+}
+
+function VncScreenSession({
+  onConnect,
+  onDisconnect,
+  onSecurityFailure,
+  session,
+  vncRef,
+}: {
+  onConnect: (sessionId: string) => void
+  onDisconnect: (sessionId: string) => void
+  onSecurityFailure: (sessionId: string) => void
+  session: Session | null
+  vncRef: React.RefObject<VncScreenClientHandle | null>
+}) {
+  if (!session) return null
+
+  return (
+    <Suspense fallback={null}>
+      <LazyVncScreen
+        key={session.sessionId}
+        ref={vncRef}
+        url={session.url}
+        password={session.password}
+        onConnect={() => onConnect(session.sessionId)}
+        onDisconnect={() => onDisconnect(session.sessionId)}
+        onSecurityFailure={() => onSecurityFailure(session.sessionId)}
+        style={{
+          width: "100%",
+          height: "100%",
+          position: "absolute",
+          inset: 0,
+        }}
+      />
+    </Suspense>
+  )
+}
+
+function VncConsoleContent({
+  handleConnect,
+  handleDisconnect,
+  handleSecurityFailure,
+  isExpired,
+  isRunning,
+  itemId,
+  onConnect,
+  onDownloadSpiceConfig,
+  session,
+  showSpiceDownload,
+  spiceDownloadInFlight,
+  status,
+  vncRef,
+}: {
+  handleConnect: (sessionId: string) => void
+  handleDisconnect: (sessionId: string) => void
+  handleSecurityFailure: (sessionId: string) => void
+  isExpired: boolean
+  isRunning: boolean
+  itemId: string
+  onConnect: () => void
+  onDownloadSpiceConfig: () => void
+  session: Session | null
+  showSpiceDownload: boolean
+  spiceDownloadInFlight: boolean
+  status: VncConnectionStatus
+  vncRef: React.RefObject<VncScreenClientHandle | null>
+}) {
+  return (
+    <CardContent className="relative flex h-[83vh] items-center justify-center bg-muted/50">
+      {status !== "connected" ? (
+        <DisconnectedConsoleState
+          isRunning={isRunning}
+          isExpired={isExpired}
+          itemId={itemId}
+          onConnect={onConnect}
+          onDownloadSpiceConfig={onDownloadSpiceConfig}
+          showSpiceDownload={showSpiceDownload}
+          spiceDownloadInFlight={spiceDownloadInFlight}
+          status={status}
+        />
+      ) : null}
+      <VncScreenSession
+        onConnect={handleConnect}
+        onDisconnect={handleDisconnect}
+        onSecurityFailure={handleSecurityFailure}
+        session={session}
+        vncRef={vncRef}
+      />
+    </CardContent>
+  )
+}
+
 export function VncConsole({
   itemId,
   guestType,
@@ -282,90 +451,21 @@ export function VncConsole({
           />
         </CardAction>
       </CardHeader>
-
-      <CardContent className="relative flex h-[83vh] items-center justify-center bg-muted/50">
-        {status !== "connected" && (
-          <Empty className="w-full max-w-md">
-            <EmptyHeader>
-              <EmptyMedia variant="icon">
-                {!isRunning ? (
-                  <HugeiconsIcon
-                    icon={PowerIcon}
-                    className="text-muted-foreground"
-                  />
-                ) : isExpired ? (
-                  <HugeiconsIcon
-                    icon={Clock01Icon}
-                    className="text-muted-foreground"
-                  />
-                ) : (
-                  <HugeiconsIcon
-                    icon={ConnectIcon}
-                    className="text-muted-foreground"
-                  />
-                )}
-              </EmptyMedia>
-              <EmptyTitle>
-                {!isRunning
-                  ? "VM Not Running"
-                  : isExpired
-                    ? "Session Expired"
-                    : "Not Connected"}
-              </EmptyTitle>
-              <EmptyDescription>
-                {!isRunning
-                  ? "The VM must be running to open a console."
-                  : isExpired
-                    ? "This console was closed after 30 minutes away. Connect to start a new session."
-                    : "Connect to start an in-app console session."}
-              </EmptyDescription>
-            </EmptyHeader>
-            <EmptyContent className="flex flex-row flex-wrap justify-center gap-2">
-              <AppActionButton
-                onClick={startConnection}
-                disabled={!isRunning || !itemId}
-                pending={status === "connecting"}
-                pendingLabel="Connecting..."
-              >
-                Connect
-              </AppActionButton>
-              {showSpiceDownload && (
-                <AppActionButton
-                  variant="outline"
-                  onClick={handleDownloadSpiceConfig}
-                  disabled={!isRunning || !itemId || spiceDownloadInFlight}
-                >
-                  <HugeiconsIcon
-                    icon={Download01Icon}
-                    data-icon="inline-start"
-                  />
-                  Download SPICE config
-                </AppActionButton>
-              )}
-            </EmptyContent>
-          </Empty>
-        )}
-
-        {session && (
-          <Suspense fallback={null}>
-            <LazyVncScreen
-              key={session.sessionId}
-              ref={vncRef}
-              url={session.url}
-              password={session.password}
-              onConnect={() => handleConnect(session.sessionId)}
-              onDisconnect={() => handleDisconnect(session.sessionId)}
-              onSecurityFailure={() => handleSecurityFailure(session.sessionId)}
-              style={{
-                width: "100%",
-                height: "100%",
-                position: "absolute",
-                inset: 0,
-              }}
-            />
-          </Suspense>
-        )}
-      </CardContent>
+      <VncConsoleContent
+        handleConnect={handleConnect}
+        handleDisconnect={handleDisconnect}
+        handleSecurityFailure={handleSecurityFailure}
+        isExpired={isExpired}
+        isRunning={isRunning}
+        itemId={itemId}
+        onConnect={startConnection}
+        onDownloadSpiceConfig={handleDownloadSpiceConfig}
+        session={session}
+        showSpiceDownload={showSpiceDownload}
+        spiceDownloadInFlight={spiceDownloadInFlight}
+        status={status}
+        vncRef={vncRef}
+      />
     </Card>
   )
 }

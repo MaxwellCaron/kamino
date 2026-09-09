@@ -1,14 +1,6 @@
 import React from "react"
-import { HugeiconsIcon } from "@hugeicons/react"
 import { Search01Icon, Settings01Icon } from "@hugeicons/core-free-icons"
 import { Dialog, DialogFooter } from "@workspace/ui/components/dialog"
-import {
-  Empty,
-  EmptyDescription,
-  EmptyHeader,
-  EmptyMedia,
-  EmptyTitle,
-} from "@workspace/ui/components/empty"
 import { PermissionScopeSection } from "./permission-scope-section"
 import type { InventoryPermissionSection } from "../../utils/inventory-permissions"
 import type {
@@ -16,6 +8,7 @@ import type {
   PermissionState,
 } from "../../types/inventory-types"
 import { SearchInputGroup } from "@/components/forms/search-input-group"
+import { AppEmptyState } from "@/components/feedback/app-empty-state"
 import {
   AppDialogContent,
   AppDialogPrimaryButton,
@@ -109,20 +102,12 @@ export function CustomizePermissionsDialog({
               />
             ) : (
               <div className="px-4">
-                <Empty className="border">
-                  <EmptyHeader>
-                    <EmptyMedia variant="icon">
-                      <HugeiconsIcon
-                        icon={Search01Icon}
-                        className="text-muted-foreground"
-                      />
-                    </EmptyMedia>
-                    <EmptyTitle>No Matching Permissions</EmptyTitle>
-                    <EmptyDescription>
-                      No permissions match your search.
-                    </EmptyDescription>
-                  </EmptyHeader>
-                </Empty>
+                <AppEmptyState
+                  className="border"
+                  icon={Search01Icon}
+                  title="No Matching Permissions"
+                  description="No permissions match your search."
+                />
               </div>
             )
           ) : null}

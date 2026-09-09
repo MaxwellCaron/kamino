@@ -20,7 +20,10 @@ import {
   CardHeader,
   CardTitle,
 } from "@workspace/ui/components/card"
-import type { ApiPrincipal } from "@/features/principals/types/principals-types"
+import type {
+  ApiPrincipal,
+  ApiPrincipalProviderCapabilities,
+} from "@/features/principals/types/principals-types"
 import type { ConfirmConfig } from "@/components/dialogs/confirm-dialog"
 import { ConfirmDialog } from "@/components/dialogs/confirm-dialog"
 import { formatPrincipalReference } from "@/components/principals/principal-label"
@@ -45,6 +48,205 @@ import { useItemDialogState } from "@/features/shared/hooks/use-item-dialog-stat
 
 const usersRouteApi = getRouteApi("/_dashboard/admin/principals/users")
 
+type UserDialogState = ReturnType<typeof useItemDialogState<ApiPrincipal>>
+type UserBulkDialogData = {
+  clearSelection: () => void
+  mode: "add" | "remove"
+  users: Array<ApiPrincipal>
+}
+type UserBulkDialogState = ReturnType<
+  typeof useItemDialogState<UserBulkDialogData>
+>
+
+function UsersPageContent({
+  canAdminister,
+  columns,
+  error,
+  isLoading,
+  onCreate,
+  onOpenBulkGroupDialog,
+  onOpenConfirm,
+  onSync,
+  providerCapabilities,
+  showDeleteToast,
+  showEnabledToast,
+  syncPending,
+  users,
+}: {
+  canAdminister: boolean
+  columns: ReturnType<typeof getUserColumns>
+  error: Error | null
+  isLoading: boolean
+  onCreate: () => void
+  onOpenBulkGroupDialog: (data: UserBulkDialogData) => void
+  onOpenConfirm: (config: ConfirmConfig) => void
+  onSync: () => void
+  providerCapabilities: ApiPrincipalProviderCapabilities | undefined
+  showDeleteToast: (
+    users: Array<ApiPrincipal>,
+    onAllSucceeded?: () => void
+  ) => void
+  showEnabledToast: (
+    users: Array<ApiPrincipal>,
+    action: "enable" | "disable",
+    onAllSucceeded?: () => void
+  ) => void
+  syncPending: boolean
+  users: Array<ApiPrincipal> | undefined
+}) {
+  if (isLoading) return null
+
+  const userCountLabel = error ? "!" : String(users?.length ?? 0)
+
+  return (
+    <div className="flex flex-col gap-4 px-4 py-4 md:gap-6 md:py-6 lg:px-6">
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <HugeiconsIcon
+              icon={UserIcon}
+              className="size-7 text-muted-foreground"
+            />
+            <h1 className="scroll-m-20 text-center text-4xl font-extrabold tracking-tight text-balance">
+              Users
+            </h1>
+            <Badge variant="outline" className="tabular-nums">
+              {userCountLabel}
+            </Badge>
+          </CardTitle>
+          <CardDescription>
+            List of users from your principal provider.
+          </CardDescription>
+          <CardAction className="flex items-center gap-2">
+            {canAdminister && providerCapabilities?.can_sync ? (
+              <AppActionButton
+                variant="outline"
+                onClick={() =>
+                  onOpenConfirm({
+                    title: "Sync Principals",
+                    icon: ReloadIcon,
+                    description:
+                      "Kamino will reconcile users, groups, and memberships with the configured principal provider. Principals no longer returned by the provider will be removed from Kamino.",
+                    actionLabel: "Sync",
+                    variant: "default",
+                    onConfirm: onSync,
+                  })
+                }
+                disabled={error !== null}
+                pending={syncPending}
+              >
+                <HugeiconsIcon icon={ReloadIcon} data-icon="inline-start" />
+                <span className="hidden lg:block">Sync</span>
+              </AppActionButton>
+            ) : null}
+            {canAdminister && providerCapabilities?.can_create_users ? (
+              <Button onClick={onCreate} disabled={error !== null}>
+                <HugeiconsIcon icon={Add01Icon} data-icon="inline-start" />
+                <span className="hidden lg:block">Create</span>
+              </Button>
+            ) : null}
+          </CardAction>
+        </CardHeader>
+        <CardContent className="px-0">
+          <DataTable
+            columns={columns}
+            data={users || []}
+            features={{ loading: isLoading, sorting: true }}
+            initialSorting={[{ id: "created_at", desc: true }]}
+            error={error}
+            searchLabel="Search users"
+            getRowId={(tableUser: ApiPrincipal) => tableUser.id}
+            selectionActions={
+              canAdminister
+                ? ({ clearSelection, selectedRows }) => (
+                    <UsersSelectionActions
+                      clearSelection={clearSelection}
+                      selectedRows={selectedRows}
+                      onAddToGroup={onOpenBulkGroupDialog}
+                      onEnableUsers={(selectedUsers) =>
+                        showEnabledToast(selectedUsers, "enable")
+                      }
+                      onDisableUsers={(selectedUsers, clear) =>
+                        showEnabledToast(selectedUsers, "disable", clear)
+                      }
+                      onDeleteUsers={showDeleteToast}
+                      onConfirm={onOpenConfirm}
+                    />
+                  )
+                : undefined
+            }
+          />
+        </CardContent>
+      </Card>
+    </div>
+  )
+}
+
+function UsersPageDialogs({
+  bulkGroupDialog,
+  canAdminister,
+  confirm,
+  createOpen,
+  editDialog,
+  membershipDialog,
+  onConfirmClose,
+  onCreateOpenChange,
+  providerCapabilities,
+}: {
+  bulkGroupDialog: UserBulkDialogState
+  canAdminister: boolean
+  confirm: ConfirmConfig | null
+  createOpen: boolean
+  editDialog: UserDialogState
+  membershipDialog: UserDialogState
+  onConfirmClose: () => void
+  onCreateOpenChange: (open: boolean) => void
+  providerCapabilities: ApiPrincipalProviderCapabilities | undefined
+}) {
+  return (
+    <>
+      {canAdminister && createOpen ? (
+        <UserDialog
+          capabilities={providerCapabilities}
+          open={createOpen}
+          onOpenChange={onCreateOpenChange}
+        />
+      ) : null}
+      {canAdminister && editDialog.data ? (
+        <UserDialog
+          key={`edit-${editDialog.dialogKey}`}
+          capabilities={providerCapabilities}
+          user={editDialog.data}
+          open={editDialog.open}
+          onOpenChange={editDialog.onOpenChange}
+        />
+      ) : null}
+      {canAdminister && membershipDialog.data ? (
+        <MembershipDialog
+          key={`members-${membershipDialog.dialogKey}`}
+          mode="user-groups"
+          principal={membershipDialog.data}
+          open={membershipDialog.open}
+          onOpenChange={membershipDialog.onOpenChange}
+        />
+      ) : null}
+      {canAdminister && bulkGroupDialog.data ? (
+        <UserGroupBulkDialog
+          key={`bulk-${bulkGroupDialog.dialogKey}`}
+          clearSelection={bulkGroupDialog.data.clearSelection}
+          mode={bulkGroupDialog.data.mode}
+          onOpenChange={bulkGroupDialog.onOpenChange}
+          open={bulkGroupDialog.open}
+          users={bulkGroupDialog.data.users}
+        />
+      ) : null}
+      {confirm ? (
+        <ConfirmDialog config={confirm} onClose={onConfirmClose} />
+      ) : null}
+    </>
+  )
+}
+
 export function UsersPage() {
   const { user } = usersRouteApi.useRouteContext()
   const canAdminister = hasManagementPermission(
@@ -66,14 +268,9 @@ export function UsersPage() {
     }
   )
   const isLoading = isUsersLoading || isProviderLoading
-  const userCountLabel = error ? "!" : String(users?.length ?? 0)
   const [createOpen, setCreateOpen] = useState(false)
   const editDialog = useItemDialogState<ApiPrincipal>()
-  const bulkGroupDialog = useItemDialogState<{
-    clearSelection: () => void
-    mode: "add" | "remove"
-    users: Array<ApiPrincipal>
-  }>()
+  const bulkGroupDialog = useItemDialogState<UserBulkDialogData>()
   const [confirm, setConfirm] = useState<ConfirmConfig | null>(null)
   const membershipDialog = useItemDialogState<ApiPrincipal>()
   const { syncMutation, showSyncToast, showDeleteToast, showEnabledToast } =
@@ -131,141 +328,32 @@ export function UsersPage() {
 
   return (
     <div className="@container/main relative flex flex-1 flex-col gap-2">
-      {!isLoading && (
-        <div className="flex flex-col gap-4 px-4 py-4 md:gap-6 md:py-6 lg:px-6">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <HugeiconsIcon
-                  icon={UserIcon}
-                  className="size-7 text-muted-foreground"
-                />
-                <h1 className="scroll-m-20 text-center text-4xl font-extrabold tracking-tight text-balance">
-                  Users
-                </h1>
-                <Badge variant="outline" className="tabular-nums">
-                  {userCountLabel}
-                </Badge>
-              </CardTitle>
-              <CardDescription>
-                List of users from your principal provider.
-              </CardDescription>
-              <CardAction className="flex items-center gap-2">
-                {canAdminister && providerCapabilities?.can_sync ? (
-                  <AppActionButton
-                    variant="outline"
-                    onClick={() =>
-                      setConfirm({
-                        title: "Sync Principals",
-                        icon: ReloadIcon,
-                        description:
-                          "Kamino will reconcile users, groups, and memberships with the configured principal provider. Principals no longer returned by the provider will be removed from Kamino.",
-                        actionLabel: "Sync",
-                        variant: "default",
-                        onConfirm: () => showSyncToast(),
-                      })
-                    }
-                    disabled={error !== null}
-                    pending={syncMutation.isPending}
-                  >
-                    <HugeiconsIcon icon={ReloadIcon} data-icon="inline-start" />
-                    <span className="hidden lg:block">Sync</span>
-                  </AppActionButton>
-                ) : null}
-                {canAdminister && providerCapabilities?.can_create_users ? (
-                  <Button
-                    onClick={() => setCreateOpen(true)}
-                    disabled={error !== null}
-                  >
-                    <HugeiconsIcon icon={Add01Icon} data-icon="inline-start" />
-                    <span className="hidden lg:block">Create</span>
-                  </Button>
-                ) : null}
-              </CardAction>
-            </CardHeader>
-            <CardContent className="px-0">
-              <DataTable
-                columns={columns}
-                data={users || []}
-                features={{ loading: isLoading, sorting: true }}
-                initialSorting={[{ id: "created_at", desc: true }]}
-                error={error}
-                searchLabel="Search users"
-                getRowId={(tableUser: ApiPrincipal) => tableUser.id}
-                selectionActions={
-                  canAdminister
-                    ? ({
-                        clearSelection,
-                        selectedRows,
-                      }: {
-                        clearSelection: () => void
-                        selectedRows: Array<ApiPrincipal>
-                      }) => (
-                        <UsersSelectionActions
-                          clearSelection={clearSelection}
-                          selectedRows={selectedRows}
-                          onAddToGroup={bulkGroupDialog.openWith}
-                          onEnableUsers={(usr) =>
-                            showEnabledToast(usr, "enable")
-                          }
-                          onDisableUsers={(usr, clear) =>
-                            showEnabledToast(usr, "disable", clear)
-                          }
-                          onDeleteUsers={showDeleteToast}
-                          onConfirm={setConfirm}
-                        />
-                      )
-                    : undefined
-                }
-              />
-            </CardContent>
-          </Card>
-        </div>
-      )}
-
-      <>
-        {canAdminister && createOpen ? (
-          <UserDialog
-            capabilities={providerCapabilities}
-            open={createOpen}
-            onOpenChange={setCreateOpen}
-          />
-        ) : null}
-        {canAdminister && editDialog.data ? (
-          <UserDialog
-            key={`edit-${editDialog.dialogKey}`}
-            capabilities={providerCapabilities}
-            user={editDialog.data}
-            open={editDialog.open}
-            onOpenChange={editDialog.onOpenChange}
-          />
-        ) : null}
-
-        {canAdminister && membershipDialog.data ? (
-          <MembershipDialog
-            key={`members-${membershipDialog.dialogKey}`}
-            mode="user-groups"
-            principal={membershipDialog.data}
-            open={membershipDialog.open}
-            onOpenChange={membershipDialog.onOpenChange}
-          />
-        ) : null}
-
-        {canAdminister && bulkGroupDialog.data ? (
-          <UserGroupBulkDialog
-            key={`bulk-${bulkGroupDialog.dialogKey}`}
-            clearSelection={bulkGroupDialog.data.clearSelection}
-            mode={bulkGroupDialog.data.mode}
-            onOpenChange={bulkGroupDialog.onOpenChange}
-            open={bulkGroupDialog.open}
-            users={bulkGroupDialog.data.users}
-          />
-        ) : null}
-
-        {confirm && (
-          <ConfirmDialog config={confirm} onClose={() => setConfirm(null)} />
-        )}
-      </>
+      <UsersPageContent
+        canAdminister={canAdminister}
+        columns={columns}
+        error={error}
+        isLoading={isLoading}
+        onCreate={() => setCreateOpen(true)}
+        onOpenBulkGroupDialog={bulkGroupDialog.openWith}
+        onOpenConfirm={setConfirm}
+        onSync={showSyncToast}
+        providerCapabilities={providerCapabilities}
+        showDeleteToast={showDeleteToast}
+        showEnabledToast={showEnabledToast}
+        syncPending={syncMutation.isPending}
+        users={users}
+      />
+      <UsersPageDialogs
+        bulkGroupDialog={bulkGroupDialog}
+        canAdminister={canAdminister}
+        confirm={confirm}
+        createOpen={createOpen}
+        editDialog={editDialog}
+        membershipDialog={membershipDialog}
+        onConfirmClose={() => setConfirm(null)}
+        onCreateOpenChange={setCreateOpen}
+        providerCapabilities={providerCapabilities}
+      />
     </div>
   )
 }
