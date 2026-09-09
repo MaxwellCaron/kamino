@@ -10,6 +10,66 @@ interface Release {
 
 export const RELEASES: Array<Release> = [
   {
+    date: "Sep 8, 2026",
+    highlight: true,
+    groups: [
+      {
+        tag: "New",
+        tone: "emerald",
+        items: [
+          "Added single and bulk VM migration from the inventory selection bar and VM context menus.",
+          "Added Kubernetes cronjobs for scheduled Proxmox inventory sync and principal sync every 30 minutes.",
+        ],
+      },
+      {
+        tag: "Improved",
+        tone: "indigo",
+        items: [
+          "Added connector lines with rounded corners to the inventory tree.",
+          "Simplified the clone pod dialog and user dashboard cloned pod card; refreshed publish pod stepper visuals.",
+          "Expanded pod creator permissions to grant full access on the source pod folder at creation.",
+          "Track pod clone progress by answered questions instead of completed tasks.",
+          "Prioritize consecutive VLAN tag blocks when bulk cloning pods.",
+          "Show all favorites on the user dashboard in a scrollable card instead of truncating to five entries.",
+          "Improved startup Proxmox inventory import with fewer redundant config round trips.",
+          "Hardened authentication: refresh token reuse detection, session revocation on password change, CSRF headers on refresh and logout, cleanup of expired sessions, and reauthorization of live event streams and VNC sessions.",
+          "Aligned privileged UI routes with API role boundaries and reduced public pod catalog data exposure, concealing task answer outlines from unauthorized viewers.",
+          "Configured login rate limiting to honor Istio proxy client addresses via TRUSTED_PROXY_CIDRS without trusting arbitrary X-Forwarded-For senders.",
+          "Improved loading states for admin usage charts, heatmaps, and route transitions; reduced decorative animations across the app.",
+          "Improved frontend performance with dashboard data prefetching, bounded background rendering, and progressive admin panel loading.",
+          "Improved VNC console performance and server-side connection handling.",
+          "Improved accessibility with labeled hardware and table controls, navigation landmarks, and inventory tree semantics.",
+          "Added automatic retry when pod VM cloning fails because a disk image with the same name already exists.",
+        ],
+      },
+      {
+        tag: "Fixed",
+        tone: "amber",
+        items: [
+          "Fixed personal pod creation failing to save router metadata.",
+          "Fixed network assignment lookup to use the resolved development VM ID.",
+          "Fixed VMID allocation collisions by reserving IDs already tracked in Kamino.",
+          "Fixed site command palette falsely showing no results during load errors.",
+          "Fixed logout button in the user account dropdown not working.",
+          "Fixed route loading overlay appearing unstyled and hashed CSS assets returning HTML 404.",
+          "Fixed mutations that did not invalidate related query caches.",
+          "Fixed principal dialog edits being discarded before save.",
+          "Fixed logout race condition and inconsistent published pod card heights.",
+          "Fixed pod and clone data loading on pod detail pages.",
+          "Fixed double skeleton loaders on admin usage charts.",
+        ],
+      },
+      {
+        tag: "Removed",
+        tone: "rose",
+        items: [
+          "Removed published pod card hover animation on the user dashboard.",
+          "Removed redundant VNC console loading message.",
+        ],
+      },
+    ],
+  },
+  {
     date: "Aug 9, 2026",
     highlight: true,
     groups: [
