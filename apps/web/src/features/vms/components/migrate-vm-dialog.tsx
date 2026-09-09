@@ -140,7 +140,7 @@ export function MigrateVmDialog({
               </Field>
             </FieldGroup>
 
-            <DialogFooter>
+            <DialogFooter className="mt-6">
               <AppDialogPrimaryButton
                 disabled={!targetNode}
                 pending={migrate.isPending}
