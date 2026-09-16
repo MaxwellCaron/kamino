@@ -15,6 +15,51 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 )
 
+func TestNormalizePublishPodTasks(t *testing.T) {
+	t.Run("allows nil tasks", func(t *testing.T) {
+		tasks, reqErr := normalizePublishPodTasks(nil)
+		if reqErr != nil {
+			t.Fatalf("unexpected error: %v", reqErr)
+		}
+		if len(tasks) != 0 {
+			t.Fatalf("tasks = %v, want empty", tasks)
+		}
+	})
+
+	t.Run("allows an empty task list", func(t *testing.T) {
+		tasks, reqErr := normalizePublishPodTasks([]publishPodTaskRequest{})
+		if reqErr != nil {
+			t.Fatalf("unexpected error: %v", reqErr)
+		}
+		if len(tasks) != 0 {
+			t.Fatalf("tasks = %v, want empty", tasks)
+		}
+	})
+
+	t.Run("still validates configured tasks", func(t *testing.T) {
+		_, reqErr := normalizePublishPodTasks([]publishPodTaskRequest{{
+			Title:   " ",
+			Content: "Instructions",
+		}})
+		if reqErr == nil {
+			t.Fatal("expected validation error")
+		}
+		if reqErr.UserMessage != "task title must be between 1 and 64 characters" {
+			t.Fatalf("message = %q", reqErr.UserMessage)
+		}
+	})
+
+	t.Run("retains the task limit", func(t *testing.T) {
+		_, reqErr := normalizePublishPodTasks(make([]publishPodTaskRequest, 21))
+		if reqErr == nil {
+			t.Fatal("expected validation error")
+		}
+		if reqErr.UserMessage != "you can add up to 20 tasks" {
+			t.Fatalf("message = %q", reqErr.UserMessage)
+		}
+	})
+}
+
 func TestPublishedPodDeleteDecision(t *testing.T) {
 	tests := []struct {
 		name        string

@@ -89,7 +89,11 @@ export function PublishPodFormView({
       </StepperContent>
 
       <StepperContent value="preview" className="w-full">
-        <PublishPodPreviewStep form={form} />
+        <PublishPodPreviewStep
+          form={form}
+          podFolders={podFolders}
+          cloneTargets={cloneTargets}
+        />
       </StepperContent>
 
       <PublishPodStepper

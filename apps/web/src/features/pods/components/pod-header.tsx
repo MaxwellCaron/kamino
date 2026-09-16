@@ -44,12 +44,14 @@ function PodHeaderMetaChip({
 export function PodHeader({
   pod,
   clonedPod,
+  actionsDisabled = false,
   onClone,
   onReclone,
   onClonedPodChange,
 }: {
   pod: Pod
   clonedPod?: ClonedPod | null
+  actionsDisabled?: boolean
   onClone?: () => void
   onReclone?: () => void
   onClonedPodChange?: (clonedPod: ClonedPod | null) => void
@@ -87,6 +89,7 @@ export function PodHeader({
                 <PodHeaderActions
                   podTitle={pod.title}
                   clonedPod={clonedPod}
+                  disabled={actionsDisabled}
                   onReclone={onReclone}
                   onClonedPodChange={onClonedPodChange}
                 />
@@ -130,7 +133,7 @@ export function PodHeader({
                   label="Clones"
                 />
 
-                {questionSummary && (
+                {questionSummary && pod.tasks.length > 0 && (
                   <>
                     <Separator
                       orientation="vertical"

@@ -86,9 +86,11 @@ function PodNetworkDetails({ network }: { network: ClonedPodNetwork }) {
 
 export function PodVms({
   network,
+  readOnly = false,
   vms,
 }: {
   network?: ClonedPodNetwork
+  readOnly?: boolean
   vms: Array<PodVM>
 }) {
   return (
@@ -118,19 +120,22 @@ export function PodVms({
                 <m.div key={vm.id} variants={animateTableRow}>
                   <InventoryVmItem
                     itemId={vm.inventory.itemId}
+                    interactive={!readOnly}
                     name={vm.name}
                     status={vm.status}
                     cpuCount={vm.cpu_count}
                     memoryMb={vm.memory_mb}
                     diskGb={vm.disk_gb}
                     addresses={network ? getPodVmAddresses(vm, network) : []}
-                    openInNewTab
+                    openInNewTab={!readOnly}
                     trailingContent={
-                      <HugeiconsIcon
-                        icon={ExternalLinkIcon}
-                        className="size-4 text-muted-foreground"
-                        aria-hidden="true"
-                      />
+                      readOnly ? null : (
+                        <HugeiconsIcon
+                          icon={ExternalLinkIcon}
+                          className="size-4 text-muted-foreground"
+                          aria-hidden="true"
+                        />
+                      )
                     }
                   />
                 </m.div>

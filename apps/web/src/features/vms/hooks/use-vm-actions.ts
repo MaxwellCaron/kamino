@@ -1,5 +1,5 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query"
-import { useNavigate, useParams } from "@tanstack/react-router"
+import { useNavigate } from "@tanstack/react-router"
 import {
   cloneVM,
   convertToTemplate,
@@ -45,8 +45,6 @@ export function useVmPowerAction() {
 
 export function useDeleteVM() {
   const queryClient = useQueryClient()
-  const navigate = useNavigate()
-  const activeItemId = useParams({ strict: false }).itemId
 
   return useMutation({
     mutationFn: deleteVM,
@@ -62,10 +60,6 @@ export function useDeleteVM() {
         queryKey: vmStatusQueryOptions.queryKey,
       })
       queryClient.invalidateQueries({ queryKey: ["inventory", "item"] })
-
-      if (activeItemId && result.succeeded.includes(activeItemId)) {
-        navigate({ to: "/", replace: true })
-      }
     },
   })
 }

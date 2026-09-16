@@ -22,7 +22,10 @@ import type { ClonedPod } from "@/features/pods/types/pod-types"
 import type { PodCloneAction } from "@/features/pods/utils/pod-clone-actions"
 import type { ConfirmConfig } from "@/components/dialogs/confirm-dialog"
 import { ConfirmDialog } from "@/components/dialogs/confirm-dialog"
-import { showSingleMutationToast, showUnitMutationToast } from "@/components/feedback/mutation-progress-toast"
+import {
+  showSingleMutationToast,
+  showUnitMutationToast,
+} from "@/components/feedback/mutation-progress-toast"
 import {
   deleteClonedPod,
   powerClonedPod,
@@ -70,11 +73,13 @@ const POD_HEADER_DIALOG_CONFIG: Record<
 export function PodHeaderActions({
   podTitle,
   clonedPod,
+  disabled = false,
   onReclone,
   onClonedPodChange,
 }: {
   podTitle: string
   clonedPod: ClonedPod
+  disabled?: boolean
   onReclone?: () => void
   onClonedPodChange?: (clonedPod: ClonedPod | null) => void
 }) {
@@ -96,9 +101,11 @@ export function PodHeaderActions({
     },
   })
   const actionPending = deleteMutation.isPending
+  const controlsDisabled = disabled || actionPending
   const visibleActions = POD_CLONE_POWER_ACTIONS_BY_STATUS[clonedPod.status]
 
   function openAction(action: ConfirmablePodAction) {
+    if (disabled) return
     deleteMutation.reset()
     setActiveAction(() => action)
   }
@@ -108,7 +115,7 @@ export function PodHeaderActions({
   }
 
   function confirmActiveAction() {
-    if (!activeAction) return
+    if (disabled || !activeAction) return
     const actionConfig = POD_CLONE_ACTION_CONFIG[activeAction]
 
     const action = activeAction
@@ -118,7 +125,13 @@ export function PodHeaderActions({
         title: actionConfig.pendingLabel,
         units: [
           {
-            items: [{ id: clonedPod.id, name: podTitle, successDescription: "Deleted" }],
+            items: [
+              {
+                id: clonedPod.id,
+                name: podTitle,
+                successDescription: "Deleted",
+              },
+            ],
             run: async () => {
               await deleteMutation.mutateAsync({ clonedPodId: clonedPod.id })
             },
@@ -171,7 +184,7 @@ export function PodHeaderActions({
             <Fragment key={action}>
               <Button
                 variant={ACTION_BUTTON_VARIANT[action]}
-                disabled={actionPending}
+                disabled={controlsDisabled}
                 onClick={() => openAction(action)}
               >
                 <HugeiconsIcon icon={config.icon} data-icon="inline-start" />
@@ -187,7 +200,7 @@ export function PodHeaderActions({
                 variant="secondary"
                 size="icon"
                 aria-label="More pod actions"
-                disabled={actionPending}
+                disabled={controlsDisabled}
               >
                 <HugeiconsIcon icon={ChevronDownIcon} />
               </Button>
@@ -203,9 +216,10 @@ export function PodHeaderActions({
                     <DropdownMenuItem
                       variant="destructive"
                       disabled={
-                        actionPending || (action === "reclone" && !onReclone)
+                        controlsDisabled || (action === "reclone" && !onReclone)
                       }
                       onClick={() => {
+                        if (disabled) return
                         if (action === "reclone") {
                           onReclone?.()
                           return
@@ -233,7 +247,7 @@ export function PodHeaderActions({
         </DropdownMenu>
       </ButtonGroup>
 
-      {confirm && (
+      {confirm && !disabled && (
         <ConfirmDialog config={confirm} onClose={handleActionClose} />
       )}
     </>

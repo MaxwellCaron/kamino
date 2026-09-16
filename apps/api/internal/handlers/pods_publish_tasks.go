@@ -9,9 +9,6 @@ import (
 )
 
 func normalizePublishPodTasks(tasks []publishPodTaskRequest) ([]normalizedPublishPodTask, *requestError) {
-	if len(tasks) < 1 {
-		return nil, invalidPublishPod("add at least one task")
-	}
 	if len(tasks) > 20 {
 		return nil, invalidPublishPod("you can add up to 20 tasks")
 	}

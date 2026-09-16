@@ -65,14 +65,16 @@ export function PodPage({
                 vms={localClonedPod.vms}
               />
             )}
-            <PodTasks
-              tasks={pod.tasks}
-              clonedPodId={localClonedPod?.id}
-              taskStates={localClonedPod?.task_states ?? null}
-              questionAnswers={localClonedPod?.question_answers ?? null}
-              questionsDisabled={isPreview}
-              onClonedPodChange={setClonedPod}
-            />
+            {pod.tasks.length > 0 && (
+              <PodTasks
+                tasks={pod.tasks}
+                clonedPodId={localClonedPod?.id}
+                taskStates={localClonedPod?.task_states ?? null}
+                questionAnswers={localClonedPod?.question_answers ?? null}
+                questionsDisabled={isPreview}
+                onClonedPodChange={setClonedPod}
+              />
+            )}
           </div>
         </div>
 

@@ -1,7 +1,11 @@
 import { describe, expect, it } from "vitest"
-import { publishPodFormSchema } from "./publish-pod-form"
+import {
+  createInitialPublishPodValues,
+  publishPodFormSchema,
+} from "./publish-pod-form"
 
 const imageSchema = publishPodFormSchema.shape.image
+const tasksSchema = publishPodFormSchema.shape.tasks
 
 describe("published pod image URL validation", () => {
   it.each([
@@ -21,5 +25,15 @@ describe("published pod image URL validation", () => {
     "",
   ])("rejects %s", (image) => {
     expect(imageSchema.safeParse(image).success).toBe(false)
+  })
+})
+
+describe("published pod tasks", () => {
+  it("allows a pod without tasks", () => {
+    expect(tasksSchema.safeParse([]).success).toBe(true)
+  })
+
+  it("includes a task by default for new pods", () => {
+    expect(createInitialPublishPodValues().tasks).toHaveLength(1)
   })
 })
