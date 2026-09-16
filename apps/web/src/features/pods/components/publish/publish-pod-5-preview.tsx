@@ -31,16 +31,7 @@ export function PublishPodPreviewStep({ form }: PublishPodPreviewStepProps) {
     <PublishPodStepLayout form={form}>
       <form.Subscribe selector={(state) => state.values.tasks}>
         {(tasks) =>
-          tasks.length === 0 ? (
-            <Empty className="border border-dashed">
-              <EmptyHeader>
-                <EmptyTitle>No tasks</EmptyTitle>
-                <EmptyDescription>
-                  This pod will be published without guided tasks.
-                </EmptyDescription>
-              </EmptyHeader>
-            </Empty>
-          ) : (
+          tasks.length > 0 && (
             <PodTasks
               tasks={maskTaskAnswers(tasks)}
               taskStates={null}
