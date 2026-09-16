@@ -125,6 +125,7 @@ export function useInventoryHeadlessTree({
   setSelectedItemIds,
 }: UseInventoryHeadlessTreeOptions) {
   const scrollToItemHandlerRef = useRef<((itemId: string) => void) | null>(null)
+  const previousItemsRef = useRef(items)
 
   const [expandedItems, setExpandedItems] = useState<Array<string>>(() => {
     if (typeof window === "undefined") return []
@@ -213,7 +214,15 @@ export function useInventoryHeadlessTree({
     getItemName: (item) => item.getItemData().name,
     isItemFolder: (item) => item.getItemData().kind === "folder",
     dataLoader: {
-      getItem: (itemId) => items.get(itemId) ?? VIRTUAL_ROOT,
+      getItem: (itemId) => {
+        const item = items.get(itemId) ?? previousItemsRef.current.get(itemId)
+
+        if (!item) {
+          throw new Error(`Inventory tree item "${itemId}" is unavailable`)
+        }
+
+        return item
+      },
       getChildren: (itemId) => children.get(itemId) ?? [],
     },
     features: [
@@ -258,13 +267,13 @@ export function useInventoryHeadlessTree({
   const childrenKeyRef = useRef("")
   useLayoutEffect(() => {
     const key = JSON.stringify([...children.entries()])
-    if (key === childrenKeyRef.current) {
-      return
+    if (key !== childrenKeyRef.current) {
+      childrenKeyRef.current = key
+      tree.rebuildTree()
     }
 
-    childrenKeyRef.current = key
-    tree.rebuildTree()
-  }, [children, tree])
+    previousItemsRef.current = items
+  }, [children, items, tree])
 
   const appliedDefaultFolderIdsRef = useRef<string | null>(null)
   useLayoutEffect(() => {
