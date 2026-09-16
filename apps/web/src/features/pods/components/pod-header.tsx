@@ -130,7 +130,7 @@ export function PodHeader({
                   label="Clones"
                 />
 
-                {questionSummary && (
+                {questionSummary && pod.tasks.length > 0 && (
                   <>
                     <Separator
                       orientation="vertical"

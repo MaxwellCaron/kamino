@@ -94,7 +94,7 @@ export function PublishPodTasksStep({
                     </span>
                   </CardTitle>
                   <CardDescription>
-                    Add the objectives and questions for this pod.
+                    Add optional objectives and questions for this pod.
                   </CardDescription>
                   <CardAction>
                     <Button
@@ -115,8 +115,7 @@ export function PublishPodTasksStep({
                       <EmptyHeader>
                         <EmptyTitle>No tasks added yet.</EmptyTitle>
                         <EmptyDescription>
-                          Add at least one task to describe what users should
-                          do.
+                          This pod can be published without tasks.
                         </EmptyDescription>
                       </EmptyHeader>
                     </Empty>

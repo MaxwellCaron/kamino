@@ -1,6 +1,15 @@
+import {
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyTitle,
+} from "@workspace/ui/components/empty"
 import { PodTasks } from "../pod-tasks"
 import { PublishPodStepLayout } from "./publish-pod-step-layout"
-import type { PublishPodFormApi, PublishPodFormValues } from "./publish-pod-form"
+import type {
+  PublishPodFormApi,
+  PublishPodFormValues,
+} from "./publish-pod-form"
 import type { PodTask } from "@/features/pods/types/pod-types"
 
 type PublishPodPreviewStepProps = {
@@ -21,14 +30,25 @@ export function PublishPodPreviewStep({ form }: PublishPodPreviewStepProps) {
   return (
     <PublishPodStepLayout form={form}>
       <form.Subscribe selector={(state) => state.values.tasks}>
-        {(tasks) => (
-          <PodTasks
-            tasks={maskTaskAnswers(tasks)}
-            taskStates={null}
-            questionAnswers={null}
-            questionsDisabled={true}
-          />
-        )}
+        {(tasks) =>
+          tasks.length === 0 ? (
+            <Empty className="border border-dashed">
+              <EmptyHeader>
+                <EmptyTitle>No tasks</EmptyTitle>
+                <EmptyDescription>
+                  This pod will be published without guided tasks.
+                </EmptyDescription>
+              </EmptyHeader>
+            </Empty>
+          ) : (
+            <PodTasks
+              tasks={maskTaskAnswers(tasks)}
+              taskStates={null}
+              questionAnswers={null}
+              questionsDisabled={true}
+            />
+          )
+        }
       </form.Subscribe>
     </PublishPodStepLayout>
   )
