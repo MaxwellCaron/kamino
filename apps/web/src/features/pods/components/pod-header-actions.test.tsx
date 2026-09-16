@@ -18,7 +18,12 @@ vi.mock("@/features/pods/api/clone-pod-api", () => ({
 const clonedPod = {
   id: "clone-1",
   pod_id: "pod-1",
-  owner: { id: "user-1", type: "user" as const, label: "Owner", description: "" },
+  owner: {
+    id: "user-1",
+    type: "user" as const,
+    label: "Owner",
+    description: "",
+  },
   cloned_at: "2026-01-01T00:00:00Z",
   status: "stopped" as const,
   network: {
@@ -123,5 +128,30 @@ describe("PodHeaderActions", () => {
 
     await expect(runPodPower()).resolves.toBeUndefined()
     expect(powerClonedPod).toHaveBeenCalledTimes(2)
+  })
+
+  it("disables every pod action in display-only mode", () => {
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <PodHeaderActions
+          podTitle="Lab Pod"
+          clonedPod={{ ...clonedPod, status: "running" }}
+          disabled
+        />
+      </QueryClientProvider>
+    )
+
+    const shutdown = screen.getByRole("button", { name: "Shutdown" })
+    const moreActions = screen.getByRole("button", {
+      name: "More pod actions",
+    })
+
+    expect(shutdown).toBeDisabled()
+    expect(moreActions).toBeDisabled()
+
+    fireEvent.click(shutdown)
+
+    expect(showSingleMutationToast).not.toHaveBeenCalled()
+    expect(powerClonedPod).not.toHaveBeenCalled()
   })
 })
