@@ -132,6 +132,7 @@ export type CreatePodReviewVm = {
 }
 
 type UseCreatePodFormOptions = {
+  defaultValues?: CreatePodFormValues
   onSubmit?: (values: CreatePodFormValues) => Promise<void> | void
 }
 
@@ -219,7 +220,7 @@ function createTemplateConfig(
   }
 }
 
-function createDefaultCreatePodValues(): CreatePodFormValues {
+export function createDefaultCreatePodValues(): CreatePodFormValues {
   return {
     name: "new-pod",
     networkingMode: "lan-router-v1",
@@ -278,8 +279,12 @@ export function toNumberInputValue(value: string) {
   return Number(value)
 }
 
-export function useCreatePodForm({ onSubmit }: UseCreatePodFormOptions = {}) {
-  const defaultValues = useMemo(createDefaultCreatePodValues, [])
+export function useCreatePodForm({
+  defaultValues: providedDefaultValues,
+  onSubmit,
+}: UseCreatePodFormOptions = {}) {
+  const fallbackDefaultValues = useMemo(createDefaultCreatePodValues, [])
+  const defaultValues = providedDefaultValues ?? fallbackDefaultValues
 
   return useForm({
     defaultValues,

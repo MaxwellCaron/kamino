@@ -1,5 +1,6 @@
 import React from "react"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
+import { useSelector } from "@tanstack/react-store"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -9,14 +10,21 @@ import {
 import { HugeiconsIcon } from "@hugeicons/react"
 import { PackageAddIcon } from "@hugeicons/core-free-icons"
 import { CreatePodFormSection } from "./create-pod-form-section"
-import { isPodNetworkingWithRouter, useCreatePodForm } from "./create-pod-form"
+import {
+  createDefaultCreatePodValues,
+  isPodNetworkingWithRouter,
+  useCreatePodForm,
+} from "./create-pod-form"
 import { CreatePodPersonalizeSection } from "./create-pod-1-personalize"
 import { CreatePodNetworkingSection } from "./create-pod-2-networking"
 import { CreatePodVirtualMachinesSection } from "./create-pod-3-virtual-machines"
 import { CreatePodReviewSection } from "./create-pod-4-review"
 import { CreatePodSubmitState } from "./create-pod-creation-state"
 import type { CreatePodFormValues } from "./create-pod-form"
-import type { CreatePodResult } from "@/features/pods/api/create-pod-api"
+import type {
+  CreatePodOptions,
+  CreatePodResult,
+} from "@/features/pods/api/create-pod-api"
 import { uuid } from "@/features/shared/utils/uuid"
 import { AppActionButton } from "@/components/actions/app-action-button"
 import { AppAlertDialogContent } from "@/components/dialogs/app-dialog"
@@ -27,6 +35,7 @@ import {
 } from "@/features/pods/api/create-pod-api"
 import { inventoryTreeQueryOptions } from "@/features/inventory/api/inventory-api"
 import { getPreferredPodCloneTarget } from "@/features/pods/utils/pod-networking"
+import { useUnsavedChangesWarning } from "@/hooks/use-unsaved-changes-warning"
 
 type CreatePodFormState = "form" | "creating" | "success" | "error"
 
@@ -108,6 +117,33 @@ function createPodPageReducer(
   }
 }
 
+function getInitialCreatePodValues(
+  createOptions: CreatePodOptions | undefined
+): CreatePodFormValues {
+  const defaultValues = createDefaultCreatePodValues()
+
+  if (!createOptions) return defaultValues
+  if (!createOptions.router_template_configured) {
+    return { ...defaultValues, networkingMode: "none" }
+  }
+
+  const preferredTarget = getPreferredPodCloneTarget(
+    createOptions.clone_targets,
+    defaultValues.networkingMode
+  )
+  return {
+    ...defaultValues,
+    cloneTargetKey: preferredTarget?.key ?? "",
+  }
+}
+
+function hasUnsavedCreatePodChanges(
+  isDefaultValue: boolean,
+  submitState: CreatePodFormState
+) {
+  return !isDefaultValue && (submitState === "form" || submitState === "error")
+}
+
 export function CreatePodPage() {
   const queryClient = useQueryClient()
   const [state, dispatch] = React.useReducer(
@@ -153,31 +189,20 @@ export function CreatePodPage() {
     },
     [createPodMutation]
   )
-  const form = useCreatePodForm({ onSubmit: handleValidatedSubmit })
+  const initialValues = React.useMemo(
+    () => getInitialCreatePodValues(createOptions),
+    [createOptions]
+  )
+  const form = useCreatePodForm({
+    defaultValues: initialValues,
+    onSubmit: handleValidatedSubmit,
+  })
+  const isDefaultValue = useSelector(
+    form.store,
+    (formState) => formState.isDefaultValue
+  )
   const routerTemplateConfigured =
     createOptions?.router_template_configured ?? true
-
-  React.useEffect(() => {
-    if (!createOptions) return
-
-    if (!createOptions.router_template_configured) {
-      form.setFieldValue("networkingMode", "none")
-      form.setFieldValue("cloneTargetKey", "")
-      return
-    }
-
-    const networkingMode = form.getFieldValue("networkingMode")
-    if (
-      isPodNetworkingWithRouter(networkingMode) &&
-      !form.getFieldValue("cloneTargetKey")
-    ) {
-      const preferredTarget = getPreferredPodCloneTarget(
-        createOptions.clone_targets,
-        networkingMode
-      )
-      form.setFieldValue("cloneTargetKey", preferredTarget?.key ?? "")
-    }
-  }, [createOptions, form])
   const latestSubmittedValues = submittedValuesRef.current
   const hasRouter = isPodNetworkingWithRouter(
     latestSubmittedValues?.networkingMode ?? "none"
@@ -194,6 +219,9 @@ export function CreatePodPage() {
     createProgress?.state === "error"
       ? createProgress.message
       : state.submitErrorMessage
+  useUnsavedChangesWarning(
+    hasUnsavedCreatePodChanges(isDefaultValue, resolvedSubmitState)
+  )
 
   const handleRetry = React.useCallback(() => {
     createPodMutation.reset()

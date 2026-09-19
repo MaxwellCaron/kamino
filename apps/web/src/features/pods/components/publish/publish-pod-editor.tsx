@@ -1,6 +1,5 @@
 import * as React from "react"
 import { useQuery } from "@tanstack/react-query"
-import { useBlocker } from "@tanstack/react-router"
 import { useSelector } from "@tanstack/react-store"
 import {
   createInitialPublishPodValues,
@@ -25,6 +24,7 @@ import {
   groupsQueryOptions,
   usersQueryOptions,
 } from "@/features/principals/api/principals-api"
+import { useUnsavedChangesWarning } from "@/hooks/use-unsaved-changes-warning"
 
 type PublishPodPendingStatus = Extract<
   PublishPodSubmitStatus,
@@ -46,9 +46,6 @@ type PublishPodSubmission = {
   progressId: string
   values: PublishPodFormValues
 }
-
-const unsavedChangesMessage =
-  "Are you sure you want to leave this page? Your changes will be lost."
 
 type PublishPodEditorProps = {
   initialValues?: PublishPodFormValues
@@ -202,17 +199,7 @@ export function PublishPodEditor({
   const hasUnsavedChanges =
     !isDefaultValue &&
     (resolvedSubmitState === "form" || resolvedSubmitState === "error")
-  const shouldBlockNavigation = React.useCallback(() => {
-    if (!hasUnsavedChanges) return false
-
-    return !window.confirm(unsavedChangesMessage)
-  }, [hasUnsavedChanges])
-
-  useBlocker({
-    shouldBlockFn: shouldBlockNavigation,
-    enableBeforeUnload: hasUnsavedChanges,
-    disabled: !hasUnsavedChanges,
-  })
+  useUnsavedChangesWarning(hasUnsavedChanges)
 
   const principalOptions = React.useMemo(
     () => buildPrincipalOptions(users ?? [], groups ?? []),
