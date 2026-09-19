@@ -3,7 +3,6 @@ import {
   CutoutCard,
   CutoutCardContent,
   CutoutCardFooter,
-  CutoutCardImage,
   CutoutCardInsetLabel,
   CutoutCardMedia,
   CutoutCardOverlay,
@@ -16,6 +15,7 @@ import { cn } from "@workspace/ui/lib/utils"
 import { Link } from "@tanstack/react-router"
 import type { PodCatalogSummary } from "@/features/pods/types/pod-types"
 import { FormatPodCreatorsShort } from "@/features/pods/components/pod-creators"
+import { PodCoverImage } from "@/features/pods/components/pod-cover-image"
 
 const podDateFormatter = new Intl.DateTimeFormat("en-US", {
   month: "short",
@@ -49,8 +49,9 @@ export function BrowsePodsCard({
         className={cn(cutoutCardSurfaceClassName, "flex h-full flex-col")}
       >
         <CutoutCardMedia className="h-72">
-          <CutoutCardImage
+          <PodCoverImage
             alt={pod.title}
+            className="size-full outline-none"
             sizes="(max-width: 768px) 100vw, 448px"
             src={pod.image}
           />
