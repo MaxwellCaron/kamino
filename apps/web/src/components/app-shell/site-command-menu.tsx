@@ -112,8 +112,6 @@ export function SiteCommandMenu({
     [rows, virtualizer]
   )
 
-  const measureList = virtualizer.measure
-
   useEffect(() => {
     setActiveCommandId(firstCommandId)
 
@@ -126,8 +124,7 @@ export function SiteCommandMenu({
       }
     }
 
-    measureList()
-  }, [firstCommandId, measureList, rowsSignature])
+  }, [firstCommandId, rowsSignature])
 
   const handleActiveValueChange = useCallback(
     (value: string) => {
