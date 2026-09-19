@@ -28,7 +28,6 @@ export function PodCoverImage({
         className="size-full object-contain"
         layout="fullWidth"
         loading={loading}
-        objectFit="contain"
         sizes={sizes}
         src={src}
       />
