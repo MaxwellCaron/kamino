@@ -33,6 +33,7 @@ import { VmIcon } from "@/components/status/vm-icon"
 
 const treePreviewRowClass =
   "bg-transparent flex min-h-8 items-center gap-1 rounded-3xl bg-sidebar px-2 py-1.5 text-sm transition-colors [&_svg]:pointer-events-none [&_svg]:shrink-0"
+const podVirtualMachinesFolderName = "a0-Virtual-Machines"
 
 type CreatePodReviewSectionProps = {
   form: CreatePodFormApi
@@ -57,12 +58,28 @@ function ReviewTreePreview({ podName, vms }: ReviewTreePreviewProps) {
           <span className="ml-1 flex-1 truncate">{podName || "New pod"}</span>
         </div>
 
+        <div
+          className={cn(
+            treePreviewRowClass,
+            "bg-transparent ps-7 text-muted-foreground"
+          )}
+        >
+          <HugeiconsIcon
+            icon={ChevronDownIcon}
+            className="size-4 text-muted-foreground"
+          />
+          <FolderIcon open />
+          <span className="ml-1 flex-1 truncate text-foreground">
+            {podVirtualMachinesFolderName}
+          </span>
+        </div>
+
         {vms.map((vm) => (
           <div
             key={vm.id}
             className={cn(
               treePreviewRowClass,
-              "bg-transparent ps-12 text-muted-foreground"
+              "bg-transparent ps-16 text-muted-foreground"
             )}
           >
             <VmIcon status="running" />
