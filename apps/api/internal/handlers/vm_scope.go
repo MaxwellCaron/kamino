@@ -18,6 +18,7 @@ type VMNetworkScope struct {
 	VNet         string
 	AllowedVNets []string
 	VLANTag      int
+	RouterNode   string
 }
 
 // podNetworkScopeReader is the narrow seam to resolve the nearest pod network allocation; *database.Queries satisfies it.
@@ -117,6 +118,7 @@ func resolveVMNetworkScope(
 			VNet:         defaultAttachment.VNetName,
 			AllowedVNets: allowedVNets,
 			VLANTag:      *defaultAttachment.VMVLANTag,
+			RouterNode:   derefString(allocation.RouterNode),
 		}, true, nil
 
 	default:

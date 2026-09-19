@@ -27,6 +27,7 @@ type CreateVMOptions = {
   bridges: Array<ApiNetworkBridge>
   vnets: Array<ApiVNet>
   scoped_network?: ApiScopedNetwork
+  router_node?: string
   templates: Array<ApiVMTemplateOption>
 }
 
