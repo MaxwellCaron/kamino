@@ -10,6 +10,42 @@ interface Release {
 
 export const RELEASES: Array<Release> = [
   {
+    date: "Sep 21, 2026",
+    highlight: true,
+    groups: [
+      {
+        tag: "New",
+        tone: "emerald",
+        items: [
+          "Made tasks optional when publishing pods.",
+          "Added unsaved-changes confirmation when leaving the create pod or publish pod workflows.",
+          "Added an inventory tree preview to the create pod review step.",
+          "Made the publish pod preview render the pod as if it were already cloned, with VMs and actions.",
+          "Auto-select the pod router node when manually creating a VM inside a pod folder.",
+        ],
+      },
+      {
+        tag: "Improved",
+        tone: "indigo",
+        items: [
+          "Refreshed pod cover image and header styling across browse and detail views.",
+        ],
+      },
+      {
+        tag: "Fixed",
+        tone: "amber",
+        items: [
+          "Fixed deleted inventory folders briefly showing as Root.",
+          "Fixed navigation after deleting the currently open inventory item.",
+          "Fixed overlapping results in the site command palette.",
+          "Fixed pod cover images triggering a React DOM prop warning.",
+          "Fixed publish pod preview showing an empty state before VMs load.",
+          "Fixed spacing in the migrate VM dialog.",
+        ],
+      },
+    ],
+  },
+  {
     date: "Sep 8, 2026",
     highlight: true,
     groups: [
