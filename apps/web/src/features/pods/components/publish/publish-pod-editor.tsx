@@ -24,6 +24,7 @@ import {
   groupsQueryOptions,
   usersQueryOptions,
 } from "@/features/principals/api/principals-api"
+import { useUnsavedChangesWarning } from "@/hooks/use-unsaved-changes-warning"
 
 type PublishPodPendingStatus = Extract<
   PublishPodSubmitStatus,
@@ -149,6 +150,10 @@ export function PublishPodEditor({
     form.store,
     (state) => state.submissionAttempts
   )
+  const isDefaultValue = useSelector(
+    form.store,
+    (state) => state.isDefaultValue
+  )
   const { data: users, isLoading: isUsersLoading } = useQuery(usersQueryOptions)
   const { data: groups, isLoading: isGroupsLoading } =
     useQuery(groupsQueryOptions)
@@ -191,6 +196,10 @@ export function PublishPodEditor({
   const resolvedSubmitState = resolvedSubmitStatus.state
   const resolvedSavedPodSlug = resolvedSubmitStatus.savedPodSlug
   const resolvedSubmitError = resolvedSubmitStatus.error
+  const hasUnsavedChanges =
+    !isDefaultValue &&
+    (resolvedSubmitState === "form" || resolvedSubmitState === "error")
+  useUnsavedChangesWarning(hasUnsavedChanges)
 
   const principalOptions = React.useMemo(
     () => buildPrincipalOptions(users ?? [], groups ?? []),

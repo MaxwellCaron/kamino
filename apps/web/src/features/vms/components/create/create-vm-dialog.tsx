@@ -309,6 +309,7 @@ export function CreateVmDialog({
     isInventoryTreeLoading || isCreateOptionsLoading
   const initialOptionsError = inventoryTreeError ?? createOptionsError
   const nodes = createOptions?.nodes ?? []
+  const routerNode = createOptions?.router_node?.trim() ?? ""
   const diskStorages = createOptions?.disk_storages ?? []
   const isoStorages = createOptions?.iso_storages ?? []
   const networks = createOptions
@@ -369,6 +370,10 @@ export function CreateVmDialog({
       )
     }
   }, [folderOptions, form, initialFolderId, open])
+
+  useEffect(() => {
+    form.setFieldValue("node", routerNode)
+  }, [form, routerNode, selectedTargetFolderId])
 
   useEffect(() => {
     if (isLoadingInitialOptions || !selectedTemplateId) return

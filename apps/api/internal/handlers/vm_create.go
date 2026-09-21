@@ -100,6 +100,7 @@ type createOptionsResponse struct {
 	Bridges       []proxmox.NetworkBridge `json:"bridges"`
 	VNets         []proxmox.VNet          `json:"vnets"`
 	ScopedNetwork *scopedNetworkResponse  `json:"scoped_network,omitempty"`
+	RouterNode    string                  `json:"router_node,omitempty"`
 	Templates     []templateLibraryOption `json:"templates"`
 }
 
@@ -195,7 +196,10 @@ func (h *VMCreateHandler) GetCreateOptions(c *gin.Context) {
 		return
 	}
 
-	var scopedNetwork *scopedNetworkResponse
+	var (
+		scopedNetwork *scopedNetworkResponse
+		routerNode    string
+	)
 	if scopeItemID != uuid.Nil {
 		scope, scoped, err := resolveVMNetworkScope(
 			c.Request.Context(), h.NetworkScopeReader, h.NetworkCatalog, scopeItemID,
@@ -208,6 +212,7 @@ func (h *VMCreateHandler) GetCreateOptions(c *gin.Context) {
 			bridges = []proxmox.NetworkBridge{}
 			vnets = filterVNetsByNames(vnets, scope.AllowedVNets)
 			scopedNetwork = scopedNetworkResponseFromScope(scope)
+			routerNode = scope.RouterNode
 		}
 	}
 
@@ -226,6 +231,7 @@ func (h *VMCreateHandler) GetCreateOptions(c *gin.Context) {
 		Bridges:       bridges,
 		VNets:         vnets,
 		ScopedNetwork: scopedNetwork,
+		RouterNode:    routerNode,
 		Templates:     templates,
 	})
 }

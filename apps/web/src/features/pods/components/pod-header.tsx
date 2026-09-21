@@ -4,7 +4,6 @@ import {
   CircularProgressRange,
   CircularProgressTrack,
 } from "@workspace/ui/components/circular-progress"
-import { Image } from "@unpic/react"
 import { HugeiconsIcon } from "@hugeicons/react"
 import { CopyIcon } from "@hugeicons/core-free-icons"
 import { Button } from "@workspace/ui/components/button"
@@ -13,6 +12,7 @@ import { RelativeTimeCard } from "@workspace/ui/components/relative-time-card"
 import { cn } from "@workspace/ui/lib/utils"
 import { ClonedPodStatusHoverCard } from "./cloned-pod-status-badge"
 import { PodHeaderActions } from "./pod-header-actions"
+import { PodCoverImage } from "./pod-cover-image"
 import type { ClonedPod, Pod } from "@/features/pods/types/pod-types"
 import type { ReactNode } from "react"
 import {
@@ -66,16 +66,13 @@ export function PodHeader({
       <div className="relative z-10 mx-auto max-w-7xl px-4 py-12 lg:px-6">
         <div className="flex flex-col gap-8 md:flex-row md:items-start">
           <div className="mx-auto hidden shrink-0 md:mx-0 lg:block">
-            <div className="overflow-hidden rounded-3xl bg-background/85 shadow ring-1 ring-border">
-              <Image
-                src={pod.image}
-                alt={pod.title}
-                width={192}
-                height={192}
-                loading="eager"
-                className="block h-auto max-h-40 w-auto max-w-56 sm:max-h-48 sm:max-w-64 md:max-h-56 md:max-w-72"
-              />
-            </div>
+            <PodCoverImage
+              src={pod.image}
+              alt={pod.title}
+              loading="eager"
+              sizes="(min-width: 1280px) 224px, 192px"
+              className="size-48 rounded-3xl shadow xl:h-56 xl:w-45"
+            />
           </div>
 
           <div className="relative flex flex-1 flex-col md:min-h-56">

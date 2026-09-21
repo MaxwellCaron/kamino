@@ -771,11 +771,13 @@ func TestVMCreateGetCreateOptions_DevPodLANAndDMZScope(t *testing.T) {
 	principalID := uuid.New()
 	scopeItemID := uuid.New()
 	authz := &fakeVMCreateAuthz{hasAny: true, fakeVMAuthz: fakeVMAuthz{isManager: false}}
+	routerNode := "pve-router"
 	reader := &fakePodNetworkScopeReader{row: database.GetPodNetworkScopeForInventoryItemRow{
 		Kind:              database.PodNetworkAllocationKindDevPod,
 		FolderID:          uuid.New(),
 		NetworkNumber:     199,
 		NetworkProfileKey: strPtr(podnetwork.ProfileLANDMZRouterV1),
+		RouterNode:        &routerNode,
 	}}
 	px := &fakeVMCreateProxmox{
 		nodes: []proxmox.Node{{Node: "pve1"}},
@@ -806,6 +808,9 @@ func TestVMCreateGetCreateOptions_DevPodLANAndDMZScope(t *testing.T) {
 	}
 	if response.ScopedNetwork == nil {
 		t.Fatal("scoped_network missing")
+	}
+	if response.RouterNode != routerNode {
+		t.Fatalf("router_node = %q, want %q", response.RouterNode, routerNode)
 	}
 	if response.ScopedNetwork.VLANTag != 199 {
 		t.Fatalf("vlan_tag = %d, want 199", response.ScopedNetwork.VLANTag)

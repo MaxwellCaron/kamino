@@ -73,10 +73,30 @@ SELECT
     pct.lan_vnet,
     pct.dmz_vnet,
     pct.wan_bridge,
-    pct.wan_subnet
+    pct.wan_subnet,
+    router_vm.node AS router_node
 FROM pod_network_allocations pna
 JOIN ancestors a ON pna.folder_id = a.id
 LEFT JOIN pod_clone_targets pct ON pct.key = pna.clone_target_key
+LEFT JOIN pod_dev_vm_network_assignments dev_router
+  ON pna.kind = 'dev_pod'
+ AND dev_router.pod_folder_id = pna.folder_id
+ AND dev_router.is_router
+LEFT JOIN (
+    SELECT cloned_vm.cloned_pod_id, cloned_vm.inventory_item_id
+    FROM cloned_pod_vms cloned_vm
+    JOIN published_pod_vms published_vm
+      ON published_vm.id = cloned_vm.published_pod_vm_id
+     AND published_vm.is_router
+) cloned_router
+  ON pna.kind = 'published_clone'
+ AND cloned_router.cloned_pod_id = pna.cloned_pod_id
+LEFT JOIN proxmox_vms router_vm
+  ON router_vm.inventory_item_id = CASE pna.kind
+      WHEN 'personal_pod' THEN pna.inventory_item_id
+      WHEN 'dev_pod' THEN dev_router.inventory_item_id
+      WHEN 'published_clone' THEN cloned_router.inventory_item_id
+  END
 WHERE pna.kind IN ('personal_pod', 'dev_pod', 'published_clone')
 ORDER BY a.depth ASC
 LIMIT 1;
