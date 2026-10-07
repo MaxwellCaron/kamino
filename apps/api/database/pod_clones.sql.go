@@ -169,24 +169,30 @@ func (q *Queries) GetClonedPodForPrincipalByPodID(ctx context.Context, arg GetCl
 }
 
 const insertClonedPod = `-- name: InsertClonedPod :one
-WITH existing_batch AS (
+WITH unavailable AS (
+    SELECT used.network_number
+    FROM pod_network_unavailable_numbers used
+    WHERE used.clone_target_key = $1
+),
+existing_batch AS (
     SELECT pna.allocation_batch_start
     FROM pod_network_allocations pna
-    WHERE pna.allocation_batch_id = $1::UUID
+    WHERE pna.allocation_batch_id = $2::UUID
+      AND pna.clone_target_key = $1
     ORDER BY pna.allocation_batch_start ASC NULLS LAST
     LIMIT 1
 ),
 contiguous_start AS (
     SELECT n::INTEGER AS network_start
     FROM generate_series(
-        $2::INTEGER,
-        $3::INTEGER - $4::INTEGER + 1
+        $3::INTEGER,
+        $4::INTEGER - $5::INTEGER + 1
     ) AS n
-    WHERE $1::UUID IS NOT NULL
+    WHERE $2::UUID IS NOT NULL
       AND NOT EXISTS (
           SELECT 1
-          FROM pod_network_allocations pna
-          WHERE pna.network_number BETWEEN n AND n + $4::INTEGER - 1
+          FROM unavailable
+          WHERE unavailable.network_number BETWEEN n AND n + $5::INTEGER - 1
       )
     ORDER BY n
     LIMIT 1
@@ -204,7 +210,7 @@ batch_choice AS (
     UNION ALL
 
     SELECT NULL::INTEGER
-    WHERE $1::UUID IS NOT NULL
+    WHERE $2::UUID IS NOT NULL
       AND NOT EXISTS (SELECT 1 FROM existing_batch)
       AND NOT EXISTS (SELECT 1 FROM contiguous_start)
 
@@ -212,16 +218,16 @@ batch_choice AS (
 ),
 preferred_candidate AS (
     SELECT
-        batch_choice.network_start + $5::INTEGER AS network_number,
+        batch_choice.network_start + $6::INTEGER AS network_number,
         batch_choice.network_start
     FROM batch_choice
     WHERE batch_choice.network_start IS NOT NULL
-      AND batch_choice.network_start + $5::INTEGER
-          BETWEEN $2::INTEGER AND $3::INTEGER
+      AND batch_choice.network_start + $6::INTEGER
+          BETWEEN $3::INTEGER AND $4::INTEGER
       AND NOT EXISTS (
           SELECT 1
-          FROM pod_network_allocations pna
-          WHERE pna.network_number = batch_choice.network_start + $5::INTEGER
+          FROM unavailable
+          WHERE unavailable.network_number = batch_choice.network_start + $6::INTEGER
       )
 ),
 candidate AS (
@@ -239,11 +245,11 @@ candidate AS (
             n::INTEGER AS network_number,
             NULL::INTEGER AS network_start,
             1 AS priority
-        FROM generate_series($2::INTEGER, $3::INTEGER) AS n
+        FROM generate_series($3::INTEGER, $4::INTEGER) AS n
         WHERE NOT EXISTS (
             SELECT 1
-            FROM pod_network_allocations pna
-            WHERE pna.network_number = n
+            FROM unavailable
+            WHERE unavailable.network_number = n
         )
     ) AS choices
     ORDER BY choices.priority, choices.network_number
@@ -262,9 +268,9 @@ allocation AS (
     SELECT
         candidate.network_number,
         'published_clone',
-        $6,
         $7,
         $1,
+        $2,
         candidate.network_start,
         $8
     FROM candidate
@@ -286,8 +292,8 @@ inserted AS (
         $11,
         $8,
         allocation.network_number,
-        $6,
-        $7
+        $7,
+        $1
     FROM allocation
     RETURNING
         id,
@@ -320,13 +326,13 @@ FROM inserted
 `
 
 type InsertClonedPodParams struct {
+	CloneTargetKey       string     `json:"clone_target_key"`
 	AllocationBatchID    *uuid.UUID `json:"allocation_batch_id"`
 	MinNetworkNumber     int32      `json:"min_network_number"`
 	MaxNetworkNumber     int32      `json:"max_network_number"`
 	AllocationBatchSize  int32      `json:"allocation_batch_size"`
 	AllocationBatchIndex int32      `json:"allocation_batch_index"`
 	NetworkProfileKey    *string    `json:"network_profile_key"`
-	CloneTargetKey       string     `json:"clone_target_key"`
 	FolderID             uuid.UUID  `json:"folder_id"`
 	ID                   uuid.UUID  `json:"id"`
 	PodID                uuid.UUID  `json:"pod_id"`
@@ -347,13 +353,13 @@ type InsertClonedPodRow struct {
 
 func (q *Queries) InsertClonedPod(ctx context.Context, arg InsertClonedPodParams) (InsertClonedPodRow, error) {
 	row := q.db.QueryRow(ctx, insertClonedPod,
+		arg.CloneTargetKey,
 		arg.AllocationBatchID,
 		arg.MinNetworkNumber,
 		arg.MaxNetworkNumber,
 		arg.AllocationBatchSize,
 		arg.AllocationBatchIndex,
 		arg.NetworkProfileKey,
-		arg.CloneTargetKey,
 		arg.FolderID,
 		arg.ID,
 		arg.PodID,
