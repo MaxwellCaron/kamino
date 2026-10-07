@@ -81,8 +81,9 @@ WITH candidate AS (
     FROM generate_series($1::INTEGER, $2::INTEGER) AS n
     WHERE NOT EXISTS (
         SELECT 1
-        FROM pod_network_allocations pna
-        WHERE pna.network_number = n
+        FROM pod_network_unavailable_numbers unavailable
+        WHERE unavailable.clone_target_key = $3
+          AND unavailable.network_number = n
     )
     ORDER BY n
     LIMIT 1

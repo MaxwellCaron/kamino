@@ -143,8 +143,9 @@ WITH candidate AS (
     FROM generate_series($1::INTEGER, $2::INTEGER) AS n
     WHERE NOT EXISTS (
         SELECT 1
-        FROM pod_network_allocations pna
-        WHERE pna.network_number = n
+        FROM pod_network_unavailable_numbers unavailable
+        WHERE unavailable.clone_target_key = $3
+          AND unavailable.network_number = n
     )
     ORDER BY n
     LIMIT 1
@@ -160,8 +161,8 @@ allocation AS (
     SELECT
         candidate.network_number,
         'dev_pod',
-        $3,
         $4,
+        $3,
         $5
     FROM candidate
     RETURNING
@@ -185,8 +186,8 @@ FROM allocation
 type InsertPodDevNetworkAllocationParams struct {
 	MinNetworkNumber  int32     `json:"min_network_number"`
 	MaxNetworkNumber  int32     `json:"max_network_number"`
-	NetworkProfileKey *string   `json:"network_profile_key"`
 	CloneTargetKey    string    `json:"clone_target_key"`
+	NetworkProfileKey *string   `json:"network_profile_key"`
 	PodFolderID       uuid.UUID `json:"pod_folder_id"`
 }
 
@@ -203,8 +204,8 @@ func (q *Queries) InsertPodDevNetworkAllocation(ctx context.Context, arg InsertP
 	row := q.db.QueryRow(ctx, insertPodDevNetworkAllocation,
 		arg.MinNetworkNumber,
 		arg.MaxNetworkNumber,
-		arg.NetworkProfileKey,
 		arg.CloneTargetKey,
+		arg.NetworkProfileKey,
 		arg.PodFolderID,
 	)
 	var i InsertPodDevNetworkAllocationRow

@@ -16,8 +16,9 @@ WITH candidate AS (
     FROM generate_series(sqlc.arg(min_network_number)::INTEGER, sqlc.arg(max_network_number)::INTEGER) AS n
     WHERE NOT EXISTS (
         SELECT 1
-        FROM pod_network_allocations pna
-        WHERE pna.network_number = n
+        FROM pod_network_unavailable_numbers unavailable
+        WHERE unavailable.clone_target_key = sqlc.arg(clone_target_key)
+          AND unavailable.network_number = n
     )
     ORDER BY n
     LIMIT 1

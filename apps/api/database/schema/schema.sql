@@ -720,8 +720,8 @@ CREATE TABLE pod_network_allocations (
     personal_pod_id       UUID NULL UNIQUE REFERENCES personal_pods(id) ON DELETE CASCADE,
     created_at            TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at            TIMESTAMPTZ NOT NULL DEFAULT now(),
-    -- The number is the inner VLAN tag, so it stays unique across targets.
-    UNIQUE (network_number),
+    CONSTRAINT pod_network_allocations_target_network_key
+        UNIQUE (clone_target_key, network_number),
     CONSTRAINT pod_network_allocations_profile_key_not_empty
         CHECK (network_profile_key IS NULL OR length(trim(network_profile_key)) > 0),
     CONSTRAINT pod_network_allocations_batch_start_requires_id
@@ -735,6 +735,24 @@ CREATE INDEX ix_pod_network_allocations_batch
 CREATE UNIQUE INDEX ux_pod_network_allocations_dev_pod_folder
     ON pod_network_allocations (folder_id)
     WHERE kind = 'dev_pod';
+
+-- Targets share numbers only when their tagged VNets and WAN address spaces are isolated.
+-- Allocation queries use this view under AcquirePodNetworkAllocationLock.
+CREATE VIEW pod_network_unavailable_numbers AS
+SELECT target.key AS clone_target_key, allocation.network_number
+FROM pod_clone_targets target
+JOIN pod_clone_targets allocated_target ON (
+    target.lan_vnet = allocated_target.lan_vnet
+    OR target.lan_vnet = allocated_target.dmz_vnet
+    OR target.dmz_vnet = allocated_target.lan_vnet
+    OR target.dmz_vnet = allocated_target.dmz_vnet
+    OR (
+        target.wan_bridge = allocated_target.wan_bridge
+        AND target.wan_subnet = allocated_target.wan_subnet
+    )
+)
+JOIN pod_network_allocations allocation
+  ON allocation.clone_target_key = allocated_target.key;
 
 CREATE OR REPLACE FUNCTION published_pods_update_clone_count()
 RETURNS TRIGGER AS $$
