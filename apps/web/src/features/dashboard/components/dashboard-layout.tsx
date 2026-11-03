@@ -28,7 +28,7 @@ export function DashboardLayout() {
   return (
     <SidebarProvider
       ref={sidebarRef}
-      className="[&_[data-slot=sidebar-container]]:transition-none [&_[data-slot=sidebar-gap]]:transition-none"
+      className="**:data-[slot=sidebar-container]:transition-none **:data-[slot=sidebar-gap]:transition-none"
       style={
         {
           "--sidebar-width": `${width}px`,
