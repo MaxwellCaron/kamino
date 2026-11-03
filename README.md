@@ -34,6 +34,7 @@ packages/ui/       Shared UI primitives exported as @workspace/ui
 
 - **Bun** 1.3.11 (`curl -fsSL https://bun.sh/install | bash`)
 - **Go** 1.26
+- **Portless** 0.15.7+ (`bun add --global portless`) — provides local HTTPS and automatic ports; Linux LAN mode also needs `avahi-utils` and a running Avahi daemon
 - **Air** (Go live-reload; `go install github.com/air-verse/air@latest`) — required for `bun run dev` API watch mode
 - **Postgres** instance reachable from the API
 - **Proxmox** cluster with an API token (`kamino@pve!<token-name>`)
@@ -48,7 +49,15 @@ cp apps/api/.env.example apps/api/.env
 bun run dev
 ```
 
-The web dev server runs on **:3000** and proxies `/api` to the API at **:8080**. The API loads `apps/api/.env` automatically via godotenv.
+Open **https://kamino.local**. Portless provides HTTPS, HTTP/2, LAN discovery,
+and an automatic Vite port. Vite proxies `/api` (including event streams and
+VNC WebSockets) to `http://localhost:8080`; the API still runs with Air.
+Set `FRONTEND_URL=https://kamino.local` in `apps/api/.env` for CORS, secure
+cookies, and VNC origin checks.
+
+The shared Portless proxy must use LAN mode (`portless proxy start --lan`).
+Other LAN devices need mDNS support and must trust the Portless CA for HTTPS.
+Use `portless doctor` to diagnose DNS/TLS issues.
 
 ## Docker
 
@@ -77,15 +86,13 @@ dedicated dev VM/workstation (bun run dev, hot reload)
   -> production images and Argo rollout
 ```
 
-- Checkout `development`. The web dev server runs on **:3000** and proxies
-  `/api` to the API at **:8080** as documented under Quick start.
+- Checkout `development`. Open **https://kamino.local** as documented under Quick start.
 - `apps/api/.env` must point to **isolated** development dependencies: a
   separate Postgres database, a non-production Proxmox scope, a distinct
   `JWT_SECRET`, and test LDAP OUs/credentials when AD is enabled. Never copy
   the production environment file.
-- Raw Bun/Vite/Air ports must remain internal (VPN/LAN/firewall). If a stable
-  HTTPS origin is needed for secure cookies, CORS, or VNC WebSockets, put an
-  operator-managed internal TLS reverse proxy in front of the dev processes.
+- Keep the Portless LAN proxy internal (VPN/LAN/firewall). It supplies the
+  stable HTTPS origin for secure cookies, CORS, and VNC WebSockets.
 - `bun run dev` is for rapid single-developer iteration. The Argo CD
   `kamino-dev` environment is where built container images, nginx, Istio
   routing, TLS, namespace configuration, and rollout behavior are validated
