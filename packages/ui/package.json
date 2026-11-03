@@ -7,7 +7,7 @@
     "lint": "eslint",
     "format": "prettier --write \"**/*.{ts,tsx}\"",
     "typecheck": "tsc --noEmit",
-    "typecheck:stable": "../../node_modules/typescript/bin/tsc --noEmit",
+    "typecheck:stable": "tsc6 --noEmit",
     "test": "vitest run"
   },
   "dependencies": {
@@ -68,7 +68,7 @@
     "tailwindcss": "^4.3.3",
     "vitest": "^4.1.11",
     "@typescript/native": "npm:typescript@^7.0.2",
-    "typescript": "^6.0.3"
+    "typescript": "npm:@typescript/typescript6@^6.0.2"
   },
   "exports": {
     "./globals.css": "./src/styles/globals.css",

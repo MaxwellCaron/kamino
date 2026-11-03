@@ -10,7 +10,7 @@
     "lint": "eslint",
     "format": "prettier --write \"**/*.{ts,tsx}\"",
     "typecheck": "tsc --noEmit",
-    "typecheck:stable": "../../node_modules/typescript/bin/tsc --noEmit",
+    "typecheck:stable": "tsc6 --noEmit",
     "test": "vitest run"
   },
   "dependencies": {
@@ -46,7 +46,7 @@
     "@vitejs/plugin-react": "^6.0.5",
     "eslint": "^10.8.1",
     "@typescript/native": "npm:typescript@^7.0.2",
-    "typescript": "^6.0.3",
+    "typescript": "npm:@typescript/typescript6@^6.0.2",
     "vite": "^8.2.1"
   }
 }
