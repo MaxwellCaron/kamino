@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1.7
 
-FROM oven/bun:1.3.11-alpine AS web-deps
+FROM oven/bun:1.4.4-alpine AS web-deps
 WORKDIR /repo
 
 COPY package.json bun.lock turbo.json tsconfig.json ./

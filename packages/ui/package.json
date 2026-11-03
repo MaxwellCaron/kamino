@@ -6,7 +6,7 @@
   "scripts": {
     "lint": "oxlint --type-aware .",
     "format": "prettier --write \"**/*.{ts,tsx}\"",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "bun check",
     "typecheck:stable": "tsc6 --noEmit",
     "test": "vitest run"
   },
