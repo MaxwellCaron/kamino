@@ -1,7 +1,4 @@
-import {
-  Folder02Icon,
-  FolderIcon as FolderIconData,
-} from "@hugeicons/core-free-icons"
+import { FolderClosedIcon, FolderOpenIcon } from "@hugeicons/core-free-icons"
 import type { ComponentProps } from "react"
 import { HugeiconsIcon } from "@hugeicons/react"
 import { cn } from "@workspace/ui/lib/utils"
@@ -19,7 +16,7 @@ export type FolderIconProps = Omit<
 export function FolderIcon({ className, open, ...props }: FolderIconProps) {
   return (
     <HugeiconsIcon
-      icon={open ? Folder02Icon : FolderIconData}
+      icon={open ? FolderOpenIcon : FolderClosedIcon}
       className={cn(FOLDER_ICON_CLASS, className)}
       {...props}
     />

@@ -8,7 +8,7 @@ import {
 import {
   ChevronDownIcon,
   ComputerIcon,
-  Folder01Icon,
+  FolderClosedIcon,
   Globe02Icon,
 } from "@hugeicons/core-free-icons"
 import {
@@ -126,7 +126,7 @@ export function CreatePodReviewSection({
                   variant="icon"
                   className="translate-y-0! self-center!"
                 >
-                  <HugeiconsIcon icon={Folder01Icon} />
+                  <HugeiconsIcon icon={FolderClosedIcon} />
                 </ItemMedia>
                 <ItemContent>
                   <ItemTitle>Name</ItemTitle>

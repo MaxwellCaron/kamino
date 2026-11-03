@@ -8,7 +8,7 @@ import {
 import {
   ComputerIcon,
   Copy02Icon,
-  FolderIcon,
+  FolderClosedIcon,
   GitPullRequestIcon,
   UserGroupIcon,
   UserIcon,
@@ -52,7 +52,7 @@ function buildStats(stats: AdminStats | null): Array<Stat> {
     {
       icon: (
         <HugeiconsIcon
-          icon={FolderIcon}
+          icon={FolderClosedIcon}
           className="size-5 text-muted-foreground"
         />
       ),

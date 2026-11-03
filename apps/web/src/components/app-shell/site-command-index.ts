@@ -2,7 +2,7 @@ import {
   ComputerIcon,
   Copy02Icon,
   DashboardSquare01Icon,
-  FolderIcon,
+  FolderClosedIcon,
   GitPullRequestIcon,
   Globe02Icon,
   Home03Icon,
@@ -520,7 +520,7 @@ function appendFolderCommands(
   results.push({
     id: `inventory:${node.id}`,
     group: "inventory",
-    icon: FolderIcon,
+    icon: FolderClosedIcon,
     label: node.name,
     subtitle: path,
     keywords: folderKeywords,

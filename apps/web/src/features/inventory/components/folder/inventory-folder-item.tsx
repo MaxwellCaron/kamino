@@ -1,4 +1,8 @@
-import { ComputerIcon, FolderIcon, StarIcon } from "@hugeicons/core-free-icons"
+import {
+  ComputerIcon,
+  FolderClosedIcon,
+  StarIcon,
+} from "@hugeicons/core-free-icons"
 import {
   Item,
   ItemActions,
@@ -25,7 +29,7 @@ function FolderDescription({ node }: { node: ApiTreeNode }) {
   return (
     <>
       <div className="flex items-center gap-1">
-        <HugeiconsIcon icon={FolderIcon} className="size-3.5" />
+        <HugeiconsIcon icon={FolderClosedIcon} className="size-3.5" />
         {folderCount} {folderCount === 1 ? "Folder" : "Folders"}
       </div>
       <Separator orientation="vertical" className="mx-1" />
