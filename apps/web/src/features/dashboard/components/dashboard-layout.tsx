@@ -15,7 +15,6 @@ import { SiteLayoutInset } from "@/components/app-shell/site-layout-inset"
 import { SkipToContentLink } from "@/components/app-shell/skip-to-content-link"
 import { VncSessionVisibilityProvider } from "@/features/vms/components/dashboard/vnc-session-visibility-context"
 import { VncSessionWorkspace } from "@/features/vms/components/dashboard/vnc-session-workspace"
-import { cn } from "@workspace/ui/lib/utils"
 
 const dashboardRouteApi = getRouteApi("/_dashboard")
 
@@ -23,19 +22,13 @@ const siteCommandTrigger = <SiteCommandTrigger />
 
 export function DashboardLayout() {
   const { user } = dashboardRouteApi.useRouteContext()
-  const {
-    width,
-    effectiveMax,
-    isResizing,
-    updateWidthLive,
-    commitWidth,
-    onResizeStart,
-    onResizeEnd,
-  } = useInventorySidebarResize()
+  const { width, effectiveMax, sidebarRef, updateWidthLive, commitWidth } =
+    useInventorySidebarResize()
 
   return (
     <SidebarProvider
-      className={cn(isResizing && "**:duration-0")}
+      ref={sidebarRef}
+      className="[&_[data-slot=sidebar-container]]:transition-none [&_[data-slot=sidebar-gap]]:transition-none"
       style={
         {
           "--sidebar-width": `${width}px`,
@@ -55,8 +48,6 @@ export function DashboardLayout() {
             maxWidth={effectiveMax}
             onLiveUpdate={updateWidthLive}
             onCommit={commitWidth}
-            onResizeStart={onResizeStart}
-            onResizeEnd={onResizeEnd}
           />
           <SiteLayoutInset header={<SiteHeader command={siteCommandTrigger} />}>
             <VncSessionVisibilityProvider>

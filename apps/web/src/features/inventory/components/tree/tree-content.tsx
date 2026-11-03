@@ -30,7 +30,7 @@ import { hasNodeActions } from "../../utils/inventory-capabilities"
 import { useInventoryTreeDragAutoscroll } from "./use-inventory-tree-drag-autoscroll"
 import { useVirtualizer } from "@tanstack/react-virtual"
 
-const TREE_ROW_OVERSCAN = 50
+const TREE_ROW_OVERSCAN = 8
 const TREE_ROW_CONTENT_HEIGHT =
   INVENTORY_TREE_ROW_HEIGHT - INVENTORY_TREE_ROW_GAP
 
@@ -99,7 +99,6 @@ export function InventoryTreeContent({
     getItemKey,
     scrollMargin,
     rangeExtractor,
-    directDomUpdates: true,
     useFlushSync: false,
   })
 
@@ -159,25 +158,11 @@ export function InventoryTreeContent({
   const virtualRows = virtualizer.getVirtualItems()
 
   return (
-    <div ref={wrapperRef}>
-      <Tree
-        ref={virtualizer.containerRef}
-        tree={tree}
-        indent={TREE_INDENT}
-        className="relative"
-      >
+    <div ref={wrapperRef} style={{ height: virtualizer.getTotalSize() }}>
+      <Tree tree={tree} indent={TREE_INDENT} className="relative h-full">
         {virtualRows.map((virtualRow) => {
           const item = items.at(virtualRow.index)
-          if (!item) {
-            return (
-              <div
-                key={virtualRow.key}
-                data-index={virtualRow.index}
-                ref={virtualizer.measureElement}
-                className="absolute top-0 left-0 flex w-full flex-col"
-              />
-            )
-          }
+          if (!item) return null
 
           const id = item.getId()
           const data = item.getItemData()
@@ -209,9 +194,10 @@ export function InventoryTreeContent({
           return (
             <div
               key={virtualRow.key}
-              data-index={virtualRow.index}
-              ref={virtualizer.measureElement}
               className="absolute top-0 left-0 flex w-full flex-col"
+              style={{
+                transform: `translateY(${virtualRow.start - scrollMargin}px)`,
+              }}
             >
               <InventoryTreeRow
                 vm={vm}

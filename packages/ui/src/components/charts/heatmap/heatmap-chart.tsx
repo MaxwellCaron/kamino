@@ -688,15 +688,17 @@ export function HeatmapChart({
       return
     }
 
+    let lastWidth = -1
+    let lastHeight = -1
     const syncMeasurements = () => {
       const width = element.offsetWidth
-      const height = element.offsetHeight
+      // Fluid height is derived from width; observing our own height causes a second render.
+      const height = layout === "fill" ? element.offsetHeight : 0
+      if (width === lastWidth && height === lastHeight) return
+      lastWidth = width
+      lastHeight = height
 
-      setMeasuredSize((current) =>
-        current.width === width && current.height === height
-          ? current
-          : { width, height }
-      )
+      setMeasuredSize({ width, height })
 
       if (layout === "fluid") {
         setReservedHeight(

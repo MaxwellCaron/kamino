@@ -1,10 +1,11 @@
-import { useCallback, useEffect, useMemo, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 
 export const INVENTORY_SIDEBAR_MIN_WIDTH = 384
 export const INVENTORY_SIDEBAR_ABSOLUTE_MAX_WIDTH = 576
 export const INVENTORY_SIDEBAR_MAIN_CONTENT_MIN_WIDTH = 384
 export const INVENTORY_SIDEBAR_KEYBOARD_STEP = 16
-export const INVENTORY_SIDEBAR_WIDTH_STORAGE_KEY = "kamino-inventory-sidebar-width"
+export const INVENTORY_SIDEBAR_WIDTH_STORAGE_KEY =
+  "kamino-inventory-sidebar-width"
 
 function getEffectiveViewportMax(viewportWidth: number): number {
   return Math.max(
@@ -58,10 +59,26 @@ function writeStoredPreference(width: number) {
   localStorage.setItem(INVENTORY_SIDEBAR_WIDTH_STORAGE_KEY, String(width))
 }
 
+function setLiveSidebarWidth(sidebar: HTMLDivElement | null, width: string) {
+  if (!sidebar) return
+
+  // Keep live updates local: an inherited variable invalidates styles across the dashboard.
+  sidebar
+    .querySelectorAll<HTMLElement>(
+      '[data-slot="sidebar-gap"], [data-slot="sidebar-container"]'
+    )
+    .forEach((element) => {
+      element.style.width = width
+    })
+  const handle = sidebar.querySelector<HTMLElement>(
+    '[data-slot="inventory-sidebar-resize-handle"]'
+  )
+  if (handle) handle.style.left = width
+}
+
 export function useInventorySidebarResize() {
   const [preferredWidth, setPreferredWidth] = useState(readStoredPreference)
-  const [liveWidth, setLiveWidth] = useState<number | null>(null)
-  const [isResizing, setIsResizing] = useState(false)
+  const sidebarRef = useRef<HTMLDivElement>(null)
   const [viewportWidth, setViewportWidth] = useState(() =>
     typeof window !== "undefined" ? window.innerWidth : 1024
   )
@@ -75,45 +92,40 @@ export function useInventorySidebarResize() {
     return () => window.removeEventListener("resize", handleResize)
   }, [])
 
-  const effectiveMax = useMemo(
-    () => getEffectiveViewportMax(viewportWidth),
-    [viewportWidth]
-  )
+  const effectiveMax = getEffectiveViewportMax(viewportWidth)
 
-  const width = useMemo(() => {
-    const source = liveWidth ?? preferredWidth
-    return clampRenderedWidth(source, effectiveMax)
-  }, [liveWidth, preferredWidth, effectiveMax])
+  const width = clampRenderedWidth(preferredWidth, effectiveMax)
 
   const updateWidthLive = useCallback(
     (nextWidth: number) => {
-      setLiveWidth(clampRenderedWidth(nextWidth, effectiveMax))
+      setLiveSidebarWidth(
+        sidebarRef.current,
+        `${clampRenderedWidth(nextWidth, effectiveMax)}px`
+      )
     },
     [effectiveMax]
   )
 
-  const commitWidth = useCallback((nextWidth: number) => {
-    const normalized = normalizeStoredPreference(nextWidth)
-    setPreferredWidth(normalized)
-    writeStoredPreference(normalized)
-    setLiveWidth(null)
-  }, [])
-
-  const onResizeStart = useCallback(() => {
-    setIsResizing(true)
-  }, [])
-
-  const onResizeEnd = useCallback(() => {
-    setIsResizing(false)
-  }, [])
+  const commitWidth = useCallback(
+    (nextWidth: number) => {
+      const normalized = normalizeStoredPreference(nextWidth)
+      const sidebar = sidebarRef.current
+      sidebar?.style.setProperty(
+        "--sidebar-width",
+        `${clampRenderedWidth(normalized, effectiveMax)}px`
+      )
+      setLiveSidebarWidth(sidebar, "")
+      setPreferredWidth(normalized)
+      writeStoredPreference(normalized)
+    },
+    [effectiveMax]
+  )
 
   return {
     width,
     effectiveMax,
-    isResizing,
+    sidebarRef,
     updateWidthLive,
     commitWidth,
-    onResizeStart,
-    onResizeEnd,
   }
 }
