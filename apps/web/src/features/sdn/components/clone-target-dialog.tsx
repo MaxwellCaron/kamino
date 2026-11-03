@@ -1,6 +1,11 @@
 import { useForm } from "@tanstack/react-form"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import { Add01Icon, PencilEdit01Icon } from "@hugeicons/core-free-icons"
+import {
+  Add01Icon,
+  PencilEdit01Icon,
+  SourceCodeIcon,
+} from "@hugeicons/core-free-icons"
+import { HugeiconsIcon } from "@hugeicons/react"
 import { DialogFooter } from "@workspace/ui/components/dialog"
 import {
   Field,
@@ -18,14 +23,13 @@ import { Input } from "@workspace/ui/components/input"
 import { Switch } from "@workspace/ui/components/switch"
 import {
   CodeBlock,
-  CodeBlockBody,
+  CodeBlockActions,
   CodeBlockContent,
   CodeBlockCopyButton,
-  CodeBlockFilename,
-  CodeBlockFiles,
   CodeBlockHeader,
-  CodeBlockItem,
-} from "@workspace/ui/components/kibo-ui/code-block"
+  CodeBlockLine,
+  CodeBlockTitle,
+} from "@workspace/ui/components/code-block"
 import {
   RadioGroup,
   RadioGroupItem,
@@ -38,7 +42,7 @@ import {
   ComboboxItem,
   ComboboxList,
 } from "@workspace/ui/components/combobox"
-import type { BundledLanguage } from "@workspace/ui/components/kibo-ui/code-block"
+import { useHighlightedCode } from "@workspace/ui/hooks/use-highlighted-code"
 import type { ComponentType } from "react"
 import type { z } from "zod"
 import type { PodCloneTarget } from "@/features/pods/api/clone-targets-api"
@@ -282,6 +286,7 @@ function CloneTargetSnippetCommand({
   values: CloneTargetFormValues
 }) {
   const command = buildSnippetCommand(values)
+  const lines = useHighlightedCode(command, "bash")
 
   return (
     <Field>
@@ -290,29 +295,21 @@ function CloneTargetSnippetCommand({
         Run this on the Proxmox host to create the cloud-init files this target
         expects.
       </FieldDescription>
-      <CodeBlock
-        data={[{ language: "bash", filename: "bash", code: command }]}
-        defaultValue="bash"
-      >
-        <CodeBlockHeader className="bg-muted">
-          <CodeBlockFiles>
-            {(item) => (
-              <CodeBlockFilename key={item.language} value={item.language}>
-                {item.filename}
-              </CodeBlockFilename>
-            )}
-          </CodeBlockFiles>
-          <CodeBlockCopyButton text={command} />
+      <CodeBlock>
+        <CodeBlockHeader>
+          <CodeBlockTitle>
+            <HugeiconsIcon icon={SourceCodeIcon} aria-hidden="true" />
+            bash
+          </CodeBlockTitle>
+          <CodeBlockActions>
+            <CodeBlockCopyButton value={command} />
+          </CodeBlockActions>
         </CodeBlockHeader>
-        <CodeBlockBody>
-          {(item) => (
-            <CodeBlockItem key={item.language} value={item.language}>
-              <CodeBlockContent language={item.language as BundledLanguage}>
-                {item.code}
-              </CodeBlockContent>
-            </CodeBlockItem>
-          )}
-        </CodeBlockBody>
+        <CodeBlockContent lineNumbers>
+          {lines.map((line, index) => (
+            <CodeBlockLine key={index}>{line}</CodeBlockLine>
+          ))}
+        </CodeBlockContent>
       </CodeBlock>
     </Field>
   )
