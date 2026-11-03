@@ -1,4 +1,8 @@
 import { Field, FieldLabel } from "@workspace/ui/components/field"
+import type {
+  HardwareFormLike,
+  StringFieldApi,
+} from "@/features/vms/components/hardware/hardware-dialog-schema"
 import {
   Select,
   SelectContent,
@@ -7,17 +11,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@workspace/ui/components/select"
-import type {
-  HardwareFormLike,
-  StringFieldApi,
-} from "@/features/vms/components/hardware/hardware-dialog-schema"
-import { getSelectOptionLabel } from "@/features/vms/components/hardware/hardware-section-utils"
 import {
   biosTypes,
   machineTypes,
   osTypes,
   scsiControllers,
 } from "@/features/vms/components/hardware/hardware-options"
+import { getSelectOptionLabel } from "@/features/vms/components/hardware/hardware-section-utils"
 
 export function VmHardwareOperatingSystemFields({
   form,

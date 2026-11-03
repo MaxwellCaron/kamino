@@ -1,7 +1,7 @@
 "use client";
 
-import { curveMonotoneX } from "@visx/curve";
 import { AreaClosed } from "@visx/shape";
+import { curveMonotoneX } from "@visx/curve";
 import { useChartStable } from "./chart-context";
 
 // biome-ignore lint/suspicious/noExplicitAny: d3 curve factory type

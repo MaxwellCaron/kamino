@@ -1,5 +1,7 @@
 "use client";
 
+import type { ChartPhase, ChartStatus } from "./chart-phase";
+import type {Dispatch, ReactNode, RefObject, SetStateAction} from "react";
 import {
   
   
@@ -9,14 +11,12 @@ import {
   useContext,
   useMemo
 } from "react";
-import { DEFAULT_Y_AXIS_ID } from "./y-axis-scales";
-import type {Dispatch, ReactNode, RefObject, SetStateAction} from "react";
 import type { scaleBand, scaleLinear, scaleTime } from "@visx/scale";
 
-import type { Transition } from "motion/react";
-import type { ChartPhase, ChartStatus } from "./chart-phase";
-import type { ReferenceAreaConfig } from "./reference-area-config";
 import type { ChartSelection } from "./use-chart-interaction";
+import { DEFAULT_Y_AXIS_ID } from "./y-axis-scales";
+import type { ReferenceAreaConfig } from "./reference-area-config";
+import type { Transition } from "motion/react";
 import type { YDomain } from "./y-domain-utils";
 
 type ScaleLinear<Output, _Input = number> = ReturnType<

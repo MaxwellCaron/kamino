@@ -1,17 +1,17 @@
-import { useForm } from "@tanstack/react-form"
-import { PencilEdit01Icon } from "@hugeicons/core-free-icons"
-import { z } from "zod"
-import { DialogFooter } from "@workspace/ui/components/dialog"
-import { FieldError, FieldGroup } from "@workspace/ui/components/field"
 import {
   AppDialog,
   AppDialogPrimaryButton,
 } from "@/components/dialogs/app-dialog"
-import { isTouchedInvalid } from "@/components/forms/form-errors"
+import { FieldError, FieldGroup } from "@workspace/ui/components/field"
 import { CountedTextareaField } from "@/components/forms/counted-textarea-field"
-import { useUpdateVMNotes } from "@/features/vms/hooks/use-vm-actions"
-import { toastUpdateNotes } from "@/features/vms/utils/vm-toasts"
+import { DialogFooter } from "@workspace/ui/components/dialog"
+import { PencilEdit01Icon } from "@hugeicons/core-free-icons"
 import { formatVmReference } from "@/features/shared/utils/format"
+import { isTouchedInvalid } from "@/components/forms/form-errors"
+import { toastUpdateNotes } from "@/features/vms/utils/vm-toasts"
+import { useForm } from "@tanstack/react-form"
+import { useUpdateVMNotes } from "@/features/vms/hooks/use-vm-actions"
+import { z } from "zod"
 
 const vmNotesSchema = z.object({
   notes: z.string().trim().max(256, "Notes must be 256 characters or less"),

@@ -1,6 +1,6 @@
 import { CHART_SCALE_VARS } from "../chart-scale";
-import { getHeatmapContributionLevel } from "./heatmap-utils";
 import type { PatternPresetId } from "../pattern-preset";
+import { getHeatmapContributionLevel } from "./heatmap-utils";
 
 /** Default Less → More scale using {@link CHART_SCALE_VARS}. */
 export const HEATMAP_DEFAULT_LEVEL_COLORS = CHART_SCALE_VARS;

@@ -1,10 +1,10 @@
-import { ComboboxItem } from "@workspace/ui/components/combobox"
 import {
   ItemContent,
   ItemDescription,
   ItemMedia,
   ItemTitle,
 } from "@workspace/ui/components/item"
+import { ComboboxItem } from "@workspace/ui/components/combobox"
 import { VmIcon } from "@/components/status/vm-icon"
 
 type VmTemplateOption = {

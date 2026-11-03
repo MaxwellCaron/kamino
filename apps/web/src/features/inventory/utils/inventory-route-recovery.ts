@@ -1,5 +1,5 @@
-import { findInventoryTreeNode } from "./inventory-tree"
 import type { ApiTreeNode } from "../types/inventory-types"
+import { findInventoryTreeNode } from "./inventory-tree"
 
 export type InventoryRouteRecoveryTarget =
   { type: "home" } | { type: "item"; itemId: string }

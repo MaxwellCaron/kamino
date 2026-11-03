@@ -1,9 +1,9 @@
-import { HugeiconsIcon } from "@hugeicons/react"
+import { AppDialog, AppDialogHeaderTabs } from "@/components/dialogs/app-dialog"
+import type { ComponentProps, ReactNode } from "react"
 import { NotebookIcon, RegexIcon } from "@hugeicons/core-free-icons"
 import { Tabs, TabsTrigger } from "@workspace/ui/components/tabs"
+import { HugeiconsIcon } from "@hugeicons/react"
 import type { IconSvgElement } from "@hugeicons/react"
-import type { ComponentProps, ReactNode } from "react"
-import { AppDialog, AppDialogHeaderTabs } from "@/components/dialogs/app-dialog"
 
 type PrincipalDialogMode = "single" | "list" | "prefix"
 

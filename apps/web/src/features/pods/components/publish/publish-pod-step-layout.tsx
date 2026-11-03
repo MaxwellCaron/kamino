@@ -1,8 +1,8 @@
-import { PodHeader } from "../pod-header"
-import { toPodDraft } from "./publish-pod-form"
-import type { PublishPodFormApi } from "./publish-pod-form"
 import type { ClonedPod } from "@/features/pods/types/pod-types"
+import { PodHeader } from "../pod-header"
+import type { PublishPodFormApi } from "./publish-pod-form"
 import type { ReactNode } from "react"
+import { toPodDraft } from "./publish-pod-form"
 
 type PublishPodStepLayoutProps = {
   actionsDisabled?: boolean

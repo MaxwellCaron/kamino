@@ -1,4 +1,14 @@
 import {
+  INVENTORY_TREE_ROW_GAP,
+  INVENTORY_TREE_ROW_HEIGHT,
+} from "./inventory-tree-row-skeleton"
+import { Tree, TreeDragLine } from "@workspace/ui/components/reui/tree"
+import {
+  computeRowGuideContinues,
+  createTreeRangeExtractor,
+  upsertRowVm,
+} from "./tree-content-utils"
+import {
   useCallback,
   useEffect,
   useLayoutEffect,
@@ -6,29 +16,19 @@ import {
   useRef,
   useState,
 } from "react"
-import { useVirtualizer } from "@tanstack/react-virtual"
-import { Tree, TreeDragLine } from "@workspace/ui/components/reui/tree"
-import { TREE_INDENT } from "../../utils/constants"
-import { hasNodeActions } from "../../utils/inventory-capabilities"
 import {
   useInventoryTreeDataContext,
   useInventoryTreeNavigationContext,
   useInventoryTreeViewContext,
 } from "./inventory-tree-context"
-import { InventoryTreeRow } from "./inventory-tree-row"
-import {
-  INVENTORY_TREE_ROW_GAP,
-  INVENTORY_TREE_ROW_HEIGHT,
-} from "./inventory-tree-row-skeleton"
-import {
-  computeRowGuideContinues,
-  createTreeRangeExtractor,
-  upsertRowVm,
-} from "./tree-content-utils"
-import { useInventoryTreeDragAutoscroll } from "./use-inventory-tree-drag-autoscroll"
-import type { TreeInstance } from "@headless-tree/core"
 import type { ApiTreeNode } from "../../types/inventory-types"
+import { InventoryTreeRow } from "./inventory-tree-row"
 import type { InventoryTreeRowVm } from "./tree-content-utils"
+import { TREE_INDENT } from "../../utils/constants"
+import type { TreeInstance } from "@headless-tree/core"
+import { hasNodeActions } from "../../utils/inventory-capabilities"
+import { useInventoryTreeDragAutoscroll } from "./use-inventory-tree-drag-autoscroll"
+import { useVirtualizer } from "@tanstack/react-virtual"
 
 const TREE_ROW_OVERSCAN = 50
 const TREE_ROW_CONTENT_HEIGHT =

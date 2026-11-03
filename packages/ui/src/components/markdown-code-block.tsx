@@ -1,8 +1,4 @@
 import * as React from "react"
-import { SourceCodeIcon } from "@hugeicons/core-free-icons"
-import { HugeiconsIcon } from "@hugeicons/react"
-
-import { cn } from "@workspace/ui/lib/utils"
 import {
   CodeBlock,
   CodeBlockActions,
@@ -12,6 +8,10 @@ import {
   CodeBlockLine,
   CodeBlockTitle,
 } from "@workspace/ui/components/code-block"
+import { HugeiconsIcon } from "@hugeicons/react"
+
+import { SourceCodeIcon } from "@hugeicons/core-free-icons"
+import { cn } from "@workspace/ui/lib/utils"
 import { useHighlightedCode } from "@workspace/ui/hooks/use-highlighted-code"
 
 type MarkdownCodeElementProps = {

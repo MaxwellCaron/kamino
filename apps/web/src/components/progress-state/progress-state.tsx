@@ -1,11 +1,14 @@
-import { useEffect, useRef, useState } from "react"
-import { Link } from "@tanstack/react-router"
-import { HugeiconsIcon } from "@hugeicons/react"
+import { Button, buttonVariants } from "@workspace/ui/components/button"
+import {
+  COMPLETE_PROGRESS_COLORS,
+  DEFAULT_PROGRESS_COLORS,
+  FAILED_PROGRESS_COLORS,
+  getProgressStepColors,
+} from "./progress-state-colors"
 import {
   CancelCircleIcon,
   CheckmarkCircle01Icon,
 } from "@hugeicons/core-free-icons"
-import { Button, buttonVariants } from "@workspace/ui/components/button"
 import {
   Empty,
   EmptyContent,
@@ -14,17 +17,14 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from "@workspace/ui/components/empty"
+import type { MouseEventHandler, ReactNode } from "react"
+import { useEffect, useRef, useState } from "react"
+import { HugeiconsIcon } from "@hugeicons/react"
+import type { IconSvgElement } from "@hugeicons/react"
+import { Link } from "@tanstack/react-router"
 import { Progress } from "@workspace/ui/components/progress"
 import { Spinner } from "@workspace/ui/components/spinner"
 import { cn } from "@workspace/ui/lib/utils"
-import {
-  COMPLETE_PROGRESS_COLORS,
-  DEFAULT_PROGRESS_COLORS,
-  FAILED_PROGRESS_COLORS,
-  getProgressStepColors,
-} from "./progress-state-colors"
-import type { MouseEventHandler, ReactNode } from "react"
-import type { IconSvgElement } from "@hugeicons/react"
 
 export type ProgressStateStep<TStepId extends number = number> = {
   id: TStepId

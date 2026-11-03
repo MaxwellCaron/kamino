@@ -1,17 +1,6 @@
 "use client"
 
-import { scaleLinear, scaleTime } from "@visx/scale"
-import { useReducedMotion } from "motion/react"
-import {
-  useCallback,
-  useEffect,
-  useLayoutEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react"
-import { cn } from "@workspace/ui/lib/utils"
-import { ChartLoadingLabel } from "../chart-loading-label"
+import type { ChartPhase, ChartStatus } from "../chart-phase"
 import { DEFAULT_CHART_STATUS, resolveRestingChartPhase } from "../chart-phase"
 import {
   HEATMAP_DEFAULT_ENTER_DURATION_MS,
@@ -21,19 +10,28 @@ import {
   HEATMAP_LOADING_CHART_OPACITY,
   HEATMAP_LOADING_CONCEAL_MS,
 } from "./heatmap-animation"
-import {
-  buildHeatmapColorScaleFromStyles,
-  buildHeatmapFillScale,
-  resolveHeatmapLevelStyles,
-} from "./heatmap-colors"
+import type {
+  HeatmapColumn,
+  HeatmapContextValue,
+  HeatmapRevealMode,
+} from "./heatmap-context"
 import {
   HeatmapInteractionRoot,
   HeatmapProvider,
   useHeatmap,
   useHeatmapInteraction,
 } from "./heatmap-context"
-import { HeatmapPatternDefs } from "./heatmap-pattern-defs"
-import { resolveHeatmapSeparatorConfigWithData } from "./heatmap-resolve-separator"
+import type { HeatmapLevelColors, HeatmapLevelStyles } from "./heatmap-colors"
+import type {
+  HeatmapSeparatorLayout,
+  HeatmapSeparatorParsedConfig,
+  HeatmapWeekStartDay,
+} from "./heatmap-utils"
+import {
+  buildHeatmapColorScaleFromStyles,
+  buildHeatmapFillScale,
+  resolveHeatmapLevelStyles,
+} from "./heatmap-colors"
 import {
   filterHeatmapColumns,
   getHeatmapColumnXOffset,
@@ -42,21 +40,23 @@ import {
   getHeatmapTimeExtent,
   rotateHeatmapColumnBins,
 } from "./heatmap-utils"
-import type {
-  HeatmapSeparatorLayout,
-  HeatmapSeparatorParsedConfig,
-  HeatmapWeekStartDay,
-} from "./heatmap-utils"
-import type {
-  HeatmapColumn,
-  HeatmapContextValue,
-  HeatmapRevealMode,
-} from "./heatmap-context"
-import type { ChartPhase, ChartStatus } from "../chart-phase"
-import type { HeatmapLevelColors, HeatmapLevelStyles } from "./heatmap-colors"
-import type { ReactNode } from "react"
+import { scaleLinear, scaleTime } from "@visx/scale"
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react"
+import { ChartLoadingLabel } from "../chart-loading-label"
+import { HeatmapPatternDefs } from "./heatmap-pattern-defs"
 import type { Margin } from "../chart-context"
+import type { ReactNode } from "react"
 import type { Transition } from "motion/react"
+import { cn } from "@workspace/ui/lib/utils"
+import { resolveHeatmapSeparatorConfigWithData } from "./heatmap-resolve-separator"
+import { useReducedMotion } from "motion/react"
 
 export type HeatmapLayout = "fluid" | "fill"
 

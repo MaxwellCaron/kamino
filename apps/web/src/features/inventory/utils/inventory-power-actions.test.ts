@@ -1,3 +1,4 @@
+import type { ApiTreeNode, SelectedVmItem } from "../types/inventory-types"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import {
   buildFolderCanPowerMap,
@@ -5,10 +6,9 @@ import {
   runInventoryPowerAction,
 } from "./inventory-power-actions"
 import { InventoryPermissionBits } from "./inventory-permissions"
-import type { ApiTreeNode, SelectedVmItem } from "../types/inventory-types"
 import type { QueryClient } from "@tanstack/react-query"
-import { vmPowerAction } from "@/features/vms/api/vm-api"
 import { showUnitMutationToast } from "@/components/feedback/mutation-progress-toast"
+import { vmPowerAction } from "@/features/vms/api/vm-api"
 
 vi.mock("@/features/vms/api/vm-api", () => ({
   vmPowerAction: vi.fn(),

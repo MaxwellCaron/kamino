@@ -1,32 +1,4 @@
 import {
-  Card,
-  CardAction,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@workspace/ui/components/card"
-import { Button } from "@workspace/ui/components/button"
-import {
-  Field,
-  FieldContent,
-  FieldError,
-  FieldGroup,
-  FieldLabel,
-  FieldTitle,
-} from "@workspace/ui/components/field"
-import {
-  RadioGroup,
-  RadioGroupItem,
-} from "@workspace/ui/components/radio-group"
-import {
-  InputGroup,
-  InputGroupAddon,
-  InputGroupInput,
-} from "@workspace/ui/components/input-group"
-import { Item, ItemGroup } from "@workspace/ui/components/item"
-import { HugeiconsIcon } from "@hugeicons/react"
-import {
   Add01Icon,
   Cancel01Icon,
   ComputerIcon,
@@ -36,14 +8,42 @@ import {
   HardDriveIcon,
   RamMemoryIcon,
 } from "@hugeicons/core-free-icons"
-import { createTemplateVm, toNumberInputValue } from "./create-pod-form"
-import type { ReactNode } from "react"
+import {
+  Card,
+  CardAction,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@workspace/ui/components/card"
 import type {
   CreatePodFormApi,
   CreatePodFormValues,
   PodNetworkingMode,
 } from "./create-pod-form"
+import {
+  Field,
+  FieldContent,
+  FieldError,
+  FieldGroup,
+  FieldLabel,
+  FieldTitle,
+} from "@workspace/ui/components/field"
+import {
+  InputGroup,
+  InputGroupAddon,
+  InputGroupInput,
+} from "@workspace/ui/components/input-group"
+import { Item, ItemGroup } from "@workspace/ui/components/item"
+import {
+  RadioGroup,
+  RadioGroupItem,
+} from "@workspace/ui/components/radio-group"
+import { createTemplateVm, toNumberInputValue } from "./create-pod-form"
+import { Button } from "@workspace/ui/components/button"
+import { HugeiconsIcon } from "@hugeicons/react"
 import type { PodNetworkSegment } from "@/features/pods/api/create-pod-api"
+import type { ReactNode } from "react"
 import { replaceWhitespaceWithHyphen } from "@/features/shared/utils/sanitize"
 
 type CreatePodTemplateCardProps = {

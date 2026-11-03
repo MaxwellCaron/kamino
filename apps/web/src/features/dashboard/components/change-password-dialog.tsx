@@ -1,8 +1,7 @@
-import { useForm } from "@tanstack/react-form"
-import { useMutation, useQueryClient } from "@tanstack/react-query"
-import { Settings01Icon } from "@hugeicons/core-free-icons"
-import { z } from "zod"
-import { DialogFooter } from "@workspace/ui/components/dialog"
+import {
+  AppDialog,
+  AppDialogPrimaryButton,
+} from "@/components/dialogs/app-dialog"
 import {
   Field,
   FieldContent,
@@ -11,17 +10,18 @@ import {
   FieldGroup,
   FieldLabel,
 } from "@workspace/ui/components/field"
-import { Input } from "@workspace/ui/components/input"
-import {
-  AppDialog,
-  AppDialogPrimaryButton,
-} from "@/components/dialogs/app-dialog"
-import { isTouchedInvalid } from "@/components/forms/form-errors"
 import {
   authSessionQueryOptions,
   changeOwnPassword,
 } from "@/features/auth/api/auth-api"
+import { useMutation, useQueryClient } from "@tanstack/react-query"
+import { DialogFooter } from "@workspace/ui/components/dialog"
+import { Input } from "@workspace/ui/components/input"
+import { Settings01Icon } from "@hugeicons/core-free-icons"
+import { isTouchedInvalid } from "@/components/forms/form-errors"
 import { showSingleMutationToast } from "@/components/feedback/mutation-progress-toast"
+import { useForm } from "@tanstack/react-form"
+import { z } from "zod"
 
 const changePasswordSchema = z
   .object({

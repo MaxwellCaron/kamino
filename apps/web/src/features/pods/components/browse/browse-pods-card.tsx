@@ -1,4 +1,3 @@
-import { m } from "motion/react"
 import {
   CutoutCard,
   CutoutCardContent,
@@ -11,11 +10,12 @@ import {
   cutoutCardSurfaceClassName,
   useCutoutContentStaggerVariants,
 } from "@workspace/ui/components/cutout-card"
-import { cn } from "@workspace/ui/lib/utils"
+import { FormatPodCreatorsShort } from "@/features/pods/components/pod-creators"
 import { Link } from "@tanstack/react-router"
 import type { PodCatalogSummary } from "@/features/pods/types/pod-types"
-import { FormatPodCreatorsShort } from "@/features/pods/components/pod-creators"
 import { PodCoverImage } from "@/features/pods/components/pod-cover-image"
+import { cn } from "@workspace/ui/lib/utils"
+import { m } from "motion/react"
 
 const podDateFormatter = new Intl.DateTimeFormat("en-US", {
   month: "short",

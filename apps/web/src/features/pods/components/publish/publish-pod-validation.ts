@@ -1,6 +1,6 @@
-import { steps } from "./publish-pod-steps"
-import type { PublishPodStep } from "./publish-pod-steps"
 import type { PublishPodFormApi } from "./publish-pod-form"
+import type { PublishPodStep } from "./publish-pod-steps"
+import { steps } from "./publish-pod-steps"
 
 export type PublishPodFieldPath = Parameters<
   PublishPodFormApi["getFieldMeta"]

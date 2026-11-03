@@ -1,7 +1,3 @@
-import { useMemo, useState } from "react"
-import { useQuery } from "@tanstack/react-query"
-import { Navigate, getRouteApi } from "@tanstack/react-router"
-import { HugeiconsIcon } from "@hugeicons/react"
 import {
   Add01Icon,
   Cancel01Icon,
@@ -10,8 +6,10 @@ import {
   Tick01Icon,
   UserIcon,
 } from "@hugeicons/core-free-icons"
-import { Badge } from "@workspace/ui/components/badge"
-import { Button } from "@workspace/ui/components/button"
+import type {
+  ApiPrincipal,
+  ApiPrincipalProviderCapabilities,
+} from "@/features/principals/types/principals-types"
 import {
   Card,
   CardAction,
@@ -20,31 +18,33 @@ import {
   CardHeader,
   CardTitle,
 } from "@workspace/ui/components/card"
-import type {
-  ApiPrincipal,
-  ApiPrincipalProviderCapabilities,
-} from "@/features/principals/types/principals-types"
-import type { ConfirmConfig } from "@/components/dialogs/confirm-dialog"
-import { ConfirmDialog } from "@/components/dialogs/confirm-dialog"
-import { formatPrincipalReference } from "@/components/principals/principal-label"
 import {
   ManagementPermissionKeys,
   canAccessAdmin,
   hasManagementPermission,
 } from "@/features/auth/utils/management-permissions"
+import { Navigate, getRouteApi } from "@tanstack/react-router"
 import {
   principalProviderQueryOptions,
   usersQueryOptions,
 } from "@/features/principals/api/principals-api"
-import { getUserColumns } from "@/features/principals/components/users/users-columns"
+import { useMemo, useState } from "react"
+import { AppActionButton } from "@/components/actions/app-action-button"
+import { Badge } from "@workspace/ui/components/badge"
+import { Button } from "@workspace/ui/components/button"
+import type { ConfirmConfig } from "@/components/dialogs/confirm-dialog"
+import { ConfirmDialog } from "@/components/dialogs/confirm-dialog"
+import { DataTable } from "@/components/data-table/data-table"
+import { HugeiconsIcon } from "@hugeicons/react"
 import { MembershipDialog } from "@/features/principals/components/membership-dialog"
 import { UserDialog } from "@/features/principals/components/users/user-dialog"
 import { UserGroupBulkDialog } from "@/features/principals/components/users/user-group-bulk-dialog"
-import { useUsersPageMutations } from "@/features/principals/hooks/use-users-page-mutations"
 import { UsersSelectionActions } from "@/features/principals/components/users/users-selection-actions"
-import { AppActionButton } from "@/components/actions/app-action-button"
-import { DataTable } from "@/components/data-table/data-table"
+import { formatPrincipalReference } from "@/components/principals/principal-label"
+import { getUserColumns } from "@/features/principals/components/users/users-columns"
 import { useItemDialogState } from "@/features/shared/hooks/use-item-dialog-state"
+import { useQuery } from "@tanstack/react-query"
+import { useUsersPageMutations } from "@/features/principals/hooks/use-users-page-mutations"
 
 const usersRouteApi = getRouteApi("/_dashboard/admin/principals/users")
 

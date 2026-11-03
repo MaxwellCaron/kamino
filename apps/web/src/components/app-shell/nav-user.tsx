@@ -1,8 +1,3 @@
-import { useMutation, useQueryClient } from "@tanstack/react-query"
-import { useRouter } from "@tanstack/react-router"
-import { toast } from "sonner"
-import { HugeiconsIcon } from "@hugeicons/react"
-import { Logout01Icon } from "@hugeicons/core-free-icons"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -18,10 +13,15 @@ import {
   SidebarMenuItem,
   useSidebar,
 } from "@workspace/ui/components/sidebar"
+import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { FacehashIcon } from "@workspace/ui/components/facehash"
+import { HugeiconsIcon } from "@hugeicons/react"
+import { Logout01Icon } from "@hugeicons/core-free-icons"
 import { Spinner } from "@workspace/ui/components/spinner"
 import { ThemeToggleMenuItems } from "./theme-toggle"
 import { logout } from "@/features/auth/api/auth-api"
+import { toast } from "sonner"
+import { useRouter } from "@tanstack/react-router"
 
 export function NavUser({
   user,

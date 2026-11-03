@@ -1,14 +1,14 @@
 "use client"
 
-import { scaleLinear } from "@visx/scale"
 import { AreaClosed, LinePath } from "@visx/shape"
-import { m, useReducedMotion } from "motion/react"
-import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react"
-import { chartCssVars, useChartStable } from "./chart-context"
 import {
   LINE_LOADING_PULSE_EASE,
   LOADING_LABEL_EXIT_S,
 } from "./line-loading-timing"
+import { chartCssVars, useChartStable } from "./chart-context"
+import { m, useReducedMotion } from "motion/react"
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react"
+import { scaleLinear } from "@visx/scale"
 
 /**
  * Shared "sweep" loading visuals. A soft diagonal shimmer band travels across a

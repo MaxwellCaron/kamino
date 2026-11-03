@@ -1,6 +1,3 @@
-import { Link } from "@tanstack/react-router"
-import { HugeiconsIcon } from "@hugeicons/react"
-import { ArrowUpRight01Icon } from "@hugeicons/core-free-icons"
 import {
   Card,
   CardAction,
@@ -9,11 +6,14 @@ import {
   CardHeader,
   CardTitle,
 } from "@workspace/ui/components/card"
-import { buttonVariants } from "@workspace/ui/components/button"
-import type { ColumnDef } from "@tanstack/react-table"
-import type { AppTableFeatures } from "@/components/data-table/data-table-types"
 import type { ApiRequestSummary } from "@/features/requests/types/request-types"
+import type { AppTableFeatures } from "@/components/data-table/data-table-types"
+import { ArrowUpRight01Icon } from "@hugeicons/core-free-icons"
+import type { ColumnDef } from "@tanstack/react-table"
+import { HugeiconsIcon } from "@hugeicons/react"
+import { Link } from "@tanstack/react-router"
 import { SimpleDataTable } from "@/components/data-table/simple-data-table"
+import { buttonVariants } from "@workspace/ui/components/button"
 
 type AdminDashboardPendingRequestsCardProps = {
   columns: Array<ColumnDef<AppTableFeatures, ApiRequestSummary>>

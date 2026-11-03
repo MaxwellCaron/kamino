@@ -1,24 +1,24 @@
-import { useMemo } from "react"
-import { useQuery } from "@tanstack/react-query"
-import { HugeiconsIcon } from "@hugeicons/react"
-import { MoreHorizontalIcon } from "@hugeicons/core-free-icons"
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuTrigger,
 } from "@workspace/ui/components/dropdown-menu"
-import { useSidebar } from "@workspace/ui/components/sidebar"
-import { Button } from "@workspace/ui/components/button"
-import { inventoryTreeQueryOptions } from "../../api/inventory-api"
-import { hasNodeActions } from "../../utils/inventory-capabilities"
-import { collectFolderPowerTargets } from "../../utils/inventory-power-actions"
-import { stopTreeItemEvent } from "./inventory-action-utils"
 import {
   InventoryMenuEmptyState,
   InventoryNodeMenuBody,
 } from "./inventory-node-menu-body"
-import type { FolderPowerTargets } from "../../utils/inventory-power-actions"
 import type { ApiTreeNode } from "../../types/inventory-types"
+import { Button } from "@workspace/ui/components/button"
+import type { FolderPowerTargets } from "../../utils/inventory-power-actions"
+import { HugeiconsIcon } from "@hugeicons/react"
+import { MoreHorizontalIcon } from "@hugeicons/core-free-icons"
+import { collectFolderPowerTargets } from "../../utils/inventory-power-actions"
+import { hasNodeActions } from "../../utils/inventory-capabilities"
+import { inventoryTreeQueryOptions } from "../../api/inventory-api"
+import { stopTreeItemEvent } from "./inventory-action-utils"
+import { useMemo } from "react"
+import { useQuery } from "@tanstack/react-query"
+import { useSidebar } from "@workspace/ui/components/sidebar"
 
 const EMPTY_FOLDER_POWER: FolderPowerTargets = {
   targets: [],

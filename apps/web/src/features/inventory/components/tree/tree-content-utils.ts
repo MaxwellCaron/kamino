@@ -1,7 +1,7 @@
-import { defaultRangeExtractor } from "@tanstack/react-virtual"
 import type { ApiTreeNode } from "../../types/inventory-types"
 import type { ItemInstance } from "@headless-tree/core"
 import type { Range } from "@tanstack/react-virtual"
+import { defaultRangeExtractor } from "@tanstack/react-virtual"
 
 export function mergeIndexIntoRange(
   rangeIndexes: Array<number>,

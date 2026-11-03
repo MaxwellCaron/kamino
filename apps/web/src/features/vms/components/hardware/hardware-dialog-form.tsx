@@ -1,25 +1,10 @@
-import { useForm } from "@tanstack/react-form"
-import { toast } from "sonner"
-import { DialogFooter } from "@workspace/ui/components/dialog"
-import { FieldError } from "@workspace/ui/components/field"
-import type { ApiScopedNetwork } from "@/features/vms/api/proxmox-options-api"
-import type { ApiVmHardwareConfig } from "@/features/vms/types/vm-types"
-import type { NetworkOption } from "@/features/vms/components/hardware/hardware-section-utils"
-import type {
-  StorageOption,
-  VmHardwareDialogFormValues,
-} from "@/features/vms/components/hardware/hardware-dialog-schema"
 import {
   AppDialogPrimaryButton,
   AppDialogScrollBody,
 } from "@/components/dialogs/app-dialog"
-import { getFirstIssueMessage } from "@/features/vms/components/create/create-vm-form"
-import { VmHardwareComputeFields } from "@/features/vms/components/hardware/hardware-dialog-compute-fields"
-import { VmHardwareOperatingSystemFields } from "@/features/vms/components/hardware/hardware-dialog-fields"
-import { VmHardwareStorageFields } from "@/features/vms/components/hardware/hardware-dialog-storage-fields"
-import {
-  hardwareNetworkInterfaceSchema,
-  vmHardwareFormSchema,
+import type {
+  StorageOption,
+  VmHardwareDialogFormValues,
 } from "@/features/vms/components/hardware/hardware-dialog-schema"
 import {
   VmHardwareComputeSection,
@@ -27,9 +12,24 @@ import {
   VmHardwareOperatingSystemSection,
   VmHardwareStorageSection,
 } from "@/features/vms/components/hardware/hardware-sections"
+import {
+  hardwareNetworkInterfaceSchema,
+  vmHardwareFormSchema,
+} from "@/features/vms/components/hardware/hardware-dialog-schema"
+import type { ApiScopedNetwork } from "@/features/vms/api/proxmox-options-api"
+import type { ApiVmHardwareConfig } from "@/features/vms/types/vm-types"
+import { DialogFooter } from "@workspace/ui/components/dialog"
+import { FieldError } from "@workspace/ui/components/field"
+import type { NetworkOption } from "@/features/vms/components/hardware/hardware-section-utils"
+import { VmHardwareComputeFields } from "@/features/vms/components/hardware/hardware-dialog-compute-fields"
 import { VmHardwareNetworksField } from "@/features/vms/components/hardware/vm-hardware-networks-field"
-import { useUpdateVMHardware } from "@/features/vms/hooks/use-vm-actions"
+import { VmHardwareOperatingSystemFields } from "@/features/vms/components/hardware/hardware-dialog-fields"
+import { VmHardwareStorageFields } from "@/features/vms/components/hardware/hardware-dialog-storage-fields"
+import { getFirstIssueMessage } from "@/features/vms/components/create/create-vm-form"
+import { toast } from "sonner"
 import { toastUpdateHardware } from "@/features/vms/utils/vm-toasts"
+import { useForm } from "@tanstack/react-form"
+import { useUpdateVMHardware } from "@/features/vms/hooks/use-vm-actions"
 import { uuid } from "@/features/shared/utils/uuid"
 
 type VmHardwareDialogFormProps = {

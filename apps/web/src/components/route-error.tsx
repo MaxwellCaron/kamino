@@ -1,8 +1,8 @@
-import { useState } from "react"
-import { useRouter } from "@tanstack/react-router"
 import { Button } from "@workspace/ui/components/button"
 import type { ErrorComponentProps } from "@tanstack/react-router"
 import { FullPageStatus } from "@/components/full-page-status"
+import { useRouter } from "@tanstack/react-router"
+import { useState } from "react"
 
 export function RouteErrorBoundary(_props: ErrorComponentProps) {
   const router = useRouter()

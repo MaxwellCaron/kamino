@@ -1,28 +1,28 @@
-import { m } from "motion/react"
-import { HugeiconsIcon } from "@hugeicons/react"
 import {
   Cancel01Icon,
   CheckmarkCircle01Icon,
   CircleIcon,
   Loading03Icon,
 } from "@hugeicons/core-free-icons"
-import { Badge } from "@workspace/ui/components/badge"
-import { useCutoutContentStaggerVariants } from "@workspace/ui/components/cutout-card"
+import {
+  DEFAULT_PROGRESS_COLORS,
+  FAILED_PROGRESS_COLORS,
+  IDLE_PROGRESS_COLORS,
+} from "@/components/progress-state/progress-state-colors"
 import {
   Item,
   ItemContent,
   ItemDescription,
   ItemTitle,
 } from "@workspace/ui/components/item"
-import { cn } from "@workspace/ui/lib/utils"
-import type { ReactNode } from "react"
+import { Badge } from "@workspace/ui/components/badge"
 import type { CloneStatusTask } from "@/features/pods/types/clone-status"
+import { HugeiconsIcon } from "@hugeicons/react"
 import type { ProgressStepColors } from "@/components/progress-state/progress-state-colors"
-import {
-  DEFAULT_PROGRESS_COLORS,
-  FAILED_PROGRESS_COLORS,
-  IDLE_PROGRESS_COLORS,
-} from "@/components/progress-state/progress-state-colors"
+import type { ReactNode } from "react"
+import { cn } from "@workspace/ui/lib/utils"
+import { m } from "motion/react"
+import { useCutoutContentStaggerVariants } from "@workspace/ui/components/cutout-card"
 
 type CloneStatusItemProps = {
   title: ReactNode

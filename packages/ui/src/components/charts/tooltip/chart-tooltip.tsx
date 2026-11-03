@@ -1,29 +1,29 @@
 "use client";
 
-import { m, useSpring } from "motion/react";
-import { memo, useEffect, useMemo, useState } from "react";
-import { createPortal } from "react-dom";
 import {
-  
-  resolveTooltipBoxMotion,
-  useChartConfig
-} from "../chart-config-context";
-import {
-  
+
   chartCssVars,
   useChart,
   useChartStable
 } from "../chart-context";
-import { weekdayDateFmt } from "../chart-formatters";
+import { m, useSpring } from "motion/react";
+import { memo, useEffect, useMemo, useState } from "react";
+import {
+
+  resolveTooltipBoxMotion,
+  useChartConfig
+} from "../chart-config-context";
 import { DateTicker } from "./date-ticker";
+import type { IndicatorFadeEdges } from "../indicator-fade";
+import type {LineConfig} from "../chart-context";
+import type {SpringConfig} from "../chart-config-context";
 import { TooltipBox } from "./tooltip-box";
 import { TooltipContent  } from "./tooltip-content";
 import { TooltipDot } from "./tooltip-dot";
 import { TooltipIndicator } from "./tooltip-indicator";
 import type {TooltipRow} from "./tooltip-content";
-import type {LineConfig} from "../chart-context";
-import type {SpringConfig} from "../chart-config-context";
-import type { IndicatorFadeEdges } from "../indicator-fade";
+import { createPortal } from "react-dom";
+import { weekdayDateFmt } from "../chart-formatters";
 
 export interface ChartTooltipProps {
   /** Whether to show the date pill at bottom. Default: true */

@@ -1,3 +1,7 @@
+import type {
+  ApiInventoryItem,
+  ApiTreeNode,
+} from "@/features/inventory/types/inventory-types"
 import {
   useCallback,
   useEffect,
@@ -6,22 +10,18 @@ import {
   useState,
   useSyncExternalStore,
 } from "react"
+import type { VncConnectionStatus } from "@/features/vms/components/dashboard/vnc-console"
+import { VncConsole } from "@/features/vms/components/dashboard/vnc-console"
+
+import { cn } from "@workspace/ui/lib/utils"
+import { getVmCapabilities } from "@/features/inventory/utils/inventory-capabilities"
+import { inventoryItemQueryOptions } from "@/features/inventory/api/inventory-api"
+import { isApiErrorStatus } from "@/features/auth/api/auth-api"
+import { useInventoryTreeDataContext } from "@/features/inventory/components/tree/inventory-tree-context"
 import { useParams } from "@tanstack/react-router"
 import { useQuery } from "@tanstack/react-query"
-import { cn } from "@workspace/ui/lib/utils"
-
-import type {
-  ApiInventoryItem,
-  ApiTreeNode,
-} from "@/features/inventory/types/inventory-types"
-import type { VncConnectionStatus } from "@/features/vms/components/dashboard/vnc-console"
-import { inventoryItemQueryOptions } from "@/features/inventory/api/inventory-api"
-import { useInventoryTreeDataContext } from "@/features/inventory/components/tree/inventory-tree-context"
-import { getVmCapabilities } from "@/features/inventory/utils/inventory-capabilities"
-import { vmStatusQueryOptions } from "@/features/vms/api/vm-api"
-import { VncConsole } from "@/features/vms/components/dashboard/vnc-console"
 import { useVncSessionVisibilityPublisher } from "@/features/vms/components/dashboard/vnc-session-visibility-context"
-import { isApiErrorStatus } from "@/features/auth/api/auth-api"
+import { vmStatusQueryOptions } from "@/features/vms/api/vm-api"
 
 type ConsoleTarget = {
   itemId: string

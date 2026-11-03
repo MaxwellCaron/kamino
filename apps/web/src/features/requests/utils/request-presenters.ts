@@ -13,12 +13,12 @@ import {
   StopIcon,
   Tick01Icon,
 } from "@hugeicons/core-free-icons"
-import type { IconSvgElement } from "@hugeicons/react"
 import type {
   ApiRequestScope,
   ApiRequestStatus,
   ApiRequestSummary,
 } from "@/features/requests/types/request-types"
+import type { IconSvgElement } from "@hugeicons/react"
 import { formatVmReference } from "@/features/shared/utils/format"
 
 const requestKindLabels: Record<string, string> = {

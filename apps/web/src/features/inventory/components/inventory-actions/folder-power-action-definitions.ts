@@ -4,9 +4,9 @@ import {
   Refresh03Icon,
   StopIcon,
 } from "@hugeicons/core-free-icons"
+import type { ConfirmConfig } from "@/components/dialogs/confirm-dialog"
 import type { IconSvgElement } from "@hugeicons/react"
 import type { InventoryPowerAction } from "../../utils/inventory-power-actions"
-import type { ConfirmConfig } from "@/components/dialogs/confirm-dialog"
 
 export const FOLDER_POWER_ACTION_DEFINITIONS: Array<{
   action: InventoryPowerAction

@@ -1,6 +1,7 @@
 "use client";
 
-import { ParentSize } from "@visx/responsive";
+import type {CSSProperties, ReactNode} from "react";
+import type {ChartPhase, ChartStatus} from "./chart-phase";
 import {
   Children,
   isValidElement,
@@ -10,9 +11,6 @@ import {
   useRef,
   useState
 } from "react";
-import { cn } from "@workspace/ui/lib/utils";
-import { Area  } from "./area";
-import { ChartLoadingLabel } from "./chart-loading-label";
 import {
   
   
@@ -20,13 +18,15 @@ import {
   DEFAULT_Y_DOMAIN_TWEEN_MS,
   resolveRestingChartPhase
 } from "./chart-phase";
+import type { LineConfig, Margin } from "./chart-context";
+import { Area  } from "./area";
+import type {AreaProps} from "./area";
+import { ChartLoadingLabel } from "./chart-loading-label";
+import { ParentSize } from "@visx/responsive";
 import { PatternArea } from "./pattern-area";
 import { TimeSeriesChartInner } from "./time-series-chart-shell";
-import type {ChartPhase, ChartStatus} from "./chart-phase";
-import type {CSSProperties, ReactNode} from "react";
-import type {AreaProps} from "./area";
-import type { LineConfig, Margin } from "./chart-context";
 import type { Transition } from "motion/react";
+import { cn } from "@workspace/ui/lib/utils";
 
 export interface AreaChartProps {
   /** Data array - each item should have a date field and numeric values */

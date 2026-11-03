@@ -1,9 +1,9 @@
-import type { QueryClient } from "@tanstack/react-query"
-import { inventoryTreeQueryOptions } from "@/features/inventory/api/inventory-api"
 import {
   managerRequestStatusCountsQueryOptions,
   requestsTableQueryOptions,
 } from "@/features/requests/api/requests-api"
+import type { QueryClient } from "@tanstack/react-query"
+import { inventoryTreeQueryOptions } from "@/features/inventory/api/inventory-api"
 
 const initialTableParams = {
   pageIndex: 0,

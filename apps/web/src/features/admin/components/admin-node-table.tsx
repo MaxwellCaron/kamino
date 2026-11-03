@@ -1,4 +1,4 @@
-import { Badge } from "@workspace/ui/components/badge"
+import type { Capacity, CapacityHistoryPoint } from "../utils/admin-dashboard"
 import {
   Table,
   TableBody,
@@ -13,10 +13,10 @@ import {
   formatUsageBytes,
   statusBadgeVariant,
 } from "../utils/admin-dashboard"
+import type { ApiNode } from "@/features/vms/types/vm-types"
+import { Badge } from "@workspace/ui/components/badge"
 import { NodeUsageAreaChart } from "./usage-charts"
 import type { UsageHistoryTimeframe } from "../api/admin-metrics-api"
-import type { Capacity, CapacityHistoryPoint } from "../utils/admin-dashboard"
-import type { ApiNode } from "@/features/vms/types/vm-types"
 
 type NodeHistorySeries = {
   cpu: Array<CapacityHistoryPoint>

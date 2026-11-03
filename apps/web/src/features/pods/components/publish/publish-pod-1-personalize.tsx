@@ -27,15 +27,15 @@ import {
   InputGroup,
   InputGroupInput,
 } from "@workspace/ui/components/input-group"
-import { Input } from "@workspace/ui/components/input"
-import { HugeiconsIcon } from "@hugeicons/react"
-import { Settings01Icon } from "@hugeicons/core-free-icons"
-import { PublishPodStepLayout } from "./publish-pod-step-layout"
-import { toPodCreator } from "./publish-pod-form"
-import { PublishPodPrincipalOption } from "./publish-pod-principal-option"
-import type { PublishPodFormApi } from "./publish-pod-form"
-import type { PrincipalOption } from "@/features/inventory/types/inventory-types"
 import { CountedTextareaField } from "@/components/forms/counted-textarea-field"
+import { HugeiconsIcon } from "@hugeicons/react"
+import { Input } from "@workspace/ui/components/input"
+import type { PrincipalOption } from "@/features/inventory/types/inventory-types"
+import type { PublishPodFormApi } from "./publish-pod-form"
+import { PublishPodPrincipalOption } from "./publish-pod-principal-option"
+import { PublishPodStepLayout } from "./publish-pod-step-layout"
+import { Settings01Icon } from "@hugeicons/core-free-icons"
+import { toPodCreator } from "./publish-pod-form"
 
 type PublishPodPersonalizeStepProps = {
   form: PublishPodFormApi

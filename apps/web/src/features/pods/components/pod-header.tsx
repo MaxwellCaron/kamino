@@ -4,22 +4,22 @@ import {
   CircularProgressRange,
   CircularProgressTrack,
 } from "@workspace/ui/components/circular-progress"
-import { HugeiconsIcon } from "@hugeicons/react"
-import { CopyIcon } from "@hugeicons/core-free-icons"
-import { Button } from "@workspace/ui/components/button"
-import { Separator } from "@workspace/ui/components/separator"
-import { RelativeTimeCard } from "@workspace/ui/components/relative-time-card"
-import { cn } from "@workspace/ui/lib/utils"
-import { ClonedPodStatusHoverCard } from "./cloned-pod-status-badge"
-import { PodHeaderActions } from "./pod-header-actions"
-import { PodCoverImage } from "./pod-cover-image"
 import type { ClonedPod, Pod } from "@/features/pods/types/pod-types"
-import type { ReactNode } from "react"
 import {
   FormatPodCreators,
   PodCreatorIcon,
 } from "@/features/pods/components/pod-creators"
+import { Button } from "@workspace/ui/components/button"
+import { ClonedPodStatusHoverCard } from "./cloned-pod-status-badge"
+import { CopyIcon } from "@hugeicons/core-free-icons"
 import { GrainientBackground } from "@/components/grainient-background"
+import { HugeiconsIcon } from "@hugeicons/react"
+import { PodCoverImage } from "./pod-cover-image"
+import { PodHeaderActions } from "./pod-header-actions"
+import type { ReactNode } from "react"
+import { RelativeTimeCard } from "@workspace/ui/components/relative-time-card"
+import { Separator } from "@workspace/ui/components/separator"
+import { cn } from "@workspace/ui/lib/utils"
 
 function PodHeaderMetaChip({
   icon,

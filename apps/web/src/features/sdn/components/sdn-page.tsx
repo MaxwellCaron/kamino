@@ -1,22 +1,22 @@
-import { useState } from "react"
-import { useQuery } from "@tanstack/react-query"
-import { Navigate, getRouteApi } from "@tanstack/react-router"
-import type { ConfirmConfig } from "@/components/dialogs/confirm-dialog"
-
-import { ConfirmDialog } from "@/components/dialogs/confirm-dialog"
 import {
   ManagementPermissionKeys,
   canAccessAdmin,
   hasManagementPermission,
 } from "@/features/auth/utils/management-permissions"
+import { Navigate, getRouteApi } from "@tanstack/react-router"
 import {
   sdnZonesQueryOptions,
   vnetsQueryOptions,
 } from "@/features/sdn/api/sdn-api"
-import { podCloneTargetsQueryOptions } from "@/features/pods/api/clone-targets-api"
 import { CloneTargetsCard } from "@/features/sdn/components/clone-targets-card"
+
+import type { ConfirmConfig } from "@/components/dialogs/confirm-dialog"
+import { ConfirmDialog } from "@/components/dialogs/confirm-dialog"
 import { SdnHeader } from "@/features/sdn/components/sdn-header"
 import { VNetsCard } from "@/features/sdn/components/vnets-card"
+import { podCloneTargetsQueryOptions } from "@/features/pods/api/clone-targets-api"
+import { useQuery } from "@tanstack/react-query"
+import { useState } from "react"
 
 const sdnRouteApi = getRouteApi("/_dashboard/admin/sdn")
 

@@ -1,6 +1,3 @@
-import { m } from "motion/react"
-import { HugeiconsIcon } from "@hugeicons/react"
-import { ComputerIcon, ExternalLinkIcon } from "@hugeicons/core-free-icons"
 import {
   Card,
   CardContent,
@@ -8,6 +5,13 @@ import {
   CardHeader,
   CardTitle,
 } from "@workspace/ui/components/card"
+import type { ClonedPodNetwork, PodVM } from "../types/pod-types"
+import { ComputerIcon, ExternalLinkIcon } from "@hugeicons/core-free-icons"
+import {
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+} from "@workspace/ui/components/empty"
 import {
   Item,
   ItemActions,
@@ -17,17 +21,13 @@ import {
   ItemMedia,
   ItemTitle,
 } from "@workspace/ui/components/item"
-import {
-  Empty,
-  EmptyDescription,
-  EmptyHeader,
-} from "@workspace/ui/components/empty"
-import { cn } from "@workspace/ui/lib/utils"
-import { getPodVmAddresses, podNetworkSegments } from "../utils/pod-networking"
-import type { PodNetworkSegmentKind } from "../utils/pod-networking"
-import type { ClonedPodNetwork, PodVM } from "../types/pod-types"
-import { InventoryVmItem } from "@/components/inventory/inventory-vm-item"
 import { animateContainer, animateTableRow } from "@/components/animate"
+import { getPodVmAddresses, podNetworkSegments } from "../utils/pod-networking"
+import { HugeiconsIcon } from "@hugeicons/react"
+import { InventoryVmItem } from "@/components/inventory/inventory-vm-item"
+import type { PodNetworkSegmentKind } from "../utils/pod-networking"
+import { cn } from "@workspace/ui/lib/utils"
+import { m } from "motion/react"
 
 function NetworkItem({
   kind,

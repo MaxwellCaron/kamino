@@ -1,9 +1,6 @@
 "use client";
 
-import { memo, useEffect, useMemo, useState } from "react";
-import { createPortal } from "react-dom";
-import { cn } from "@workspace/ui/lib/utils";
-import { useHeatmap } from "./heatmap-context";
+import type {HeatmapYAxisLabelFormat, HeatmapYAxisTickFilter} from "./heatmap-utils";
 import {
   
   
@@ -12,7 +9,10 @@ import {
   resolveHeatmapRowOpacity,
   shouldShowHeatmapYAxisTick
 } from "./heatmap-utils";
-import type {HeatmapYAxisLabelFormat, HeatmapYAxisTickFilter} from "./heatmap-utils";
+import { memo, useEffect, useMemo, useState } from "react";
+import { cn } from "@workspace/ui/lib/utils";
+import { createPortal } from "react-dom";
+import { useHeatmap } from "./heatmap-context";
 
 export interface HeatmapYAxisProps {
   /** Additional class name for labels */

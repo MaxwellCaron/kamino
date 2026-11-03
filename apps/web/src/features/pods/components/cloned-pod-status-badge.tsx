@@ -1,15 +1,15 @@
-import { Badge } from "@workspace/ui/components/badge"
 import {
   HoverCard,
   HoverCardContent,
   HoverCardTrigger,
 } from "@workspace/ui/components/hover-card"
-import { Separator } from "@workspace/ui/components/separator"
-import { cn } from "@workspace/ui/lib/utils"
-import { HugeiconsIcon } from "@hugeicons/react"
-import { InformationCircleIcon } from "@hugeicons/core-free-icons"
+import { Badge } from "@workspace/ui/components/badge"
 import type { ClonedPodStatus } from "@/features/pods/types/pod-types"
 import type { ComponentProps } from "react"
+import { HugeiconsIcon } from "@hugeicons/react"
+import { InformationCircleIcon } from "@hugeicons/core-free-icons"
+import { Separator } from "@workspace/ui/components/separator"
+import { cn } from "@workspace/ui/lib/utils"
 
 type ClonedPodStatusConfig = {
   status: ClonedPodStatus

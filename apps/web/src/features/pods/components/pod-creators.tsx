@@ -1,18 +1,18 @@
-import { HugeiconsIcon } from "@hugeicons/react"
-import { UserGroupIcon } from "@hugeicons/core-free-icons"
-import { FacehashIcon } from "@workspace/ui/components/facehash"
-import {
-  HoverCard,
-  HoverCardContent,
-  HoverCardTrigger,
-} from "@workspace/ui/components/hover-card"
 import {
   Avatar,
   AvatarFallback,
   AvatarGroup,
 } from "@workspace/ui/components/avatar"
-import { cn } from "@workspace/ui/lib/utils"
+import {
+  HoverCard,
+  HoverCardContent,
+  HoverCardTrigger,
+} from "@workspace/ui/components/hover-card"
+import { FacehashIcon } from "@workspace/ui/components/facehash"
+import { HugeiconsIcon } from "@hugeicons/react"
 import type { PodCreator } from "@/features/pods/types/pod-types"
+import { UserGroupIcon } from "@hugeicons/core-free-icons"
+import { cn } from "@workspace/ui/lib/utils"
 
 function getCreatorLabel(creator: PodCreator) {
   return creator.label

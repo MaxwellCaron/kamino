@@ -1,3 +1,4 @@
+import type { ColumnDef, RowData, TableOptions } from "@tanstack/react-table"
 import {
   Table,
   TableBody,
@@ -6,12 +7,11 @@ import {
   TableHeader,
   TableRow,
 } from "@workspace/ui/components/table"
-import { flexRender, useTable } from "@tanstack/react-table"
 
-import { appTableFeatures } from "./data-table-types"
-import { DataTableStateRow } from "./data-table-state-row"
+import { flexRender, useTable } from "@tanstack/react-table"
 import type { AppTableFeatures } from "./data-table-types"
-import type { ColumnDef, RowData, TableOptions } from "@tanstack/react-table"
+import { DataTableStateRow } from "./data-table-state-row"
+import { appTableFeatures } from "./data-table-types"
 
 export type SimpleDataTableProps<TData extends RowData, TValue> = {
   columns: Array<ColumnDef<AppTableFeatures, TData, TValue>>

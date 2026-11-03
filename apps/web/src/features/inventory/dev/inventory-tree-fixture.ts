@@ -1,8 +1,8 @@
-import { InventoryPermissionBits } from "../utils/inventory-permissions"
 import type {
   ApiTreeNode,
   ApiTreeNodePermissions,
 } from "../types/inventory-types"
+import { InventoryPermissionBits } from "../utils/inventory-permissions"
 
 const PODS_PER_TEAM = 5
 const VMS_PER_POD = 40

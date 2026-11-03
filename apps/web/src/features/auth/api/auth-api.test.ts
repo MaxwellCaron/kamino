@@ -1,7 +1,7 @@
+import type * as AuthApiModule from "./auth-api"
 // @vitest-environment node
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
-import type * as AuthApiModule from "./auth-api"
 import type { AuthSession } from "../types/auth-types"
 
 const mockSession: AuthSession = {

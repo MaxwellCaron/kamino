@@ -1,5 +1,3 @@
-import { useMutation, useQueryClient } from "@tanstack/react-query"
-import { useNavigate } from "@tanstack/react-router"
 import {
   cloneVM,
   convertToTemplate,
@@ -23,6 +21,8 @@ import {
   inventoryTreeQueryOptions,
   seedInventoryItemCache,
 } from "@/features/inventory/api/inventory-api"
+import { useMutation, useQueryClient } from "@tanstack/react-query"
+import { useNavigate } from "@tanstack/react-router"
 
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
 

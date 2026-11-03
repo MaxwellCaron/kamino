@@ -1,12 +1,12 @@
-import { HugeiconsIcon } from "@hugeicons/react"
-import { Copy02Icon, Delete01Icon } from "@hugeicons/core-free-icons"
 import {
   ActionBarItem,
   ActionBarSeparator,
 } from "@workspace/ui/components/action-bar"
+import { Copy02Icon, Delete01Icon } from "@hugeicons/core-free-icons"
 import type { ConfirmConfig } from "@/components/dialogs/confirm-dialog"
-import type { InventoryDeleteItem } from "@/features/inventory/utils/inventory-delete-items"
+import { HugeiconsIcon } from "@hugeicons/react"
 import { InventoryDeleteConfirmItems } from "@/features/inventory/components/inventory-delete-confirm-items"
+import type { InventoryDeleteItem } from "@/features/inventory/utils/inventory-delete-items"
 
 type InventorySelectionTemplateDeleteActionsProps = {
   canTemplate: boolean

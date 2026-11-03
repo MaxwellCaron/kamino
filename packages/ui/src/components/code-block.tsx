@@ -1,13 +1,13 @@
 "use client"
 
 import * as React from "react"
-import { cva } from "class-variance-authority"
-import { HugeiconsIcon } from "@hugeicons/react"
 import { Copy01Icon, Tick02Icon } from "@hugeicons/core-free-icons"
-import { cn } from "@workspace/ui/lib/utils"
-
 import { Button } from "@workspace/ui/components/button"
+import { HugeiconsIcon } from "@hugeicons/react"
 import type { VariantProps } from "class-variance-authority"
+
+import { cn } from "@workspace/ui/lib/utils"
+import { cva } from "class-variance-authority"
 
 const codeBlockVariants = cva(
   "group/code-block relative flex w-full min-w-0 flex-col overflow-hidden rounded-2xl text-sm has-[>[data-slot=code-block-content]:focus-visible]:ring-3 has-[>[data-slot=code-block-content]:focus-visible]:ring-ring/30 data-[size=sm]:rounded-xl data-[size=sm]:text-xs",

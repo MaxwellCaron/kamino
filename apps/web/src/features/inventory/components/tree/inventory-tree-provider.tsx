@@ -1,4 +1,10 @@
 import {
+  InventoryTreeDataContext,
+  InventoryTreeNavigationContext,
+  InventoryTreeViewContext,
+} from "./inventory-tree-context"
+import type { ReactNode, RefObject } from "react"
+import {
   useCallback,
   useEffect,
   useLayoutEffect,
@@ -6,26 +12,20 @@ import {
   useRef,
   useState,
 } from "react"
-import { useQuery } from "@tanstack/react-query"
-import { useNavigate, useParams } from "@tanstack/react-router"
 
-import { inventoryTreeQueryOptions } from "../../api/inventory-api"
-import { inventoryTreeFixtureVmCount } from "../../dev/inventory-tree-fixture-config"
-import { useMoveInventoryItems } from "../../hooks/use-inventory-actions"
-import { useInventoryFavorites } from "../../hooks/use-inventory-favorites"
-import { useInventoryHeadlessTree } from "../../hooks/use-inventory-headless-tree"
+import { useNavigate, useParams } from "@tanstack/react-router"
+import type { ApiTreeNode } from "../../types/inventory-types"
 import { VIRTUAL_ROOT } from "../../utils/constants"
 import { buildFolderCanPowerMap } from "../../utils/inventory-power-actions"
 import { filterInventoryTreeByName } from "../../utils/inventory-tree"
-import {
-  InventoryTreeDataContext,
-  InventoryTreeNavigationContext,
-  InventoryTreeViewContext,
-} from "./inventory-tree-context"
-import type { ReactNode, RefObject } from "react"
-import type { ApiTreeNode } from "../../types/inventory-types"
-import { showUnitMutationToast } from "@/components/feedback/mutation-progress-toast"
 import { formatToastError } from "@/features/shared/utils/format"
+import { inventoryTreeFixtureVmCount } from "../../dev/inventory-tree-fixture-config"
+import { inventoryTreeQueryOptions } from "../../api/inventory-api"
+import { showUnitMutationToast } from "@/components/feedback/mutation-progress-toast"
+import { useInventoryFavorites } from "../../hooks/use-inventory-favorites"
+import { useInventoryHeadlessTree } from "../../hooks/use-inventory-headless-tree"
+import { useMoveInventoryItems } from "../../hooks/use-inventory-actions"
+import { useQuery } from "@tanstack/react-query"
 import { vmStatusQueryOptions } from "@/features/vms/api/vm-api"
 
 interface SelectionState {

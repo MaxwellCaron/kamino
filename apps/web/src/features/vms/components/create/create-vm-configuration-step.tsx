@@ -1,10 +1,10 @@
+import type { ApiISO, ApiNode, ApiStorage } from "@/features/vms/types/vm-types"
 import { createVmFormOptions, withCreateVmForm } from "./create-vm-form"
 import { IsoConfigurationFields } from "./create-vm-iso-configuration-fields"
+import type { NetworkData } from "./create-vm-step-utils"
 import { TemplateConfigurationFields } from "./create-vm-template-configuration-fields"
 import { UploadConfigurationFields } from "./create-vm-upload-configuration-fields"
 import type { VmTemplateOption } from "./create-vm-form"
-import type { NetworkData } from "./create-vm-step-utils"
-import type { ApiISO, ApiNode, ApiStorage } from "@/features/vms/types/vm-types"
 
 export const CreateVmConfigurationStep = withCreateVmForm({
   ...createVmFormOptions,

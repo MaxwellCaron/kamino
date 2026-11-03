@@ -1,7 +1,7 @@
+import type { ReactNode } from "react"
 import { Separator } from "@workspace/ui/components/separator"
 import { SidebarTrigger } from "@workspace/ui/components/sidebar"
 import { SiteBreadcrumb } from "./site-breadcrumb"
-import type { ReactNode } from "react"
 
 export function SiteHeader({
   command,

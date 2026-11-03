@@ -1,19 +1,19 @@
-import { HugeiconsIcon } from "@hugeicons/react"
 import { ChevronDownIcon, ChevronUpIcon } from "@hugeicons/core-free-icons"
-import { Button } from "@workspace/ui/components/button"
-import { SidebarGroupLabel } from "@workspace/ui/components/sidebar"
 import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
 } from "@workspace/ui/components/tooltip"
-import { Separator } from "@workspace/ui/components/separator"
 import {
   useInventoryTreeDataContext,
   useInventoryTreeViewContext,
 } from "./inventory-tree-context"
+import { Button } from "@workspace/ui/components/button"
+import { HugeiconsIcon } from "@hugeicons/react"
 import { InventoryFavoritesSection } from "./favorites-section"
 import { SearchInputGroup } from "@/components/forms/search-input-group"
+import { Separator } from "@workspace/ui/components/separator"
+import { SidebarGroupLabel } from "@workspace/ui/components/sidebar"
 
 export function InventoryTreeHeader() {
   const { error, isLoading } = useInventoryTreeDataContext()

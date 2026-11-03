@@ -1,26 +1,26 @@
-import { useMemo, useState } from "react"
-import { useQuery, useQueryClient } from "@tanstack/react-query"
-import { UserAdd01Icon, UserMinusIcon } from "@hugeicons/core-free-icons"
-import { DialogFooter } from "@workspace/ui/components/dialog"
-import type { OnChangeFn, RowSelectionState } from "@tanstack/react-table"
-import type { ApiPrincipal } from "@/features/principals/types/principals-types"
-import type { PrincipalSelectionItem } from "@/components/principals/principal-selection-table"
-import { formatPrincipalReference } from "@/components/principals/principal-label"
-import { PrincipalSelectionTable } from "@/components/principals/principal-selection-table"
 import {
   AppDialog,
   AppDialogPrimaryButton,
   AppDialogScrollBody,
 } from "@/components/dialogs/app-dialog"
-import { SearchInputGroup } from "@/components/forms/search-input-group"
-import { PreloadOverlay } from "@/components/loading-overlay"
-import { InlineErrorAlert } from "@/components/feedback/inline-error-alert"
-import { showUnitMutationToast } from "@/components/feedback/mutation-progress-toast"
+import type { OnChangeFn, RowSelectionState } from "@tanstack/react-table"
+import { UserAdd01Icon, UserMinusIcon } from "@hugeicons/core-free-icons"
 import {
   addGroupMember,
   groupsQueryOptions,
   removeGroupMember,
 } from "@/features/principals/api/principals-api"
+import { useMemo, useState } from "react"
+import { useQuery, useQueryClient } from "@tanstack/react-query"
+import type { ApiPrincipal } from "@/features/principals/types/principals-types"
+import { DialogFooter } from "@workspace/ui/components/dialog"
+import { InlineErrorAlert } from "@/components/feedback/inline-error-alert"
+import { PreloadOverlay } from "@/components/loading-overlay"
+import type { PrincipalSelectionItem } from "@/components/principals/principal-selection-table"
+import { PrincipalSelectionTable } from "@/components/principals/principal-selection-table"
+import { SearchInputGroup } from "@/components/forms/search-input-group"
+import { formatPrincipalReference } from "@/components/principals/principal-label"
+import { showUnitMutationToast } from "@/components/feedback/mutation-progress-toast"
 
 type UserGroupBulkDialogProps = {
   clearSelection: () => void

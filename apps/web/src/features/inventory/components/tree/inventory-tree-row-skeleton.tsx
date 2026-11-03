@@ -1,6 +1,6 @@
+import type { CSSProperties } from "react"
 import { Skeleton } from "@workspace/ui/components/skeleton"
 import { TREE_INDENT } from "../../utils/constants"
-import type { CSSProperties } from "react"
 
 export const INVENTORY_TREE_ROW_GAP = 2
 const INVENTORY_TREE_ROW_CONTENT_HEIGHT = 32

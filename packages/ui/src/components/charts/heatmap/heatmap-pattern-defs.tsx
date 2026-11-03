@@ -1,7 +1,6 @@
 "use client";
 
 import { Fragment, memo } from "react";
-import { renderPatternPreset } from "../pattern-preset";
 import {
   
   heatmapLevelPatternId,
@@ -9,6 +8,7 @@ import {
   isHeatmapLevelPattern
 } from "./heatmap-colors";
 import type {HeatmapLevelStyles} from "./heatmap-colors";
+import { renderPatternPreset } from "../pattern-preset";
 
 export const HeatmapPatternDefs = memo(function HeatmapPatternDefs({
   levelStyles,

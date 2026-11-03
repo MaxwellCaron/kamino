@@ -1,11 +1,3 @@
-import { m } from "motion/react"
-import { HugeiconsIcon } from "@hugeicons/react"
-import {
-  Globe02Icon,
-  GroupIcon,
-  RouterIcon,
-  Wifi02Icon,
-} from "@hugeicons/core-free-icons"
 import {
   Card,
   CardContent,
@@ -13,10 +5,18 @@ import {
   CardHeader,
   CardTitle,
 } from "@workspace/ui/components/card"
+import {
+  Globe02Icon,
+  GroupIcon,
+  RouterIcon,
+  Wifi02Icon,
+} from "@hugeicons/core-free-icons"
 import { Item, ItemMedia, ItemTitle } from "@workspace/ui/components/item"
-import type { ReactNode } from "react"
-import type { IconSvgElement } from "@hugeicons/react"
 import { animateChild, animateContainer } from "@/components/animate"
+import { HugeiconsIcon } from "@hugeicons/react"
+import type { IconSvgElement } from "@hugeicons/react"
+import type { ReactNode } from "react"
+import { m } from "motion/react"
 
 type SdnStat = {
   icon: ReactNode

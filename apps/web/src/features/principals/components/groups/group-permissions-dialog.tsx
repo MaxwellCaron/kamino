@@ -1,8 +1,9 @@
-import React from "react"
-import { useForm } from "@tanstack/react-form"
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import { useSelector } from "@tanstack/react-store"
-import { HugeiconsIcon } from "@hugeicons/react"
+import {
+  Alert,
+  AlertAction,
+  AlertDescription,
+  AlertTitle,
+} from "@workspace/ui/components/alert"
 import {
   Alert01Icon,
   LockPasswordIcon,
@@ -10,15 +11,16 @@ import {
   ShieldKeyIcon,
   UserSettings01Icon,
 } from "@hugeicons/core-free-icons"
+import type {
+  ApiManagementPermissionDefinition,
+  ApiManagementPermissionSection,
+  ManagementPermissionKey,
+} from "@/features/auth/utils/management-permissions"
 import {
-  Alert,
-  AlertAction,
-  AlertDescription,
-  AlertTitle,
-} from "@workspace/ui/components/alert"
-import { Badge } from "@workspace/ui/components/badge"
-import { Button } from "@workspace/ui/components/button"
-import { DialogFooter } from "@workspace/ui/components/dialog"
+  AppDialog,
+  AppDialogPrimaryButton,
+  AppDialogScrollBody,
+} from "@/components/dialogs/app-dialog"
 import {
   Empty,
   EmptyDescription,
@@ -40,24 +42,22 @@ import {
   RadioGroup,
   RadioGroupItem,
 } from "@workspace/ui/components/radio-group"
-import type { ApiPrincipal } from "@/features/principals/types/principals-types"
-import type {
-  ApiManagementPermissionDefinition,
-  ApiManagementPermissionSection,
-  ManagementPermissionKey,
-} from "@/features/auth/utils/management-permissions"
-import { ManagementPermissionKeys } from "@/features/auth/utils/management-permissions"
-import {
-  AppDialog,
-  AppDialogPrimaryButton,
-  AppDialogScrollBody,
-} from "@/components/dialogs/app-dialog"
 import {
   groupManagementAclQueryOptions,
   updateGroupManagementAcl,
 } from "@/features/principals/api/principals-api"
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
+import type { ApiPrincipal } from "@/features/principals/types/principals-types"
+import { Badge } from "@workspace/ui/components/badge"
+import { Button } from "@workspace/ui/components/button"
+import { DialogFooter } from "@workspace/ui/components/dialog"
+import { HugeiconsIcon } from "@hugeicons/react"
+import { ManagementPermissionKeys } from "@/features/auth/utils/management-permissions"
 import { PreloadOverlay } from "@/components/loading-overlay"
+import React from "react"
 import { showSingleMutationToast } from "@/components/feedback/mutation-progress-toast"
+import { useForm } from "@tanstack/react-form"
+import { useSelector } from "@tanstack/react-store"
 
 function getGroupLabel(group: ApiPrincipal) {
   return group.name ?? group.external_id

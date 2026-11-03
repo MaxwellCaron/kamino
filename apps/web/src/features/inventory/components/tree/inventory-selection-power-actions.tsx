@@ -1,15 +1,15 @@
-import { HugeiconsIcon } from "@hugeicons/react"
+import {
+  ActionBarItem,
+  ActionBarSeparator,
+} from "@workspace/ui/components/action-bar"
 import {
   PlayIcon,
   PowerIcon,
   ReloadIcon,
   StopIcon,
 } from "@hugeicons/core-free-icons"
-import {
-  ActionBarItem,
-  ActionBarSeparator,
-} from "@workspace/ui/components/action-bar"
 import type { ConfirmConfig } from "@/components/dialogs/confirm-dialog"
+import { HugeiconsIcon } from "@hugeicons/react"
 
 type InventorySelectionPowerActionsProps = {
   showTrailingSeparator: boolean

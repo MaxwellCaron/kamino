@@ -1,5 +1,5 @@
-import { toast } from "sonner"
 import { MutationProgressToast } from "@/components/feedback/mutation-progress-toast-view"
+import { toast } from "sonner"
 
 export type MutationToastItem = {
   id: string

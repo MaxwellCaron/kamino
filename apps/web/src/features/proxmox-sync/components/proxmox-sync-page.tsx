@@ -1,20 +1,13 @@
-import { useMemo, useState } from "react"
-import { useQuery, useQueryClient } from "@tanstack/react-query"
-import { Navigate, getRouteApi } from "@tanstack/react-router"
-import { HugeiconsIcon } from "@hugeicons/react"
-import {
-  Alert01Icon,
-  CheckmarkCircle01Icon,
-  ReloadIcon,
-} from "@hugeicons/core-free-icons"
-import { ActionBarItem } from "@workspace/ui/components/action-bar"
 import {
   Alert,
   AlertDescription,
   AlertTitle,
 } from "@workspace/ui/components/alert"
-import { Badge } from "@workspace/ui/components/badge"
-import { Button } from "@workspace/ui/components/button"
+import {
+  Alert01Icon,
+  CheckmarkCircle01Icon,
+  ReloadIcon,
+} from "@hugeicons/core-free-icons"
 import {
   Card,
   CardAction,
@@ -23,27 +16,34 @@ import {
   CardHeader,
   CardTitle,
 } from "@workspace/ui/components/card"
-import type { ConfirmConfig } from "@/components/dialogs/confirm-dialog"
-import type {
-  SyncChange,
-  SyncSelection,
-} from "@/features/proxmox-sync/api/proxmox-sync-api"
-import { ConfirmDialog } from "@/components/dialogs/confirm-dialog"
 import {
   ManagementPermissionKeys,
   canAccessAdmin,
   hasManagementPermission,
 } from "@/features/auth/utils/management-permissions"
-import { inventoryTreeQueryOptions } from "@/features/inventory/api/inventory-api"
+import { Navigate, getRouteApi } from "@tanstack/react-router"
+import type {
+  SyncChange,
+  SyncSelection,
+} from "@/features/proxmox-sync/api/proxmox-sync-api"
 import {
   applyProxmoxSync,
   proxmoxSyncPreviewQueryOptions,
 } from "@/features/proxmox-sync/api/proxmox-sync-api"
-import { getSyncDiffColumns } from "@/features/proxmox-sync/components/sync-diff-columns"
-import { DataTable } from "@/components/data-table/data-table"
-import { InlineErrorAlert } from "@/components/feedback/inline-error-alert"
-import { showUnitMutationToast } from "@/components/feedback/mutation-progress-toast"
+import { useMemo, useState } from "react"
+import { useQuery, useQueryClient } from "@tanstack/react-query"
+import { ActionBarItem } from "@workspace/ui/components/action-bar"
 import { AppEmptyState } from "@/components/feedback/app-empty-state"
+import { Badge } from "@workspace/ui/components/badge"
+import { Button } from "@workspace/ui/components/button"
+import type { ConfirmConfig } from "@/components/dialogs/confirm-dialog"
+import { ConfirmDialog } from "@/components/dialogs/confirm-dialog"
+import { DataTable } from "@/components/data-table/data-table"
+import { HugeiconsIcon } from "@hugeicons/react"
+import { InlineErrorAlert } from "@/components/feedback/inline-error-alert"
+import { getSyncDiffColumns } from "@/features/proxmox-sync/components/sync-diff-columns"
+import { inventoryTreeQueryOptions } from "@/features/inventory/api/inventory-api"
+import { showUnitMutationToast } from "@/components/feedback/mutation-progress-toast"
 
 const syncRouteApi = getRouteApi("/_dashboard/admin/proxmox-sync")
 

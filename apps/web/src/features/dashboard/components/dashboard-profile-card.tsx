@@ -1,6 +1,3 @@
-import { HugeiconsIcon } from "@hugeicons/react"
-import { Settings01Icon } from "@hugeicons/core-free-icons"
-import { Button } from "@workspace/ui/components/button"
 import {
   Card,
   CardAction,
@@ -8,10 +5,13 @@ import {
   CardHeader,
   CardTitle,
 } from "@workspace/ui/components/card"
-import { FacehashIcon } from "@workspace/ui/components/facehash"
-import { cn } from "@workspace/ui/lib/utils"
 import type { AuthUser } from "@/features/auth/types/auth-types"
+import { Button } from "@workspace/ui/components/button"
+import { FacehashIcon } from "@workspace/ui/components/facehash"
 import { GrainientBackground } from "@/components/grainient-background"
+import { HugeiconsIcon } from "@hugeicons/react"
+import { Settings01Icon } from "@hugeicons/core-free-icons"
+import { cn } from "@workspace/ui/lib/utils"
 
 export function DashboardProfileCard({
   className,

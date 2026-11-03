@@ -1,13 +1,13 @@
 import * as React from "react"
-import { Select as SelectPrimitive } from "@base-ui/react/select"
-
-import { HugeiconsIcon } from "@hugeicons/react"
 import {
   ChevronDownIcon,
   ChevronUpIcon,
   Tick01Icon,
   VerticalResizeIcon,
 } from "@hugeicons/core-free-icons"
+
+import { HugeiconsIcon } from "@hugeicons/react"
+import { Select as SelectPrimitive } from "@base-ui/react/select"
 import { cn } from "@workspace/ui/lib/utils"
 
 const Select = SelectPrimitive.Root

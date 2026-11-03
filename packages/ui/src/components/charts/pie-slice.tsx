@@ -1,6 +1,6 @@
-import { arc as arcGenerator } from "@visx/shape"
 import { m, useSpring, useTransform } from "motion/react"
 import { useEffect, useRef } from "react"
+import { arc as arcGenerator } from "@visx/shape"
 import { usePie } from "./pie-context"
 
 // Helper to generate arc path using d3 arc generator

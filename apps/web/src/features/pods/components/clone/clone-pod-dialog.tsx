@@ -1,13 +1,3 @@
-import { useEffect, useState } from "react"
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import { AnimatePresence, m } from "motion/react"
-import { HugeiconsIcon } from "@hugeicons/react"
-import {
-  CancelCircleIcon,
-  CheckmarkCircle01Icon,
-  Clock01Icon,
-  CopyIcon,
-} from "@hugeicons/core-free-icons"
 import {
   AlertDialog,
   AlertDialogCancel,
@@ -16,30 +6,40 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@workspace/ui/components/alert-dialog"
-import { Progress } from "@workspace/ui/components/progress"
-import { Spinner } from "@workspace/ui/components/spinner"
-import { cn } from "@workspace/ui/lib/utils"
-import { Badge } from "@workspace/ui/components/badge"
-import { CloneStatusItem } from "./clone-status-item"
-import type { CloneStatusTask } from "@/features/pods/types/clone-status"
-import type { ClonedPod, Pod } from "@/features/pods/types/pod-types"
-import { AppActionButton } from "@/components/actions/app-action-button"
-import { InlineErrorAlert } from "@/components/feedback/inline-error-alert"
-import { uuid } from "@/features/shared/utils/uuid"
+import { AnimatePresence, m } from "motion/react"
 import {
   COMPLETE_PROGRESS_COLORS,
   FAILED_PROGRESS_COLORS,
   IDLE_PROGRESS_COLORS,
   getProgressStepColors,
 } from "@/components/progress-state/progress-state-colors"
-import { DEFAULT_CLONE_TASKS } from "@/features/pods/types/clone-status"
+import {
+  CancelCircleIcon,
+  CheckmarkCircle01Icon,
+  Clock01Icon,
+  CopyIcon,
+} from "@hugeicons/core-free-icons"
+import type { ClonedPod, Pod } from "@/features/pods/types/pod-types"
 import {
   clonePod,
   clonePodProgressQueryOptions,
   clonedPodQueryOptions,
   reclonePod,
 } from "@/features/pods/api/clone-pod-api"
+import { useEffect, useState } from "react"
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
+import { AppActionButton } from "@/components/actions/app-action-button"
+import { Badge } from "@workspace/ui/components/badge"
+import { CloneStatusItem } from "./clone-status-item"
+import type { CloneStatusTask } from "@/features/pods/types/clone-status"
+import { DEFAULT_CLONE_TASKS } from "@/features/pods/types/clone-status"
+import { HugeiconsIcon } from "@hugeicons/react"
+import { InlineErrorAlert } from "@/components/feedback/inline-error-alert"
+import { Progress } from "@workspace/ui/components/progress"
+import { Spinner } from "@workspace/ui/components/spinner"
+import { cn } from "@workspace/ui/lib/utils"
 import { podCatalogQueryOptions } from "@/features/pods/api/publish-pod-api"
+import { uuid } from "@/features/shared/utils/uuid"
 
 type CloneProgressState = "running" | "success" | "error" | undefined
 

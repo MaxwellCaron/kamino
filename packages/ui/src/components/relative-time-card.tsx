@@ -1,18 +1,18 @@
 "use client"
 
-import { cva } from "class-variance-authority"
 import * as React from "react"
-import {
-  formatRelativeTime,
-  getRelativeTimeUpdateDelay,
-} from "@workspace/ui/components/relative-time-schedule"
 import {
   HoverCard,
   HoverCardContent,
   HoverCardTrigger,
 } from "@workspace/ui/components/hover-card"
-import { cn } from "@workspace/ui/lib/utils"
+import {
+  formatRelativeTime,
+  getRelativeTimeUpdateDelay,
+} from "@workspace/ui/components/relative-time-schedule"
 import type { VariantProps } from "class-variance-authority"
+import { cn } from "@workspace/ui/lib/utils"
+import { cva } from "class-variance-authority"
 
 interface TimezoneCardProps extends React.ComponentProps<"div"> {
   date: Date

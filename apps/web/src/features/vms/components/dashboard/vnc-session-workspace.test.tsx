@@ -1,20 +1,20 @@
-import { QueryClientProvider } from "@tanstack/react-query"
-import { act, screen } from "@testing-library/react"
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
-import { useEffect } from "react"
-
-import { VncSessionWorkspace } from "./vnc-session-workspace"
-import {
-  VncSessionVisibilityProvider,
-  useIsVncSessionPinned,
-} from "./vnc-session-visibility-context"
-import type { VncConnectionStatus } from "./vnc-console"
 import type {
   ApiInventoryItem,
   ApiTreeNode,
 } from "@/features/inventory/types/inventory-types"
-import { InventoryPermissionBits } from "@/features/inventory/utils/inventory-permissions"
+import {
+  VncSessionVisibilityProvider,
+  useIsVncSessionPinned,
+} from "./vnc-session-visibility-context"
+import { act, screen } from "@testing-library/react"
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
+
 import { createTestQueryClient, renderWithQueryClient } from "@/test/test-utils"
+import { InventoryPermissionBits } from "@/features/inventory/utils/inventory-permissions"
+import { QueryClientProvider } from "@tanstack/react-query"
+import type { VncConnectionStatus } from "./vnc-console"
+import { VncSessionWorkspace } from "./vnc-session-workspace"
+import { useEffect } from "react"
 
 const {
   mockItemId,

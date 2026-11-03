@@ -1,14 +1,5 @@
 "use client";
 
-import { Group } from "@visx/group";
-import { HeatmapRect } from "@visx/heatmap";
-import {
-  animate,
-  m,
-  useMotionValue,
-} from "motion/react";
-import { memo, useCallback, useEffect, useMemo, useRef } from "react";
-import { transitionWithDelay } from "../motion-utils";
 import {
   HEATMAP_DEFAULT_ENTER_EASE,
   HEATMAP_LOADING_BASE_CELL_OPACITY,
@@ -17,13 +8,13 @@ import {
   heatmapLoadingCellParticipates,
   resolveHeatmapEnterFadeDurationSec,
 } from "./heatmap-animation";
-import { heatmapLevelCellFillOpacity } from "./heatmap-colors";
+import type {HeatmapBin, HeatmapColumn} from "./heatmap-context";
+import type {MotionValue, Transition} from "motion/react";
 import {
-  
-  
-  useHeatmap,
-  useHeatmapInteraction
-} from "./heatmap-context";
+  animate,
+  m,
+  useMotionValue,
+} from "motion/react";
 import {
   getHeatmapContributionLevel,
   isHeatmapGhostBin,
@@ -32,9 +23,18 @@ import {
   resolveHeatmapHoverStyle,
   resolveHeatmapRowOpacity,
 } from "./heatmap-utils";
-import type {HeatmapBin, HeatmapColumn} from "./heatmap-context";
-import type {MotionValue, Transition} from "motion/react";
+import { memo, useCallback, useEffect, useMemo, useRef } from "react";
+import {
+
+
+  useHeatmap,
+  useHeatmapInteraction
+} from "./heatmap-context";
 import type { ChartStatus } from "../chart-phase";
+import { Group } from "@visx/group";
+import { HeatmapRect } from "@visx/heatmap";
+import { heatmapLevelCellFillOpacity } from "./heatmap-colors";
+import { transitionWithDelay } from "../motion-utils";
 
 const HEATMAP_INACTIVE_OPACITY = 0.3;
 /** Smooth tween for inactive opacity + scale on hover. */

@@ -1,13 +1,13 @@
 import { getRouteApi, notFound } from "@tanstack/react-router"
-import { useQuery } from "@tanstack/react-query"
-import { Separator } from "@workspace/ui/components/separator"
 import { Badge } from "@workspace/ui/components/badge"
-import { inventoryTreeQueryOptions } from "../../api/inventory-api"
-import { findInventoryTreeNode } from "../../utils/inventory-tree"
-import { InventoryNodeMenu } from "../inventory-actions/inventory-node-menu"
-import { InventoryFolderContents } from "./inventory-folder-contents"
-import { InlineErrorAlert } from "@/components/feedback/inline-error-alert"
 import { FolderIcon } from "@/components/status/folder-icon"
+import { InlineErrorAlert } from "@/components/feedback/inline-error-alert"
+import { InventoryFolderContents } from "./inventory-folder-contents"
+import { InventoryNodeMenu } from "../inventory-actions/inventory-node-menu"
+import { Separator } from "@workspace/ui/components/separator"
+import { findInventoryTreeNode } from "../../utils/inventory-tree"
+import { inventoryTreeQueryOptions } from "../../api/inventory-api"
+import { useQuery } from "@tanstack/react-query"
 
 const folderRouteApi = getRouteApi("/_dashboard/inventory/items/$itemId")
 

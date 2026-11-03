@@ -1,7 +1,7 @@
 import { useEffect, useRef } from "react"
-import { useSidebar } from "@workspace/ui/components/sidebar"
-import { cn } from "@workspace/ui/lib/utils"
 import { INVENTORY_SIDEBAR_KEYBOARD_STEP } from "@/features/inventory/hooks/use-inventory-sidebar-resize"
+import { cn } from "@workspace/ui/lib/utils"
+import { useSidebar } from "@workspace/ui/components/sidebar"
 
 type InventorySidebarResizeHandleProps = {
   width: number

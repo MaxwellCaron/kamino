@@ -1,8 +1,4 @@
-import { useState } from "react"
-import { useQuery } from "@tanstack/react-query"
-import { HugeiconsIcon } from "@hugeicons/react"
 import { Add01Icon, Camera01Icon } from "@hugeicons/core-free-icons"
-import { Button } from "@workspace/ui/components/button"
 import {
   Card,
   CardAction,
@@ -12,25 +8,29 @@ import {
   CardHeader,
   CardTitle,
 } from "@workspace/ui/components/card"
-import { SnapshotRequestRollbackDialog } from "./snapshot-request-rollback-dialog"
-import { getSnapshotTableColumns } from "./snapshot-table-columns"
-import type { ConfirmConfig } from "@/components/dialogs/confirm-dialog"
-import type { ApiSnapshot } from "@/features/vms/types/vm-types"
-import { ConfirmDialog } from "@/components/dialogs/confirm-dialog"
-import { SnapshotDialog } from "@/features/vms/components/snapshot-dialog"
-import { snapshotsQueryOptions } from "@/features/vms/api/vm-api"
-import {
-  useDeleteSnapshot,
-  useRollbackSnapshot,
-  useSubmitInventorySnapshotRollbackRequest,
-} from "@/features/vms/hooks/use-vm-actions"
 import {
   toastDeleteSnapshot,
   toastRollbackSnapshot,
   toastSubmitRollbackRequest,
 } from "@/features/vms/utils/vm-toasts"
-import { formatVmReference } from "@/features/shared/utils/format"
+import {
+  useDeleteSnapshot,
+  useRollbackSnapshot,
+  useSubmitInventorySnapshotRollbackRequest,
+} from "@/features/vms/hooks/use-vm-actions"
+import type { ApiSnapshot } from "@/features/vms/types/vm-types"
+import { Button } from "@workspace/ui/components/button"
+import type { ConfirmConfig } from "@/components/dialogs/confirm-dialog"
+import { ConfirmDialog } from "@/components/dialogs/confirm-dialog"
+import { HugeiconsIcon } from "@hugeicons/react"
 import { SimpleDataTable } from "@/components/data-table/simple-data-table"
+import { SnapshotDialog } from "@/features/vms/components/snapshot-dialog"
+import { SnapshotRequestRollbackDialog } from "./snapshot-request-rollback-dialog"
+import { formatVmReference } from "@/features/shared/utils/format"
+import { getSnapshotTableColumns } from "./snapshot-table-columns"
+import { snapshotsQueryOptions } from "@/features/vms/api/vm-api"
+import { useQuery } from "@tanstack/react-query"
+import { useState } from "react"
 
 export type SnapshotTablePermissions = {
   canView: boolean

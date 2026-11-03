@@ -3,8 +3,8 @@ import type {
   SelectedFolderItem,
   SelectedVmItem,
 } from "../types/inventory-types"
-import type { ReactNode } from "react"
 import { FolderIcon } from "@/components/status/folder-icon"
+import type { ReactNode } from "react"
 import { VmIcon } from "@/components/status/vm-icon"
 import { formatVmReference } from "@/features/shared/utils/format"
 

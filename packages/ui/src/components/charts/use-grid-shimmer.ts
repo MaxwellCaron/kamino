@@ -1,17 +1,17 @@
 "use client";
 
 import {
+  LINE_LOADING_LOOP_PAUSE_MS,
+  LINE_LOADING_PULSE_CYCLE_S,
+  LINE_LOADING_PULSE_EASE,
+} from "./line-loading-timing";
+import {
   animate,
   useMotionValue,
   useReducedMotion,
   useTransform,
 } from "motion/react";
 import { useEffect } from "react";
-import {
-  LINE_LOADING_LOOP_PAUSE_MS,
-  LINE_LOADING_PULSE_CYCLE_S,
-  LINE_LOADING_PULSE_EASE,
-} from "./line-loading-timing";
 
 export interface UseGridShimmerOptions {
   innerWidth: number;

@@ -1,8 +1,8 @@
-import type { ApiUsageHistoryPoint } from "../api/admin-metrics-api"
-import type { ApiTreeNode } from "@/features/inventory/types/inventory-types"
+import type { ApiNode, ApiStorage } from "@/features/vms/types/vm-types"
 import type { ApiPrincipal } from "@/features/principals/types/principals-types"
 import type { ApiRequestSummary } from "@/features/requests/types/request-types"
-import type { ApiNode, ApiStorage } from "@/features/vms/types/vm-types"
+import type { ApiTreeNode } from "@/features/inventory/types/inventory-types"
+import type { ApiUsageHistoryPoint } from "../api/admin-metrics-api"
 
 export type Capacity = {
   total: number

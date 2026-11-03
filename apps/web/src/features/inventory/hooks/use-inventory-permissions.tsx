@@ -1,4 +1,12 @@
-import React from "react"
+import type {
+  ApiInventoryAcl,
+  ApiTreeNode,
+  DraftPrincipal,
+  PermissionState,
+  PrincipalListItem,
+  PrincipalListSectionKey,
+  PrincipalOption,
+} from "../types/inventory-types"
 
 import {
   buildPrincipalOptions,
@@ -10,19 +18,11 @@ import {
   normalizeScope,
   setPermissionState,
 } from "../utils/acl-transformers"
-import { getInventoryPermissionDefinitionsByGroup } from "../utils/inventory-permissions"
-import { useUpdateInventoryAcl } from "./use-inventory-actions"
 import type { ApiPrincipal } from "@/features/principals/types/principals-types"
-import type {
-  ApiInventoryAcl,
-  ApiTreeNode,
-  DraftPrincipal,
-  PermissionState,
-  PrincipalListItem,
-  PrincipalListSectionKey,
-  PrincipalOption,
-} from "../types/inventory-types"
+import React from "react"
+import { getInventoryPermissionDefinitionsByGroup } from "../utils/inventory-permissions"
 import { showSingleMutationToast } from "@/components/feedback/mutation-progress-toast"
+import { useUpdateInventoryAcl } from "./use-inventory-actions"
 
 type AclEntry = {
   effect: "allow" | "deny"

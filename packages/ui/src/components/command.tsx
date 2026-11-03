@@ -1,11 +1,6 @@
 "use client"
 
 import * as React from "react"
-import { Command as CommandPrimitive } from "cmdk"
-
-import { HugeiconsIcon } from "@hugeicons/react"
-import { Search01Icon, Tick01Icon } from "@hugeicons/core-free-icons"
-import { cn } from "@workspace/ui/lib/utils"
 import {
   Dialog,
   DialogContent,
@@ -13,10 +8,15 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@workspace/ui/components/dialog"
+
 import {
   InputGroup,
   InputGroupAddon,
 } from "@workspace/ui/components/input-group"
+import { Search01Icon, Tick01Icon } from "@hugeicons/core-free-icons"
+import { Command as CommandPrimitive } from "cmdk"
+import { HugeiconsIcon } from "@hugeicons/react"
+import { cn } from "@workspace/ui/lib/utils"
 
 function Command({
   className,

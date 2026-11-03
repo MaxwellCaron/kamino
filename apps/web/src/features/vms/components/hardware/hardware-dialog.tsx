@@ -1,18 +1,18 @@
-import { useQuery } from "@tanstack/react-query"
-import { Settings01Icon } from "@hugeicons/core-free-icons"
-import { Dialog } from "@workspace/ui/components/dialog"
-import { AppDialogContent } from "@/components/dialogs/app-dialog"
-import { InlineErrorAlert } from "@/components/feedback/inline-error-alert"
-import { PreloadOverlay } from "@/components/loading-overlay"
-import { inventoryItemQueryOptions } from "@/features/inventory/api/inventory-api"
 import {
   bridgesQueryOptions,
   storagesQueryOptions,
 } from "@/features/vms/api/proxmox-options-api"
-import { vmHardwareQueryOptions } from "@/features/vms/api/vm-api"
+import { AppDialogContent } from "@/components/dialogs/app-dialog"
+import { Dialog } from "@workspace/ui/components/dialog"
+import { InlineErrorAlert } from "@/components/feedback/inline-error-alert"
+import { PreloadOverlay } from "@/components/loading-overlay"
+import { Settings01Icon } from "@hugeicons/core-free-icons"
 import { VmHardwareDialogForm } from "@/features/vms/components/hardware/hardware-dialog-form"
 import { buildVmHardwareNetworkOptions } from "@/features/vms/components/hardware/hardware-section-utils"
 import { formatVmReference } from "@/features/shared/utils/format"
+import { inventoryItemQueryOptions } from "@/features/inventory/api/inventory-api"
+import { useQuery } from "@tanstack/react-query"
+import { vmHardwareQueryOptions } from "@/features/vms/api/vm-api"
 
 type VmHardwareDialogProps = {
   itemId: string

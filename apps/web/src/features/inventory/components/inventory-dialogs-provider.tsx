@@ -1,8 +1,3 @@
-import { useMemo, useReducer } from "react"
-import { InventoryDialogsContext } from "./inventory-dialogs-context"
-import { FolderLimitDialog } from "./folder-limit-dialog"
-import { InventoryPermissionsDialog } from "./permissions/permissions-dialog"
-import { RenameDialog } from "./rename-dialog"
 import type {
   CloneDialogConfig,
   CreateFolderDialogConfig,
@@ -16,13 +11,18 @@ import type {
   RenameVmDialogConfig,
   SnapshotDialogConfig,
 } from "./inventory-dialogs-context"
-import type { ReactNode } from "react"
+import { useMemo, useReducer } from "react"
+import { CloneDialog } from "@/features/vms/components/clone-dialog"
 import type { ConfirmConfig } from "@/components/dialogs/confirm-dialog"
 import { ConfirmDialog } from "@/components/dialogs/confirm-dialog"
-import { CloneDialog } from "@/features/vms/components/clone-dialog"
 import { CreateVmDialog } from "@/features/vms/components/create/create-vm-dialog"
-import { SnapshotDialog } from "@/features/vms/components/snapshot-dialog"
+import { FolderLimitDialog } from "./folder-limit-dialog"
+import { InventoryDialogsContext } from "./inventory-dialogs-context"
+import { InventoryPermissionsDialog } from "./permissions/permissions-dialog"
 import { MigrateVmDialog } from "@/features/vms/components/migrate-vm-dialog"
+import type { ReactNode } from "react"
+import { RenameDialog } from "./rename-dialog"
+import { SnapshotDialog } from "@/features/vms/components/snapshot-dialog"
 import { VmHardwareDialog } from "@/features/vms/components/hardware/hardware-dialog"
 
 type InventoryDialogsState = {

@@ -1,7 +1,7 @@
-import { hasDirectInventoryCapability } from "./inventory-capabilities"
-import { InventoryPermissionKeys } from "./inventory-permissions"
-import type { InventoryPermissionKey } from "./inventory-permissions"
 import type { ApiTreeNode } from "../types/inventory-types"
+import type { InventoryPermissionKey } from "./inventory-permissions"
+import { InventoryPermissionKeys } from "./inventory-permissions"
+import { hasDirectInventoryCapability } from "./inventory-capabilities"
 
 const INVENTORY_KIND_SORT_ORDER = {
   folder: 0,

@@ -4,7 +4,12 @@ import {
   FieldError,
   FieldLabel,
 } from "@workspace/ui/components/field"
-import { Input } from "@workspace/ui/components/input"
+import type {
+  HardwareFormLike,
+  NumberFieldApi,
+  StorageOption,
+  StringFieldApi,
+} from "@/features/vms/components/hardware/hardware-dialog-schema"
 import {
   Select,
   SelectContent,
@@ -13,17 +18,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@workspace/ui/components/select"
-import type {
-  HardwareFormLike,
-  NumberFieldApi,
-  StorageOption,
-  StringFieldApi,
-} from "@/features/vms/components/hardware/hardware-dialog-schema"
-import { formatFieldError } from "@/features/vms/components/create/create-vm-step-utils"
 import {
   getFirstIssueMessage,
   parseNumberInput,
 } from "@/features/vms/components/create/create-vm-form"
+import { Input } from "@workspace/ui/components/input"
+import { formatFieldError } from "@/features/vms/components/create/create-vm-step-utils"
 import { vmHardwareFormSchema } from "@/features/vms/components/hardware/hardware-dialog-schema"
 
 export function VmHardwareStorageFields({

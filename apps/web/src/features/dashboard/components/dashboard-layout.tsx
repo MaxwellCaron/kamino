@@ -1,21 +1,21 @@
-import { Outlet, getRouteApi } from "@tanstack/react-router"
-import { SidebarProvider } from "@workspace/ui/components/sidebar"
-import { cn } from "@workspace/ui/lib/utils"
-import { SiteHeader } from "@/components/app-shell/site-header"
-import { AppSidebar } from "@/components/app-shell/app-sidebar"
-import { SiteLayoutInset } from "@/components/app-shell/site-layout-inset"
-import { SkipToContentLink } from "@/components/app-shell/skip-to-content-link"
-import { InventoryDialogsProvider } from "@/features/inventory/components/inventory-dialogs-provider"
-import { InventoryTreeProvider } from "@/features/inventory/components/tree/inventory-tree-provider"
-import { InventorySidebarResizeHandle } from "@/features/inventory/components/tree/inventory-sidebar-resize-handle"
 import {
   INVENTORY_SIDEBAR_MIN_WIDTH,
   useInventorySidebarResize,
 } from "@/features/inventory/hooks/use-inventory-sidebar-resize"
-import { SiteCommandTrigger } from "@/components/app-shell/site-command"
+import { Outlet, getRouteApi } from "@tanstack/react-router"
+import { AppSidebar } from "@/components/app-shell/app-sidebar"
 import { DashboardEvents } from "@/features/dashboard/components/dashboard-events"
+import { InventoryDialogsProvider } from "@/features/inventory/components/inventory-dialogs-provider"
+import { InventorySidebarResizeHandle } from "@/features/inventory/components/tree/inventory-sidebar-resize-handle"
+import { InventoryTreeProvider } from "@/features/inventory/components/tree/inventory-tree-provider"
+import { SidebarProvider } from "@workspace/ui/components/sidebar"
+import { SiteCommandTrigger } from "@/components/app-shell/site-command"
+import { SiteHeader } from "@/components/app-shell/site-header"
+import { SiteLayoutInset } from "@/components/app-shell/site-layout-inset"
+import { SkipToContentLink } from "@/components/app-shell/skip-to-content-link"
 import { VncSessionVisibilityProvider } from "@/features/vms/components/dashboard/vnc-session-visibility-context"
 import { VncSessionWorkspace } from "@/features/vms/components/dashboard/vnc-session-workspace"
+import { cn } from "@workspace/ui/lib/utils"
 
 const dashboardRouteApi = getRouteApi("/_dashboard")
 

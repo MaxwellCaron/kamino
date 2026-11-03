@@ -1,7 +1,7 @@
 import * as React from "react"
+import type { GrammarState, HighlighterCore } from "shiki/core"
 import { createHighlighterCore } from "shiki/core"
 import { createJavaScriptRegexEngine } from "shiki/engine/javascript"
-import type { GrammarState, HighlighterCore } from "shiki/core"
 
 // Add the languages you need. Each one loads the first time it is used.
 const languages = {

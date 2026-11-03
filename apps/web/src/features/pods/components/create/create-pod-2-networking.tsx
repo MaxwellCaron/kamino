@@ -1,3 +1,4 @@
+import type { CreatePodFormApi, PodNetworkingMode } from "./create-pod-form"
 import {
   Field,
   FieldContent,
@@ -13,22 +14,21 @@ import {
   RadioGroup,
   RadioGroupItem,
 } from "@workspace/ui/components/radio-group"
-import { HugeiconsIcon } from "@hugeicons/react"
 import { Router02Icon, RouterIcon } from "@hugeicons/core-free-icons"
 import {
   getPodDefaultVmSegmentKey,
   isPodNetworkingWithRouter,
 } from "./create-pod-form"
-import { NetworkingModeDiagram } from "./create-pod-networking-mode-diagram"
-import type { CreatePodFormApi, PodNetworkingMode } from "./create-pod-form"
-import type { PodNetworkProfile } from "@/features/pods/api/create-pod-api"
-import type { PodCloneTarget } from "@/features/pods/api/clone-targets-api"
-import type { IconSvgElement } from "@hugeicons/react"
 import {
   getPreferredPodCloneTarget,
   podCloneTargetSupportsProfile,
 } from "@/features/pods/utils/pod-networking"
+import { HugeiconsIcon } from "@hugeicons/react"
+import type { IconSvgElement } from "@hugeicons/react"
+import { NetworkingModeDiagram } from "./create-pod-networking-mode-diagram"
+import type { PodCloneTarget } from "@/features/pods/api/clone-targets-api"
 import { PodCloneTargetCombobox } from "@/features/pods/components/pod-clone-target-combobox"
+import type { PodNetworkProfile } from "@/features/pods/api/create-pod-api"
 
 type CreatePodNetworkingSectionProps = {
   form: CreatePodFormApi

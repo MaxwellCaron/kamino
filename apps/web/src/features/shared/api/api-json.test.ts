@@ -1,7 +1,7 @@
-import { beforeEach, describe, expect, it, vi } from "vitest"
-import { apiJson, apiVoid } from "./api-json"
 import type * as AuthApiModule from "@/features/auth/api/auth-api"
 import { ApiError, apiFetch } from "@/features/auth/api/auth-api"
+import { apiJson, apiVoid } from "./api-json"
+import { beforeEach, describe, expect, it, vi } from "vitest"
 
 vi.mock("@/features/auth/api/auth-api", async (importOriginal) => {
   const actual = await importOriginal<typeof AuthApiModule>()

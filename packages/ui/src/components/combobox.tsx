@@ -1,22 +1,22 @@
 "use client"
 
 import * as React from "react"
-import { Combobox as ComboboxPrimitive } from "@base-ui/react"
-import { HugeiconsIcon } from "@hugeicons/react"
 import {
   Cancel01Icon,
   ChevronDownIcon,
   Tick01Icon,
 } from "@hugeicons/core-free-icons"
-
-import { cn } from "@workspace/ui/lib/utils"
-import { Button } from "@workspace/ui/components/button"
 import {
   InputGroup,
   InputGroupAddon,
   InputGroupButton,
   InputGroupInput,
 } from "@workspace/ui/components/input-group"
+import { Button } from "@workspace/ui/components/button"
+
+import { Combobox as ComboboxPrimitive } from "@base-ui/react"
+import { HugeiconsIcon } from "@hugeicons/react"
+import { cn } from "@workspace/ui/lib/utils"
 
 const Combobox = ComboboxPrimitive.Root
 

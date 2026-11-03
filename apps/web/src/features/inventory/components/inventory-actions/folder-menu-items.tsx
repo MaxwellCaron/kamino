@@ -1,4 +1,3 @@
-import { HugeiconsIcon } from "@hugeicons/react"
 import {
   ComputerAddIcon,
   Delete01Icon,
@@ -13,10 +12,11 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
 } from "@workspace/ui/components/dropdown-menu"
-import { getFolderCapabilities } from "../../utils/inventory-capabilities"
-import { FOLDER_POWER_ACTION_DEFINITIONS } from "./folder-power-action-definitions"
-import type { InventoryPowerAction } from "../../utils/inventory-power-actions"
 import type { ApiTreeNodePermissions } from "../../types/inventory-types"
+import { FOLDER_POWER_ACTION_DEFINITIONS } from "./folder-power-action-definitions"
+import { HugeiconsIcon } from "@hugeicons/react"
+import type { InventoryPowerAction } from "../../utils/inventory-power-actions"
+import { getFolderCapabilities } from "../../utils/inventory-capabilities"
 
 type FolderCapabilities = ReturnType<typeof getFolderCapabilities>
 

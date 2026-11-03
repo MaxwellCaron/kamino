@@ -4,8 +4,8 @@ import type {
   ApiVNet,
   CreateVNetInput,
 } from "../types/sdn-types"
-import type { ApiBulkDeleteResponse } from "@/features/shared/types/api-types"
 import { apiJson, apiVoid } from "@/features/shared/api/api-json"
+import type { ApiBulkDeleteResponse } from "@/features/shared/types/api-types"
 
 export const BULK_CREATE_VNETS_CHUNK_SIZE = 50
 

@@ -1,20 +1,20 @@
-import React from "react"
-import { Search01Icon, Settings01Icon } from "@hugeicons/core-free-icons"
-import { Dialog, DialogFooter } from "@workspace/ui/components/dialog"
-import { PermissionScopeSection } from "./permission-scope-section"
-import type { InventoryPermissionSection } from "../../utils/inventory-permissions"
-import type {
-  DraftPrincipal,
-  PermissionState,
-} from "../../types/inventory-types"
-import { SearchInputGroup } from "@/components/forms/search-input-group"
-import { AppEmptyState } from "@/components/feedback/app-empty-state"
 import {
   AppDialogContent,
   AppDialogPrimaryButton,
   AppDialogScrollBody,
   nestedDialogAnimationClassName,
 } from "@/components/dialogs/app-dialog"
+import { Dialog, DialogFooter } from "@workspace/ui/components/dialog"
+import type {
+  DraftPrincipal,
+  PermissionState,
+} from "../../types/inventory-types"
+import { Search01Icon, Settings01Icon } from "@hugeicons/core-free-icons"
+import { AppEmptyState } from "@/components/feedback/app-empty-state"
+import type { InventoryPermissionSection } from "../../utils/inventory-permissions"
+import { PermissionScopeSection } from "./permission-scope-section"
+import React from "react"
+import { SearchInputGroup } from "@/components/forms/search-input-group"
 
 type CustomizePermissionsDialogProps = {
   editingPrincipal: DraftPrincipal | null

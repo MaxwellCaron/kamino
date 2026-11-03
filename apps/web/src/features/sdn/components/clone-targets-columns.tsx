@@ -1,13 +1,3 @@
-import { Badge } from "@workspace/ui/components/badge"
-import { Button } from "@workspace/ui/components/button"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuGroup,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@workspace/ui/components/dropdown-menu"
-import { HugeiconsIcon } from "@hugeicons/react"
 import {
   CloudIcon,
   Delete01Icon,
@@ -17,10 +7,20 @@ import {
   RouterIcon,
   Tag02Icon,
 } from "@hugeicons/core-free-icons"
-import type { ColumnDef } from "@tanstack/react-table"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuGroup,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@workspace/ui/components/dropdown-menu"
 import type { AppTableFeatures } from "@/components/data-table/data-table-types"
-import type { PodCloneTarget } from "@/features/pods/api/clone-targets-api"
+import { Badge } from "@workspace/ui/components/badge"
+import { Button } from "@workspace/ui/components/button"
+import type { ColumnDef } from "@tanstack/react-table"
 import { DataTableColumnHeader } from "@/components/data-table/data-table-column-header"
+import { HugeiconsIcon } from "@hugeicons/react"
+import type { PodCloneTarget } from "@/features/pods/api/clone-targets-api"
 
 type CloneTargetColumnsOptions = {
   canManage: boolean

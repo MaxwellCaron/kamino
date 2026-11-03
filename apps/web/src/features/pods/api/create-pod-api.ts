@@ -1,11 +1,11 @@
-import type { ApiInventoryItem } from "@/features/inventory/types/inventory-types"
-import type { PodCloneTarget } from "@/features/pods/api/clone-targets-api"
 import type {
   CreatePodFormValues,
   PodNetworkingMode,
 } from "@/features/pods/components/create/create-pod-form"
-import { isPodNetworkingWithRouter } from "@/features/pods/components/create/create-pod-form"
+import type { ApiInventoryItem } from "@/features/inventory/types/inventory-types"
+import type { PodCloneTarget } from "@/features/pods/api/clone-targets-api"
 import { apiJson } from "@/features/shared/api/api-json"
+import { isPodNetworkingWithRouter } from "@/features/pods/components/create/create-pod-form"
 
 export type PodTemplateOption = {
   id: string

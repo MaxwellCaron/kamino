@@ -1,11 +1,11 @@
-import { Link } from "@tanstack/react-router"
-import { HugeiconsIcon } from "@hugeicons/react"
-import { ExternalLinkIcon, StarIcon } from "@hugeicons/core-free-icons"
 import {
   DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuLabel,
 } from "@workspace/ui/components/dropdown-menu"
+import { ExternalLinkIcon, StarIcon } from "@hugeicons/core-free-icons"
+import { HugeiconsIcon } from "@hugeicons/react"
+import { Link } from "@tanstack/react-router"
 import { hasFavoriteAction } from "./inventory-action-utils"
 
 export function GeneralVmMenuItems({

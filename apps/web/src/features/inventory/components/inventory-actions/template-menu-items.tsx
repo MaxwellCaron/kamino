@@ -1,4 +1,3 @@
-import { HugeiconsIcon } from "@hugeicons/react"
 import {
   CopyIcon,
   Delete01Icon,
@@ -11,16 +10,17 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
 } from "@workspace/ui/components/dropdown-menu"
-import { getVmCapabilities } from "../../utils/inventory-capabilities"
-import { InventoryDeleteConfirmItems } from "../inventory-delete-confirm-items"
-import { GeneralVmMenuItems } from "./general-vm-menu-items"
-import { assertSingleItemMutationSucceeded } from "./inventory-action-utils"
 import type { ApiTreeNodePermissions } from "../../types/inventory-types"
 import type { ConfirmConfig } from "@/components/dialogs/confirm-dialog"
-import { formatVmReference } from "@/features/shared/utils/format"
-import { useDeleteVM } from "@/features/vms/hooks/use-vm-actions"
+import { GeneralVmMenuItems } from "./general-vm-menu-items"
+import { HugeiconsIcon } from "@hugeicons/react"
+import { InventoryDeleteConfirmItems } from "../inventory-delete-confirm-items"
 import { VmIcon } from "@/components/status/vm-icon"
+import { assertSingleItemMutationSucceeded } from "./inventory-action-utils"
+import { formatVmReference } from "@/features/shared/utils/format"
+import { getVmCapabilities } from "../../utils/inventory-capabilities"
 import { showSingleMutationToast } from "@/components/feedback/mutation-progress-toast"
+import { useDeleteVM } from "@/features/vms/hooks/use-vm-actions"
 
 export function TemplateMenuItems({
   permissions,

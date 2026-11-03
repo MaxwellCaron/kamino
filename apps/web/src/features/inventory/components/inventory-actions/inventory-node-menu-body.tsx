@@ -1,33 +1,33 @@
-import { useQuery, useQueryClient } from "@tanstack/react-query"
-import { Delete01Icon } from "@hugeicons/core-free-icons"
-import { toast } from "sonner"
 import {
   DropdownMenuGroup,
   DropdownMenuItem,
 } from "@workspace/ui/components/dropdown-menu"
-import { useInventoryFavorites } from "../../hooks/use-inventory-favorites"
-import { useDeleteFolder } from "../../hooks/use-inventory-actions"
-import { inventoryTreeQueryOptions } from "../../api/inventory-api"
-import { findInventoryTreeNode } from "../../utils/inventory-tree"
-import { runInventoryPowerAction } from "../../utils/inventory-power-actions"
-import { InventoryDeleteConfirmItems } from "../inventory-delete-confirm-items"
-import { useInventoryDialogs } from "../inventory-dialogs-context"
-import { getFolderCapabilities } from "../../utils/inventory-capabilities"
-import { FolderMenuItems } from "./folder-menu-items"
-import { FOLDER_POWER_ACTION_DEFINITIONS } from "./folder-power-action-definitions"
-import { TemplateMenuItems } from "./template-menu-items"
-import { VmMenuItems } from "./vm-menu-items"
 import type {
   FolderPowerTargets,
   InventoryPowerAction,
 } from "../../utils/inventory-power-actions"
+import { useQuery, useQueryClient } from "@tanstack/react-query"
 import type { ApiTreeNode } from "../../types/inventory-types"
+import { Delete01Icon } from "@hugeicons/core-free-icons"
+import { FOLDER_POWER_ACTION_DEFINITIONS } from "./folder-power-action-definitions"
+import { FolderMenuItems } from "./folder-menu-items"
+import { InventoryDeleteConfirmItems } from "../inventory-delete-confirm-items"
 import type { InventoryDialogsContextValue } from "../inventory-dialogs-context"
-import { vmStatusQueryOptions } from "@/features/vms/api/vm-api"
-import { formatVmReference } from "@/features/shared/utils/format"
+import { TemplateMenuItems } from "./template-menu-items"
 import { VmIcon } from "@/components/status/vm-icon"
+import { VmMenuItems } from "./vm-menu-items"
 import { createInventoryDeleteItems } from "@/features/inventory/utils/inventory-delete-items"
+import { findInventoryTreeNode } from "../../utils/inventory-tree"
+import { formatVmReference } from "@/features/shared/utils/format"
+import { getFolderCapabilities } from "../../utils/inventory-capabilities"
+import { inventoryTreeQueryOptions } from "../../api/inventory-api"
+import { runInventoryPowerAction } from "../../utils/inventory-power-actions"
 import { showUnitMutationToast } from "@/components/feedback/mutation-progress-toast"
+import { toast } from "sonner"
+import { useDeleteFolder } from "../../hooks/use-inventory-actions"
+import { useInventoryDialogs } from "../inventory-dialogs-context"
+import { useInventoryFavorites } from "../../hooks/use-inventory-favorites"
+import { vmStatusQueryOptions } from "@/features/vms/api/vm-api"
 
 export function InventoryNodeMenuBody({
   itemId,

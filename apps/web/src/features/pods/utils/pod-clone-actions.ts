@@ -4,8 +4,8 @@ import {
   PowerIcon,
   ReloadIcon,
 } from "@hugeicons/core-free-icons"
-import type { IconSvgElement } from "@hugeicons/react"
 import type { ClonedPodStatus } from "@/features/pods/types/pod-types"
+import type { IconSvgElement } from "@hugeicons/react"
 
 export type PodCloneAction = "start" | "shutdown" | "reclone" | "delete"
 export type PodClonePowerAction = Extract<PodCloneAction, "start" | "shutdown">

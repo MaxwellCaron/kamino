@@ -1,25 +1,25 @@
-import { memo, useState } from "react"
-import { HugeiconsIcon } from "@hugeicons/react"
 import {
   ChevronDownIcon,
   MoreHorizontalIcon,
   StarIcon,
 } from "@hugeicons/core-free-icons"
-import { Badge } from "@workspace/ui/components/badge"
-import { Button } from "@workspace/ui/components/button"
-import { cn } from "@workspace/ui/lib/utils"
-import { stopTreeItemEvent } from "../inventory-actions/inventory-action-utils"
-import { InventoryNodeMenu } from "../inventory-actions/inventory-node-menu"
-import { InventoryNodeIcon } from "../inventory-node-icon"
-import { TREE_INDENT } from "../../utils/constants"
+import type { HTMLAttributes, MouseEvent as ReactMouseEvent, Ref } from "react"
 import {
   INVENTORY_TREE_ROW_GAP,
   INVENTORY_TREE_ROW_HEIGHT,
 } from "./inventory-tree-row-skeleton"
-import type { HTMLAttributes, MouseEvent as ReactMouseEvent, Ref } from "react"
 import type { ItemInstance, TreeInstance } from "@headless-tree/core"
+import { memo, useState } from "react"
 import type { ApiTreeNode } from "../../types/inventory-types"
+import { Badge } from "@workspace/ui/components/badge"
+import { Button } from "@workspace/ui/components/button"
+import { HugeiconsIcon } from "@hugeicons/react"
+import { InventoryNodeIcon } from "../inventory-node-icon"
+import { InventoryNodeMenu } from "../inventory-actions/inventory-node-menu"
 import type { InventoryTreeRowVm } from "./tree-content-utils"
+import { TREE_INDENT } from "../../utils/constants"
+import { cn } from "@workspace/ui/lib/utils"
+import { stopTreeItemEvent } from "../inventory-actions/inventory-action-utils"
 
 interface InventoryTreeRowProps {
   vm: InventoryTreeRowVm

@@ -1,24 +1,24 @@
-import { useEffect } from "react"
+import "@workspace/ui/globals.css"
 import {
   HeadContent,
   Scripts,
   createRootRouteWithContext,
 } from "@tanstack/react-router"
-import dmSansLatinUrl from "@fontsource-variable/dm-sans/files/dm-sans-latin-wght-normal.woff2?url"
-import "@workspace/ui/globals.css"
-import {
-  ThemeProvider,
-  useTheme,
-} from "@workspace/ui/components/theme-provider"
-import { Toaster } from "sonner"
-import type { QueryClient } from "@tanstack/react-query"
-import { NotFound } from "@/components/not-found"
-import { RouteErrorBoundary } from "@/components/route-error"
 import {
   RootComponent as RootContent,
   defaultTheme,
   themeStorageKey,
 } from "@/components/app-shell/root-layout"
+import {
+  ThemeProvider,
+  useTheme,
+} from "@workspace/ui/components/theme-provider"
+import { NotFound } from "@/components/not-found"
+import type { QueryClient } from "@tanstack/react-query"
+import { RouteErrorBoundary } from "@/components/route-error"
+import { Toaster } from "sonner"
+import dmSansLatinUrl from "@fontsource-variable/dm-sans/files/dm-sans-latin-wght-normal.woff2?url"
+import { useEffect } from "react"
 
 type RouterContext = {
   queryClient: QueryClient

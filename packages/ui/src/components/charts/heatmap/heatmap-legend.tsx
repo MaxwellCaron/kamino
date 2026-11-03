@@ -1,21 +1,21 @@
 "use client";
 
-import { m } from "motion/react";
-import { memo, useCallback } from "react";
-import { cn } from "@workspace/ui/lib/utils";
-import {
-  
-  defaultHeatmapColorScale
-} from "./heatmap-colors";
-import { useHeatmapInteractionOptional } from "./heatmap-context";
-import { HeatmapLegendGradient } from "./heatmap-legend-gradient";
-import { HeatmapLegendSwatch } from "./heatmap-legend-swatch";
 import {
   getHeatmapContributionLevel,
   isHeatmapHoverEffectEnabled,
   resolveHeatmapHoverStyle,
 } from "./heatmap-utils";
+import { memo, useCallback } from "react";
+import { HeatmapLegendGradient } from "./heatmap-legend-gradient";
+import { HeatmapLegendSwatch } from "./heatmap-legend-swatch";
 import type {HeatmapLevelStyles} from "./heatmap-colors";
+import { cn } from "@workspace/ui/lib/utils";
+import {
+  
+  defaultHeatmapColorScale
+} from "./heatmap-colors";
+import { m } from "motion/react";
+import { useHeatmapInteractionOptional } from "./heatmap-context";
 
 export const HEATMAP_LEGEND_LEVELS = [0, 1, 2, 3, 4] as const;
 

@@ -1,7 +1,8 @@
-import { HugeiconsIcon } from "@hugeicons/react"
-import { UserGroupIcon, UserIcon } from "@hugeicons/core-free-icons"
-import { Badge } from "@workspace/ui/components/badge"
-import { Checkbox } from "@workspace/ui/components/checkbox"
+import type {
+  ColumnDef,
+  OnChangeFn,
+  RowSelectionState,
+} from "@tanstack/react-table"
 import {
   Table,
   TableBody,
@@ -10,15 +11,14 @@ import {
   TableHeader,
   TableRow,
 } from "@workspace/ui/components/table"
+import { UserGroupIcon, UserIcon } from "@hugeicons/core-free-icons"
 import { flexRender, useTable } from "@tanstack/react-table"
-import { useMemo } from "react"
 import type { AppTableFeatures } from "@/components/data-table/data-table-types"
-import type {
-  ColumnDef,
-  OnChangeFn,
-  RowSelectionState,
-} from "@tanstack/react-table"
+import { Badge } from "@workspace/ui/components/badge"
+import { Checkbox } from "@workspace/ui/components/checkbox"
+import { HugeiconsIcon } from "@hugeicons/react"
 import { appTableFeatures } from "@/components/data-table/data-table-types"
+import { useMemo } from "react"
 
 export type PrincipalSelectionItem = {
   description: string

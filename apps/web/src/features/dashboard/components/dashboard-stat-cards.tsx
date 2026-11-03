@@ -1,12 +1,12 @@
-import { HugeiconsIcon } from "@hugeicons/react"
 import {
   Card,
   CardDescription,
   CardHeader,
   CardTitle,
 } from "@workspace/ui/components/card"
-import { cn } from "@workspace/ui/lib/utils"
 import type { DashboardStat } from "../utils/dashboard-types"
+import { HugeiconsIcon } from "@hugeicons/react"
+import { cn } from "@workspace/ui/lib/utils"
 
 export function DashboardStatsGrid({
   className,

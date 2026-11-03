@@ -1,5 +1,5 @@
-import type { HeatmapLevelStyles } from "./heatmap-colors"
 import type { HeatmapBin, HeatmapColumn } from "./heatmap-context"
+import type { HeatmapLevelStyles } from "./heatmap-colors"
 
 /** Calendar months shown in default one-year contribution grids. */
 export const HEATMAP_MONTHS_ONE_YEAR = 12

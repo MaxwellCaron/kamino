@@ -1,13 +1,13 @@
 "use client";
 
-import { useMemo } from "react";
-import { generateHeatmapSkeletonFromTarget } from "./generate-heatmap-skeleton-data";
 import { HeatmapCells } from "./heatmap-cells";
 import { HeatmapChart } from "./heatmap-chart";
+import type { HeatmapColumn } from "./heatmap-context";
 import { HeatmapXAxis } from "./heatmap-x-axis";
 import { HeatmapYAxis } from "./heatmap-y-axis";
-import type { HeatmapColumn } from "./heatmap-context";
 import type { Margin } from "../chart-context";
+import { generateHeatmapSkeletonFromTarget } from "./generate-heatmap-skeleton-data";
+import { useMemo } from "react";
 
 export interface HeatmapChartLoadingProps {
   /** Target column data used to size the skeleton grid. */

@@ -1,7 +1,7 @@
-import { defaultRangeExtractor } from "@tanstack/react-virtual"
+import type { Range } from "@tanstack/react-virtual"
 
 import type { SiteCommandRow } from "./site-command-index"
-import type { Range } from "@tanstack/react-virtual"
+import { defaultRangeExtractor } from "@tanstack/react-virtual"
 
 const ORDINARY_ROW_HEIGHT = 56
 const PREVIEW_ROW_HEIGHT = 140

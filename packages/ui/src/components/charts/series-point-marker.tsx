@@ -1,9 +1,9 @@
 "use client"
 
-import { m } from "motion/react"
-import { memo } from "react"
 import { DEFAULT_CHART_ENTER_TRANSITION } from "./animation"
 import type { Variants } from "motion/react"
+import { m } from "motion/react"
+import { memo } from "react"
 
 export interface SeriesPointMarkerStyle {
   /** Fill color for the inner circle */

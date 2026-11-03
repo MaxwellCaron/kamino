@@ -1,5 +1,4 @@
 import * as React from "react"
-import { flexRender, useTable } from "@tanstack/react-table"
 import {
   Alert,
   AlertDescription,
@@ -12,8 +11,19 @@ import {
   CardHeader,
   CardTitle,
 } from "@workspace/ui/components/card"
-import { Checkbox } from "@workspace/ui/components/checkbox"
-import { Input } from "@workspace/ui/components/input"
+import {
+  ChevronDownIcon,
+  ChevronRightIcon,
+  ComputerIcon,
+  FolderOpenIcon,
+  InformationCircleIcon,
+  ReloadIcon,
+} from "@hugeicons/core-free-icons"
+import type {
+  ColumnDef,
+  ExpandedState,
+  RowSelectionState,
+} from "@tanstack/react-table"
 import {
   Combobox,
   ComboboxContent,
@@ -22,7 +32,10 @@ import {
   ComboboxItem,
   ComboboxList,
 } from "@workspace/ui/components/combobox"
-import { Button } from "@workspace/ui/components/button"
+import type {
+  DraftPrincipal,
+  PermissionState,
+} from "@/features/inventory/types/inventory-types"
 import {
   Empty,
   EmptyDescription,
@@ -38,15 +51,10 @@ import {
   FieldGroup,
   FieldLabel,
 } from "@workspace/ui/components/field"
-import { HugeiconsIcon } from "@hugeicons/react"
-import {
-  ChevronDownIcon,
-  ChevronRightIcon,
-  ComputerIcon,
-  FolderOpenIcon,
-  InformationCircleIcon,
-  ReloadIcon,
-} from "@hugeicons/core-free-icons"
+import type {
+  PublishPodFormApi,
+  PublishPodFormValues,
+} from "./publish-pod-form"
 import {
   Table,
   TableBody,
@@ -55,35 +63,27 @@ import {
   TableHeader,
   TableRow,
 } from "@workspace/ui/components/table"
-import { PublishPodStepLayout } from "./publish-pod-step-layout"
-import { createDefaultPublishPodVmPermissions } from "./publish-pod-form"
-import type { AppTableFeatures } from "@/components/data-table/data-table-types"
-import type {
-  ColumnDef,
-  ExpandedState,
-  RowSelectionState,
-} from "@tanstack/react-table"
-import type {
-  PublishPodFormApi,
-  PublishPodFormValues,
-} from "./publish-pod-form"
-import type { PublishPodFolder } from "@/features/pods/api/publish-pod-api"
-import type { PodCloneTarget } from "@/features/pods/api/clone-targets-api"
-import type {
-  DraftPrincipal,
-  PermissionState,
-} from "@/features/inventory/types/inventory-types"
-import { appTableFeatures } from "@/components/data-table/data-table-types"
-import { InlineErrorAlert } from "@/components/feedback/inline-error-alert"
-import { PermissionScopeSection } from "@/features/inventory/components/permissions/permission-scope-section"
-import { setPermissionState } from "@/features/inventory/utils/acl-transformers"
-import { getInventoryPermissionDefinitionsByGroup } from "@/features/inventory/utils/inventory-permissions"
+import { flexRender, useTable } from "@tanstack/react-table"
 import {
   getPublishNetworkProfileLabel,
   getPublishVmNetworkLabel,
   podCloneTargetSupportsProfile,
 } from "@/features/pods/utils/pod-networking"
+import type { AppTableFeatures } from "@/components/data-table/data-table-types"
+import { Button } from "@workspace/ui/components/button"
+import { Checkbox } from "@workspace/ui/components/checkbox"
+import { HugeiconsIcon } from "@hugeicons/react"
+import { InlineErrorAlert } from "@/components/feedback/inline-error-alert"
+import { Input } from "@workspace/ui/components/input"
+import { PermissionScopeSection } from "@/features/inventory/components/permissions/permission-scope-section"
+import type { PodCloneTarget } from "@/features/pods/api/clone-targets-api"
 import { PodCloneTargetCombobox } from "@/features/pods/components/pod-clone-target-combobox"
+import type { PublishPodFolder } from "@/features/pods/api/publish-pod-api"
+import { PublishPodStepLayout } from "./publish-pod-step-layout"
+import { appTableFeatures } from "@/components/data-table/data-table-types"
+import { createDefaultPublishPodVmPermissions } from "./publish-pod-form"
+import { getInventoryPermissionDefinitionsByGroup } from "@/features/inventory/utils/inventory-permissions"
+import { setPermissionState } from "@/features/inventory/utils/acl-transformers"
 
 const publishVmPermissionGroups = getInventoryPermissionDefinitionsByGroup("vm")
 

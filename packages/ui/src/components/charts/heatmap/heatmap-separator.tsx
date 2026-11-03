@@ -1,9 +1,6 @@
 "use client";
 
-import { memo, useEffect, useId, useMemo, useState } from "react";
-import { createPortal } from "react-dom";
-import { cn } from "@workspace/ui/lib/utils";
-import { useHeatmap } from "./heatmap-context";
+import type {HeatmapSeparatorGradient, HeatmapSeparatorStrokeStyle} from "./heatmap-utils";
 import {
   
   
@@ -12,7 +9,10 @@ import {
   getHeatmapSeparatorX,
   resolveHeatmapSeparatorStrokeDasharray
 } from "./heatmap-utils";
-import type {HeatmapSeparatorGradient, HeatmapSeparatorStrokeStyle} from "./heatmap-utils";
+import { memo, useEffect, useId, useMemo, useState } from "react";
+import { cn } from "@workspace/ui/lib/utils";
+import { createPortal } from "react-dom";
+import { useHeatmap } from "./heatmap-context";
 
 /** Marker for reliably identifying {@link HeatmapSeparator} in chart child trees. */
 export const HEATMAP_SEPARATOR_MARKER = "__isHeatmapSeparator" as const;

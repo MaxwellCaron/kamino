@@ -1,4 +1,10 @@
-import { HugeiconsIcon } from "@hugeicons/react"
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@workspace/ui/components/card"
 import {
   ComputerIcon,
   Copy02Icon,
@@ -7,16 +13,10 @@ import {
   UserGroupIcon,
   UserIcon,
 } from "@hugeicons/core-free-icons"
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@workspace/ui/components/card"
 import { Item, ItemMedia, ItemTitle } from "@workspace/ui/components/item"
-import type { ReactNode } from "react"
 import type { AdminStats } from "../utils/admin-dashboard"
+import { HugeiconsIcon } from "@hugeicons/react"
+import type { ReactNode } from "react"
 
 type Stat = {
   icon: ReactNode

@@ -1,4 +1,3 @@
-import { HugeiconsIcon } from "@hugeicons/react"
 import { ComputerIcon, Moon02Icon, Sun01Icon } from "@hugeicons/core-free-icons"
 import {
   DropdownMenuGroup,
@@ -6,6 +5,7 @@ import {
   DropdownMenuRadioGroup,
   DropdownMenuRadioItem,
 } from "@workspace/ui/components/dropdown-menu"
+import { HugeiconsIcon } from "@hugeicons/react"
 import { useTheme } from "@workspace/ui/components/theme-provider"
 
 export function ThemeToggleMenuItems() {

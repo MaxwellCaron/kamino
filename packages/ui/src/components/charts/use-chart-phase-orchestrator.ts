@@ -1,12 +1,12 @@
 "use client";
 
+import type {ChartPhase, ChartStatus} from "./chart-phase";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   
   
   resolveRestingChartPhase
 } from "./chart-phase";
-import type {ChartPhase, ChartStatus} from "./chart-phase";
 
 export interface UseChartPhaseOrchestratorOptions {
   chartStatus: ChartStatus;

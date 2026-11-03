@@ -1,3 +1,7 @@
+import type {
+  AppFieldComponent,
+  AppSubscribeComponent,
+} from "@/features/sdn/components/vnet-form-fields"
 import {
   FieldDescription,
   FieldGroup,
@@ -5,11 +9,6 @@ import {
   FieldSeparator,
   FieldSet,
 } from "@workspace/ui/components/field"
-import type { ApiSDNZone } from "@/features/sdn/types/sdn-types"
-import type {
-  AppFieldComponent,
-  AppSubscribeComponent,
-} from "@/features/sdn/components/vnet-form-fields"
 import {
   VNetAliasField,
   VNetBooleanFields,
@@ -22,6 +21,7 @@ import {
   getZoneType,
   isVlanAwareDisabled,
 } from "@/features/sdn/components/vnet-dialog-utils"
+import type { ApiSDNZone } from "@/features/sdn/types/sdn-types"
 
 export function EditVNetForm({
   FieldComponent,

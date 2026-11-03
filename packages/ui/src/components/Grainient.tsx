@@ -1,5 +1,5 @@
-import React, { useEffect, useRef } from "react"
 import { Mesh, Program, Renderer, Triangle } from "ogl"
+import React, { useEffect, useRef } from "react"
 import { shouldAnimateGrainient } from "@workspace/ui/components/grainient-animation"
 
 interface GrainientProps {

@@ -1,10 +1,10 @@
-import { FieldGroup } from "@workspace/ui/components/field"
-import { TabsContent } from "@workspace/ui/components/tabs"
-import type { Dispatch, SetStateAction } from "react"
 import type {
   CreateMode,
   UserFormApi,
 } from "@/features/principals/components/users/user-dialog-utils"
+import type { Dispatch, SetStateAction } from "react"
+import { FieldGroup } from "@workspace/ui/components/field"
+import { TabsContent } from "@workspace/ui/components/tabs"
 import { UserDialogCreateListTab } from "@/features/principals/components/users/user-dialog-create-list-tab"
 import { UserDialogCreatePrefixTab } from "@/features/principals/components/users/user-dialog-create-prefix-tab"
 import { UserDialogCreateSingleTab } from "@/features/principals/components/users/user-dialog-create-single-tab"

@@ -1,5 +1,5 @@
-import { HugeiconsIcon } from "@hugeicons/react"
 import { ComputerIcon, Copy02Icon, CubeIcon } from "@hugeicons/core-free-icons"
+import { HugeiconsIcon } from "@hugeicons/react"
 
 import { getVmPowerStatusDotClassName } from "./vm-power-status"
 

@@ -1,23 +1,23 @@
-import { useForm } from "@tanstack/react-form"
-import { GaugeIcon } from "@hugeicons/core-free-icons"
-import { z } from "zod"
-
-import { DialogFooter } from "@workspace/ui/components/dialog"
+import {
+  AppDialog,
+  AppDialogPrimaryButton,
+} from "@/components/dialogs/app-dialog"
 import {
   Field,
   FieldError,
   FieldGroup,
   FieldLabel,
 } from "@workspace/ui/components/field"
-import { Input } from "@workspace/ui/components/input"
+import { DialogFooter } from "@workspace/ui/components/dialog"
 
-import { useUpdateFolderVmLimit } from "../hooks/use-inventory-actions"
-import {
-  AppDialog,
-  AppDialogPrimaryButton,
-} from "@/components/dialogs/app-dialog"
+import { GaugeIcon } from "@hugeicons/core-free-icons"
+import { Input } from "@workspace/ui/components/input"
 import { isTouchedInvalid } from "@/components/forms/form-errors"
+
 import { showSingleMutationToast } from "@/components/feedback/mutation-progress-toast"
+import { useForm } from "@tanstack/react-form"
+import { useUpdateFolderVmLimit } from "../hooks/use-inventory-actions"
+import { z } from "zod"
 
 type FolderLimitDialogProps = {
   directVmLimit?: number | null

@@ -1,8 +1,8 @@
-import { HugeiconsIcon } from "@hugeicons/react"
 import { Delete01Icon, HistoryIcon } from "@hugeicons/core-free-icons"
+import type { ApiSnapshot } from "@/features/vms/types/vm-types"
 import { Button } from "@workspace/ui/components/button"
 import type { ConfirmConfig } from "@/components/dialogs/confirm-dialog"
-import type { ApiSnapshot } from "@/features/vms/types/vm-types"
+import { HugeiconsIcon } from "@hugeicons/react"
 import type { SnapshotTablePermissions } from "./snapshot-table"
 import type { UseMutationResult } from "@tanstack/react-query"
 

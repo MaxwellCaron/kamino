@@ -1,6 +1,6 @@
-import { getHeatmapContributionLevel } from "./heatmap-utils";
-import type { Transition } from "motion/react";
 import type { HeatmapColumn } from "./heatmap-context";
+import type { Transition } from "motion/react";
+import { getHeatmapContributionLevel } from "./heatmap-utils";
 
 /** Default enter duration when no motion props are passed (ms). */
 export const HEATMAP_DEFAULT_ENTER_DURATION_MS = 1600;

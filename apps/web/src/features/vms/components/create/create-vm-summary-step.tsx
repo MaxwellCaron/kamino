@@ -1,14 +1,14 @@
-import { Badge } from "@workspace/ui/components/badge"
 import { DialogDescription, DialogTitle } from "@workspace/ui/components/dialog"
+import { SummaryRow, SummarySection } from "./create-vm-step-shared"
 import {
   createVmFormOptions,
   getSelectedTemplate,
   withCreateVmForm,
 } from "./create-vm-form"
-import { SummaryRow, SummarySection } from "./create-vm-step-shared"
+import { Badge } from "@workspace/ui/components/badge"
+import type { InventoryFolderOption } from "@/features/inventory/utils/inventory-tree"
 import { IsoReview } from "./create-vm-summary-review"
 import type { VmTemplateOption } from "./create-vm-form"
-import type { InventoryFolderOption } from "@/features/inventory/utils/inventory-tree"
 import { getSelectedFolder } from "@/features/inventory/utils/inventory-tree"
 
 export const CreateVmSummaryStep = withCreateVmForm({

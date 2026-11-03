@@ -6,6 +6,12 @@ import {
   CardTitle,
 } from "@workspace/ui/components/card"
 import {
+  ChevronDownIcon,
+  ComputerIcon,
+  Folder01Icon,
+  Globe02Icon,
+} from "@hugeicons/core-free-icons"
+import {
   Item,
   ItemContent,
   ItemDescription,
@@ -13,23 +19,17 @@ import {
   ItemMedia,
   ItemTitle,
 } from "@workspace/ui/components/item"
-import { HugeiconsIcon } from "@hugeicons/react"
-import {
-  ChevronDownIcon,
-  ComputerIcon,
-  Folder01Icon,
-  Globe02Icon,
-} from "@hugeicons/core-free-icons"
-import { cn } from "@workspace/ui/lib/utils"
 import {
   getPodNetworkingModeLabel,
   getPodSegmentLabel,
   getReviewVms,
 } from "./create-pod-form"
 import type { CreatePodFormApi } from "./create-pod-form"
-import type { PodCloneTarget } from "@/features/pods/api/clone-targets-api"
 import { FolderIcon } from "@/components/status/folder-icon"
+import { HugeiconsIcon } from "@hugeicons/react"
+import type { PodCloneTarget } from "@/features/pods/api/clone-targets-api"
 import { VmIcon } from "@/components/status/vm-icon"
+import { cn } from "@workspace/ui/lib/utils"
 
 const treePreviewRowClass =
   "bg-transparent flex min-h-8 items-center gap-1 rounded-3xl bg-sidebar px-2 py-1.5 text-sm transition-colors [&_svg]:pointer-events-none [&_svg]:shrink-0"

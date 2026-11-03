@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest"
-import { screen } from "@testing-library/react"
 import { DocumentationPage } from "./documentation-page"
 import { renderWithQueryClient } from "@/test/test-utils"
+import { screen } from "@testing-library/react"
 
 vi.mock("@tanstack/react-router", () => ({
   useRouterState: () => "",

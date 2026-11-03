@@ -1,10 +1,10 @@
-import { forwardRef, useEffect, useImperativeHandle } from "react"
-import { QueryClientProvider } from "@tanstack/react-query"
 import { act, fireEvent, screen, waitFor } from "@testing-library/react"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
-
-import { VncConsole } from "./vnc-console"
+import { forwardRef, useEffect, useImperativeHandle } from "react"
 import type { ComponentProps } from "react"
+
+import { QueryClientProvider } from "@tanstack/react-query"
+import { VncConsole } from "./vnc-console"
 import type { VncScreenClientHandle } from "./vnc-screen-client"
 import { renderWithQueryClient } from "@/test/test-utils"
 

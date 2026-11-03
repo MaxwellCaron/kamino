@@ -1,5 +1,20 @@
-import { m } from "motion/react"
-import { HugeiconsIcon } from "@hugeicons/react"
+import type {
+  ApiInventoryVmAddress,
+  ApiTreeNode,
+  ApiTreeNodeVM,
+} from "@/features/inventory/types/inventory-types"
+import type {
+  ApiVmNetworkSummary,
+  VmResources,
+} from "@/features/vms/types/vm-types"
+import {
+  Card,
+  CardAction,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@workspace/ui/components/card"
 import {
   ComputerIcon,
   Copy02Icon,
@@ -12,33 +27,13 @@ import {
   RamMemoryIcon,
 } from "@hugeicons/core-free-icons"
 import {
-  Card,
-  CardAction,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@workspace/ui/components/card"
-import { Progress } from "@workspace/ui/components/progress"
-import { Skeleton } from "@workspace/ui/components/skeleton"
-import {
   Item,
   ItemContent,
   ItemFooter,
   ItemMedia,
   ItemTitle,
 } from "@workspace/ui/components/item"
-import type {
-  ApiInventoryVmAddress,
-  ApiTreeNode,
-  ApiTreeNodeVM,
-} from "@/features/inventory/types/inventory-types"
-import type {
-  ApiVmNetworkSummary,
-  VmResources,
-} from "@/features/vms/types/vm-types"
-import type { ReactNode } from "react"
-import { VmOptionsMenu } from "@/features/inventory/components/inventory-actions/vm-options-menu"
+import { animateChild, animateContainer } from "@/components/animate"
 import {
   formatBytes,
   formatMemory,
@@ -49,7 +44,12 @@ import {
   getVmPowerStatusSurfaceClassName,
   getVmPowerStatusTextClassName,
 } from "@/components/status/vm-power-status"
-import { animateChild, animateContainer } from "@/components/animate"
+import { HugeiconsIcon } from "@hugeicons/react"
+import { Progress } from "@workspace/ui/components/progress"
+import type { ReactNode } from "react"
+import { Skeleton } from "@workspace/ui/components/skeleton"
+import { VmOptionsMenu } from "@/features/inventory/components/inventory-actions/vm-options-menu"
+import { m } from "motion/react"
 
 type Stat = {
   icon: ReactNode

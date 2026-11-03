@@ -1,20 +1,18 @@
-import { useState } from "react"
-import { HugeiconsIcon } from "@hugeicons/react"
 import {
-  ArrowLeft01Icon,
-  ArrowRight01Icon,
-  PackageCheck,
-} from "@hugeicons/core-free-icons"
+  ActionBar,
+  ActionBarGroup,
+  ActionBarItem,
+} from "@workspace/ui/components/action-bar"
 import {
   AlertDialog,
   AlertDialogCancel,
   AlertDialogFooter,
 } from "@workspace/ui/components/alert-dialog"
 import {
-  ActionBar,
-  ActionBarGroup,
-  ActionBarItem,
-} from "@workspace/ui/components/action-bar"
+  ArrowLeft01Icon,
+  ArrowRight01Icon,
+  PackageCheck,
+} from "@hugeicons/core-free-icons"
 import {
   StepperIndicator,
   StepperItem,
@@ -24,10 +22,12 @@ import {
   StepperSeparator,
   StepperTitle,
 } from "@workspace/ui/components/stepper"
-import { steps } from "./publish-pod-steps"
-import type { PublishPodStep } from "./publish-pod-steps"
 import { AppActionButton } from "@/components/actions/app-action-button"
 import { AppAlertDialogContent } from "@/components/dialogs/app-dialog"
+import { HugeiconsIcon } from "@hugeicons/react"
+import type { PublishPodStep } from "./publish-pod-steps"
+import { steps } from "./publish-pod-steps"
+import { useState } from "react"
 
 type PublishPodStepperProps = {
   onSubmitConfirm: () => Promise<boolean> | boolean

@@ -1,5 +1,7 @@
-import { useMemo } from "react"
-import { useQuery } from "@tanstack/react-query"
+import {
+  BrowsePodsGridSkeleton,
+  browsePodsGridClassName,
+} from "./browse-pods-skeleton"
 import {
   Empty,
   EmptyDescription,
@@ -7,17 +9,15 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from "@workspace/ui/components/empty"
-import { HugeiconsIcon } from "@hugeicons/react"
-import { PackageRemoveIcon } from "@hugeicons/core-free-icons"
 import { BrowsePodsCard } from "./browse-pods-card"
-import {
-  BrowsePodsGridSkeleton,
-  browsePodsGridClassName,
-} from "./browse-pods-skeleton"
-import { InlineErrorAlert } from "@/components/feedback/inline-error-alert"
 import { GrainientBackground } from "@/components/grainient-background"
+import { HugeiconsIcon } from "@hugeicons/react"
+import { InlineErrorAlert } from "@/components/feedback/inline-error-alert"
+import { PackageRemoveIcon } from "@hugeicons/core-free-icons"
 import { catalogCloneSummariesQueryOptions } from "@/features/pods/api/clone-pod-api"
 import { podCatalogQueryOptions } from "@/features/pods/api/publish-pod-api"
+import { useMemo } from "react"
+import { useQuery } from "@tanstack/react-query"
 
 export function BrowsePodsPage() {
   const {

@@ -1,6 +1,6 @@
+import type { AuthSession } from "../types/auth-types"
 import { queryOptions } from "@tanstack/react-query"
 import { z } from "zod"
-import type { AuthSession } from "../types/auth-types"
 
 const AUTH_REFRESH_BUFFER_MS = 60_000
 const AUTH_BOOTSTRAP_RETRY_BUFFER_MS = 5_000

@@ -1,9 +1,9 @@
 "use client"
 
-import {  m } from "motion/react"
-import {  useId } from "react"
 import type {MotionValue} from "motion/react";
 import type {RefObject} from "react";
+import {  m } from "motion/react"
+import {  useId } from "react"
 
 // Hover-highlight overlay: re-strokes the base path `d`, clipped to a vertical
 // band whose x/width spring to track the hovered point, so only the segment

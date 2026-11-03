@@ -4,8 +4,8 @@ import {
   
   isValidElement
 } from "react";
-import { normalizeYAxisId } from "./y-axis-scales";
 import type {ReactElement, ReactNode} from "react";
+import { normalizeYAxisId } from "./y-axis-scales";
 
 export interface ReferenceAreaConfig {
   yAxisId: string;

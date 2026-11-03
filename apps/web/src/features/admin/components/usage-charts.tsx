@@ -1,20 +1,20 @@
-import { useMemo } from "react"
 import { Area, AreaChart } from "@workspace/ui/components/charts/area-chart"
-import { Grid } from "@workspace/ui/components/charts/grid"
 import {
   ChartTooltip,
   TooltipContent,
 } from "@workspace/ui/components/charts/tooltip"
-import { useChartStable } from "@workspace/ui/components/charts/chart-context"
-import { XAxis } from "@workspace/ui/components/charts/x-axis"
 import {
   formatPercent,
   formatUsageBytes,
   percentage,
 } from "../utils/admin-dashboard"
-import type { UsageHistoryTimeframe } from "../api/admin-metrics-api"
-import type { XAxisProps } from "@workspace/ui/components/charts/x-axis"
 import type { CapacityHistoryPoint } from "../utils/admin-dashboard"
+import { Grid } from "@workspace/ui/components/charts/grid"
+import type { UsageHistoryTimeframe } from "../api/admin-metrics-api"
+import { XAxis } from "@workspace/ui/components/charts/x-axis"
+import type { XAxisProps } from "@workspace/ui/components/charts/x-axis"
+import { useChartStable } from "@workspace/ui/components/charts/chart-context"
+import { useMemo } from "react"
 
 function getXAxisConfig(timeframe: UsageHistoryTimeframe) {
   switch (timeframe) {

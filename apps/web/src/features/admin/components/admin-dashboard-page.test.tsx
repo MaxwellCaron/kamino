@@ -2,8 +2,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest"
 import { screen, waitFor } from "@testing-library/react"
 import { AdminDashboardPage } from "./admin-dashboard-page"
 import type { ApiClusterUsageHistoryResponse } from "../api/admin-metrics-api"
-import type { AuthUser } from "@/features/auth/types/auth-types"
 import type { ApiStorage } from "@/features/vms/types/vm-types"
+import type { AuthUser } from "@/features/auth/types/auth-types"
 import { renderWithQueryClient } from "@/test/test-utils"
 
 type MockUsageAreaChartProps = {

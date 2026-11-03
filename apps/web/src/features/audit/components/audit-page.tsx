@@ -1,4 +1,3 @@
-import { useState } from "react"
 import {
   Card,
   CardContent,
@@ -6,14 +5,15 @@ import {
   CardHeader,
   CardTitle,
 } from "@workspace/ui/components/card"
-import { HugeiconsIcon } from "@hugeicons/react"
-import { Shield01Icon } from "@hugeicons/core-free-icons"
 import { keepPreviousData, useQuery } from "@tanstack/react-query"
+import { DataTable } from "@/components/data-table/data-table"
+import { HugeiconsIcon } from "@hugeicons/react"
+import type { PaginationState } from "@tanstack/react-table"
+import { Shield01Icon } from "@hugeicons/core-free-icons"
 import { actionEventsQueryOptions } from "../api/audit-api"
 import { columns } from "./audit-columns"
-import type { PaginationState } from "@tanstack/react-table"
-import { DataTable } from "@/components/data-table/data-table"
 import { useDebouncedValue } from "@/features/shared/hooks/use-debounced-value"
+import { useState } from "react"
 
 export function AuditPage() {
   const [pagination, setPagination] = useState<PaginationState>({

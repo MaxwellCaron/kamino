@@ -1,13 +1,13 @@
 import * as React from "react"
-import { Link } from "@tanstack/react-router"
-import { Image } from "@unpic/react"
-import ReactMarkdown from "react-markdown"
-import remarkGfm from "remark-gfm"
-
-import { ImageZoom } from "@workspace/ui/components/kibo-ui/image-zoom"
-import { Separator } from "@workspace/ui/components/separator"
 import { cn, slugify } from "@workspace/ui/lib/utils"
 import type { Components } from "react-markdown"
+import { Image } from "@unpic/react"
+import { ImageZoom } from "@workspace/ui/components/kibo-ui/image-zoom"
+
+import { Link } from "@tanstack/react-router"
+import ReactMarkdown from "react-markdown"
+import { Separator } from "@workspace/ui/components/separator"
+import remarkGfm from "remark-gfm"
 
 type MarkdownAstNode = {
   type?: string

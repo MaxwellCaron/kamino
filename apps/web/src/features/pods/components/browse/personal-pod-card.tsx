@@ -1,13 +1,8 @@
-import { useState } from "react"
 import {
   ArrowUpRightIcon,
   PackageIcon,
   PlusSignIcon,
 } from "@hugeicons/core-free-icons"
-import { HugeiconsIcon } from "@hugeicons/react"
-import { useQueryClient } from "@tanstack/react-query"
-import { useRouter } from "@tanstack/react-router"
-import { Button } from "@workspace/ui/components/button"
 import {
   Card,
   CardAction,
@@ -15,19 +10,24 @@ import {
   CardHeader,
   CardTitle,
 } from "@workspace/ui/components/card"
-import { cn } from "@workspace/ui/lib/utils"
-import type { ConfirmConfig } from "@/components/dialogs/confirm-dialog"
-import type { PersonalPodStatus } from "@/features/pods/api/personal-pod-api"
-import { ConfirmDialog } from "@/components/dialogs/confirm-dialog"
-import { showSingleMutationToast } from "@/components/feedback/mutation-progress-toast"
-import { inventoryTreeQueryOptions } from "@/features/inventory/api/inventory-api"
 import {
   createPersonalPod,
   personalPodQueryOptions,
   requestPersonalPod,
 } from "@/features/pods/api/personal-pod-api"
-import { requesterRequestSummariesQueryOptions } from "@/features/requests/api/requests-api"
+import { Button } from "@workspace/ui/components/button"
+import type { ConfirmConfig } from "@/components/dialogs/confirm-dialog"
+import { ConfirmDialog } from "@/components/dialogs/confirm-dialog"
+import { HugeiconsIcon } from "@hugeicons/react"
 import { KaminoGrainient } from "@/components/grainient-background"
+import type { PersonalPodStatus } from "@/features/pods/api/personal-pod-api"
+import { cn } from "@workspace/ui/lib/utils"
+import { inventoryTreeQueryOptions } from "@/features/inventory/api/inventory-api"
+import { requesterRequestSummariesQueryOptions } from "@/features/requests/api/requests-api"
+import { showSingleMutationToast } from "@/components/feedback/mutation-progress-toast"
+import { useQueryClient } from "@tanstack/react-query"
+import { useRouter } from "@tanstack/react-router"
+import { useState } from "react"
 
 const PERSONAL_POD_DESCRIPTION =
   "Provisions you a personal folder along with a pre-configured router, allowing you to easily set up and manage your own virtual machines."

@@ -1,9 +1,3 @@
-import { HugeiconsIcon } from "@hugeicons/react"
-import { ArrowUpRight01Icon } from "@hugeicons/core-free-icons"
-import { Badge } from "@workspace/ui/components/badge"
-import { Button } from "@workspace/ui/components/button"
-import { RelativeTimeCard } from "@workspace/ui/components/relative-time-card"
-import { FacehashIcon } from "@workspace/ui/components/facehash"
 import {
   STATUS_ICONS,
   formatRequestKind,
@@ -16,9 +10,15 @@ import {
 import type { ApiRequestSummary } from "@/features/requests/types/request-types"
 import type { ApiTreeNode } from "@/features/inventory/types/inventory-types"
 import type { AppTableFeatures } from "@/components/data-table/data-table-types"
+import { ArrowUpRight01Icon } from "@hugeicons/core-free-icons"
+import { Badge } from "@workspace/ui/components/badge"
+import { Button } from "@workspace/ui/components/button"
 import type { ColumnDef } from "@tanstack/react-table"
-import { findTreePath } from "@/features/inventory/utils/inventory-tree"
+import { FacehashIcon } from "@workspace/ui/components/facehash"
+import { HugeiconsIcon } from "@hugeicons/react"
+import { RelativeTimeCard } from "@workspace/ui/components/relative-time-card"
 import { createRowSelectionColumn } from "@/components/data-table/data-table-row-selection-column"
+import { findTreePath } from "@/features/inventory/utils/inventory-tree"
 
 type RequestColumnsOptions = {
   onOpen: (request: ApiRequestSummary) => void

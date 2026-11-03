@@ -1,12 +1,3 @@
-import { useEffect, useRef, useState } from "react"
-import { HugeiconsIcon } from "@hugeicons/react"
-import {
-  Cancel01Icon,
-  CancelIcon,
-  CheckmarkCircleIcon,
-  Refresh03Icon,
-} from "@hugeicons/core-free-icons"
-import { Button } from "@workspace/ui/components/button"
 import {
   Attachment,
   AttachmentAction,
@@ -17,13 +8,22 @@ import {
   AttachmentMedia,
   AttachmentTitle,
 } from "@workspace/ui/components/attachment"
-import { Spinner } from "@workspace/ui/components/spinner"
-import { toast } from "sonner"
+import {
+  Cancel01Icon,
+  CancelIcon,
+  CheckmarkCircleIcon,
+  Refresh03Icon,
+} from "@hugeicons/core-free-icons"
 import type {
   MutationItemUpdate,
   MutationResult,
   MutationToastItem,
 } from "@/components/feedback/mutation-progress-toast"
+import { useEffect, useRef, useState } from "react"
+import { Button } from "@workspace/ui/components/button"
+import { HugeiconsIcon } from "@hugeicons/react"
+import { Spinner } from "@workspace/ui/components/spinner"
+import { toast } from "sonner"
 
 type ItemState = "processing" | "done" | "error"
 

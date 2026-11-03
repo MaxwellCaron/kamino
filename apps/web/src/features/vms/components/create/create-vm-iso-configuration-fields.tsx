@@ -1,5 +1,4 @@
-import { useEffect } from "react"
-import { HugeiconsIcon } from "@hugeicons/react"
+import type { ApiISO, ApiNode, ApiStorage } from "@/features/vms/types/vm-types"
 import { BoltIcon, Settings01Icon } from "@hugeicons/core-free-icons"
 import {
   Field,
@@ -11,7 +10,6 @@ import {
   FieldSeparator,
   FieldSet,
 } from "@workspace/ui/components/field"
-import { Input } from "@workspace/ui/components/input"
 import {
   Select,
   SelectContent,
@@ -22,18 +20,13 @@ import {
   SelectValue,
 } from "@workspace/ui/components/select"
 import {
-  createVmFormOptions,
-  getFirstIssueMessage,
-  networkInterfaceSchema,
-  parseNumberInput,
-  withCreateVmForm,
-} from "./create-vm-form"
-import { formatFieldError } from "./create-vm-step-utils"
-import type { ApiISO, ApiNode, ApiStorage } from "@/features/vms/types/vm-types"
-import type { NetworkData } from "./create-vm-step-utils"
-import { buildVmHardwareNetworkOptions } from "@/features/vms/components/hardware/hardware-section-utils"
-import { applyScopedNetworkToInterfaces } from "@/features/vms/utils/vm-network-scope"
-import { VMIDField } from "@/components/vms/vmid-field"
+  VmHardwareComputeSection,
+  VmHardwareCpuBlock,
+  VmHardwareMemoryBlock,
+  VmHardwareNetworkSection,
+  VmHardwareOperatingSystemSection,
+  VmHardwareStorageSection,
+} from "@/features/vms/components/hardware/hardware-sections"
 import {
   biosTypes,
   cpuTypes,
@@ -42,17 +35,24 @@ import {
   scsiControllers,
 } from "@/features/vms/components/hardware/hardware-options"
 import {
-  VmHardwareComputeSection,
-  VmHardwareCpuBlock,
-  VmHardwareMemoryBlock,
-  VmHardwareNetworkSection,
-  VmHardwareOperatingSystemSection,
-  VmHardwareStorageSection,
-} from "@/features/vms/components/hardware/hardware-sections"
+  createVmFormOptions,
+  getFirstIssueMessage,
+  networkInterfaceSchema,
+  parseNumberInput,
+  withCreateVmForm,
+} from "./create-vm-form"
+import { HugeiconsIcon } from "@hugeicons/react"
+import { Input } from "@workspace/ui/components/input"
+import type { NetworkData } from "./create-vm-step-utils"
+import { VMIDField } from "@/components/vms/vmid-field"
 import { VmHardwareNetworksField } from "@/features/vms/components/hardware/vm-hardware-networks-field"
+import { applyScopedNetworkToInterfaces } from "@/features/vms/utils/vm-network-scope"
+import { buildVmHardwareNetworkOptions } from "@/features/vms/components/hardware/hardware-section-utils"
+import { formatFieldError } from "./create-vm-step-utils"
 import { replaceWhitespaceWithHyphen } from "@/features/shared/utils/sanitize"
-import { vmNameSchema } from "@/features/vms/utils/vm-name"
+import { useEffect } from "react"
 import { uuid } from "@/features/shared/utils/uuid"
+import { vmNameSchema } from "@/features/vms/utils/vm-name"
 
 export const IsoConfigurationFields = withCreateVmForm({
   ...createVmFormOptions,

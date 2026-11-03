@@ -1,13 +1,13 @@
-import type { QueryClient } from "@tanstack/react-query"
-
 import type {
   ApiInventoryItem,
   ApiTreeNode,
 } from "@/features/inventory/types/inventory-types"
+
 import {
   inventoryItemQueryOptions,
   inventoryTreeQueryOptions,
 } from "@/features/inventory/api/inventory-api"
+import type { QueryClient } from "@tanstack/react-query"
 import { findTreePath } from "@/features/inventory/utils/inventory-tree"
 
 export async function loadInventoryItemRouteSources(

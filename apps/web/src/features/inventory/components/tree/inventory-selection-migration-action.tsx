@@ -1,9 +1,9 @@
-import { HugeiconsIcon } from "@hugeicons/react"
-import { ArrowDataTransferHorizontalIcon } from "@hugeicons/core-free-icons"
 import {
   ActionBarItem,
   ActionBarSeparator,
 } from "@workspace/ui/components/action-bar"
+import { ArrowDataTransferHorizontalIcon } from "@hugeicons/core-free-icons"
+import { HugeiconsIcon } from "@hugeicons/react"
 
 export function InventorySelectionMigrationAction({
   onMigrate,

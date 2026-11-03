@@ -1,5 +1,3 @@
-import { Link } from "@tanstack/react-router"
-import { HugeiconsIcon } from "@hugeicons/react"
 import { ComputerIcon, FolderIcon, StarIcon } from "@hugeicons/core-free-icons"
 import {
   Item,
@@ -9,13 +7,15 @@ import {
   ItemMedia,
   ItemTitle,
 } from "@workspace/ui/components/item"
+import type { ApiTreeNode } from "../../types/inventory-types"
 import { Button } from "@workspace/ui/components/button"
+import { HugeiconsIcon } from "@hugeicons/react"
+import { InventoryNodeIcon } from "../inventory-node-icon"
+import { InventoryNodeMenu } from "../inventory-actions/inventory-node-menu"
+import { InventoryVmItem } from "@/components/inventory/inventory-vm-item"
+import { Link } from "@tanstack/react-router"
 import { Separator } from "@workspace/ui/components/separator"
 import { cn } from "@workspace/ui/lib/utils"
-import { InventoryNodeMenu } from "../inventory-actions/inventory-node-menu"
-import { InventoryNodeIcon } from "../inventory-node-icon"
-import type { ApiTreeNode } from "../../types/inventory-types"
-import { InventoryVmItem } from "@/components/inventory/inventory-vm-item"
 
 function FolderDescription({ node }: { node: ApiTreeNode }) {
   const children = node.children ?? []

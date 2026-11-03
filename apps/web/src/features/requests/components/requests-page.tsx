@@ -1,28 +1,13 @@
-import { useCallback, useMemo, useReducer } from "react"
-import {
-  keepPreviousData,
-  useMutation,
-  useQuery,
-  useQueryClient,
-} from "@tanstack/react-query"
-import { getRouteApi } from "@tanstack/react-router"
-
-import { RequestsPageOverviewCard } from "./requests-page-overview-card"
-import { RequestsPageQueueCard } from "./requests-page-queue-card"
-import { RequestsPageDialogs } from "./requests-page-dialogs"
-
 import type {
   ApiRequestScope,
   ApiRequestStatus,
 } from "@/features/requests/types/request-types"
-import type { ConfirmConfig } from "@/components/dialogs/confirm-dialog"
-import type { OnChangeFn, PaginationState } from "@tanstack/react-table"
-import { showSingleMutationToast } from "@/components/feedback/mutation-progress-toast"
 import {
   ManagementPermissionKeys,
   hasManagementPermission,
 } from "@/features/auth/utils/management-permissions"
-import { inventoryTreeQueryOptions } from "@/features/inventory/api/inventory-api"
+import type { OnChangeFn, PaginationState } from "@tanstack/react-table"
+
 import {
   approveRequest,
   denyRequest,
@@ -30,8 +15,23 @@ import {
   requestDetailQueryOptions,
   requestsTableQueryOptions,
 } from "@/features/requests/api/requests-api"
-import { getRequestColumns } from "@/features/requests/components/requests-columns"
+import {
+  keepPreviousData,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from "@tanstack/react-query"
+import { useCallback, useMemo, useReducer } from "react"
+
+import type { ConfirmConfig } from "@/components/dialogs/confirm-dialog"
+import { RequestsPageDialogs } from "./requests-page-dialogs"
+import { RequestsPageOverviewCard } from "./requests-page-overview-card"
+import { RequestsPageQueueCard } from "./requests-page-queue-card"
 import { formatRequestStatus } from "@/features/requests/utils/request-presenters"
+import { getRequestColumns } from "@/features/requests/components/requests-columns"
+import { getRouteApi } from "@tanstack/react-router"
+import { inventoryTreeQueryOptions } from "@/features/inventory/api/inventory-api"
+import { showSingleMutationToast } from "@/components/feedback/mutation-progress-toast"
 import { useDebouncedValue } from "@/features/shared/hooks/use-debounced-value"
 
 const requestsRouteApi = getRouteApi("/_dashboard/manager/requests")

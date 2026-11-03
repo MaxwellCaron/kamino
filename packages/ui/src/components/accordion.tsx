@@ -1,6 +1,6 @@
+import { ChevronDownIcon, ChevronUpIcon } from "@hugeicons/core-free-icons"
 import { Accordion as AccordionPrimitive } from "@base-ui/react/accordion"
 import { HugeiconsIcon } from "@hugeicons/react"
-import { ChevronDownIcon, ChevronUpIcon } from "@hugeicons/core-free-icons"
 import { cn } from "@workspace/ui/lib/utils"
 
 function Accordion({ className, ...props }: AccordionPrimitive.Root.Props) {

@@ -1,5 +1,5 @@
-import { SidebarInset } from "@workspace/ui/components/sidebar"
 import type { ReactNode } from "react"
+import { SidebarInset } from "@workspace/ui/components/sidebar"
 import { SiteFooter } from "@/components/app-shell/site-footer"
 
 export function SiteLayoutInset({

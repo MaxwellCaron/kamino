@@ -1,34 +1,34 @@
-import { useQueryClient } from "@tanstack/react-query"
-import { hasDirectInventoryCapability } from "../../utils/inventory-capabilities"
-import {
-  collectPowerVmTargets,
-  runInventoryPowerAction,
-} from "../../utils/inventory-power-actions"
-import { useDeleteFolder } from "../../hooks/use-inventory-actions"
-import { useInventoryDialogs } from "../inventory-dialogs-context"
-import {
-  useInventoryTreeDataContext,
-  useInventoryTreeViewContext,
-} from "./inventory-tree-context"
-import {
-  collectDescendantIds,
-  getVmSelectionLabel,
-} from "./inventory-selection-action-bar-utils"
 import type {
   ApiTreeNode,
   SelectedFolderItem,
   SelectedVmItem,
 } from "../../types/inventory-types"
-import { showUnitMutationToast } from "@/components/feedback/mutation-progress-toast"
+import {
+  collectDescendantIds,
+  getVmSelectionLabel,
+} from "./inventory-selection-action-bar-utils"
 import {
   collectInventoryDeleteItemIds,
   createInventoryDeleteItems,
 } from "@/features/inventory/utils/inventory-delete-items"
-import { formatVmReference } from "@/features/shared/utils/format"
+import {
+  collectPowerVmTargets,
+  runInventoryPowerAction,
+} from "../../utils/inventory-power-actions"
 import {
   useConvertToTemplate,
   useDeleteVM,
 } from "@/features/vms/hooks/use-vm-actions"
+import {
+  useInventoryTreeDataContext,
+  useInventoryTreeViewContext,
+} from "./inventory-tree-context"
+import { formatVmReference } from "@/features/shared/utils/format"
+import { hasDirectInventoryCapability } from "../../utils/inventory-capabilities"
+import { showUnitMutationToast } from "@/components/feedback/mutation-progress-toast"
+import { useDeleteFolder } from "../../hooks/use-inventory-actions"
+import { useInventoryDialogs } from "../inventory-dialogs-context"
+import { useQueryClient } from "@tanstack/react-query"
 
 export function useInventorySelectionActions() {
   const { getItemData, getStatus } = useInventoryTreeDataContext()

@@ -1,16 +1,16 @@
 "use client";
 
-import { m, useSpring } from "motion/react";
-import { useEffect } from "react";
-import {  useChartConfig } from "../chart-config-context";
-import { chartCssVars } from "../chart-context";
 import {
   
   indicatorFadeGradientStops,
   resolveVerticalFadeSides
 } from "../indicator-fade";
-import type {SpringConfig} from "../chart-config-context";
+import { m, useSpring } from "motion/react";
 import type {IndicatorFadeEdges} from "../indicator-fade";
+import type {SpringConfig} from "../chart-config-context";
+import { chartCssVars } from "../chart-context";
+import {  useChartConfig } from "../chart-config-context";
+import { useEffect } from "react";
 
 export type IndicatorWidth =
   | number // Pixel width

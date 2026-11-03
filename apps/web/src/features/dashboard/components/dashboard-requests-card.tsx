@@ -5,10 +5,10 @@ import {
   CardHeader,
   CardTitle,
 } from "@workspace/ui/components/card"
-import { cn } from "@workspace/ui/lib/utils"
-import type { getDashboardActivityColumns } from "./dashboard-requests-columns"
 import type { ApiRequestSummary } from "@/features/requests/types/request-types"
 import { DataTable } from "@/components/data-table/data-table"
+import { cn } from "@workspace/ui/lib/utils"
+import type { getDashboardActivityColumns } from "./dashboard-requests-columns"
 
 export function DashboardActivityTableCard({
   className,

@@ -1,10 +1,10 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
-import { fireEvent, render, screen, waitFor } from "@testing-library/react"
 import { beforeEach, describe, expect, it, vi } from "vitest"
+import { fireEvent, render, screen, waitFor } from "@testing-library/react"
+import type { ApiTreeNode } from "../../types/inventory-types"
 import { InventoryPermissionBits } from "../../utils/inventory-permissions"
 import { InventoryTreeProvider } from "./inventory-tree-provider"
 import { useInventoryTreeViewContext } from "./inventory-tree-context"
-import type { ApiTreeNode } from "../../types/inventory-types"
 
 const folder: ApiTreeNode = {
   id: "folder-1",

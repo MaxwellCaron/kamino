@@ -1,5 +1,3 @@
-import { HugeiconsIcon } from "@hugeicons/react"
-import { GitPullRequestIcon } from "@hugeicons/core-free-icons"
 import {
   Card,
   CardContent,
@@ -14,16 +12,18 @@ import {
   ItemMedia,
   ItemTitle,
 } from "@workspace/ui/components/item"
-import { PieChart } from "@workspace/ui/components/charts/pie-chart"
-import { PieSlice } from "@workspace/ui/components/charts/pie-slice"
-import { PieCenter } from "@workspace/ui/components/charts/pie-center"
-import { cn } from "@workspace/ui/lib/utils"
-import type { ApiRequestStatus } from "@/features/requests/types/request-types"
 import {
   STATUS_ICONS,
   formatRequestStatus,
   getRequestStatusClassName,
 } from "@/features/requests/utils/request-presenters"
+import type { ApiRequestStatus } from "@/features/requests/types/request-types"
+import { GitPullRequestIcon } from "@hugeicons/core-free-icons"
+import { HugeiconsIcon } from "@hugeicons/react"
+import { PieCenter } from "@workspace/ui/components/charts/pie-center"
+import { PieChart } from "@workspace/ui/components/charts/pie-chart"
+import { PieSlice } from "@workspace/ui/components/charts/pie-slice"
+import { cn } from "@workspace/ui/lib/utils"
 
 type RequestsPageOverviewCardProps = {
   statusCounts: Record<ApiRequestStatus, number>
