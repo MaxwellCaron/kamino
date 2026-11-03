@@ -1,3 +1,5 @@
+// @vitest-environment node
+
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import type * as AuthApiModule from "./auth-api"
 import type { AuthSession } from "../types/auth-types"
@@ -36,6 +38,7 @@ describe("auth-api direct auth mutations", () => {
   beforeEach(async () => {
     vi.resetModules()
     vi.useFakeTimers()
+    vi.stubGlobal("window", { setTimeout, clearTimeout })
     fetchMock = vi.fn()
     vi.stubGlobal("fetch", fetchMock)
     authApi = await import("./auth-api")
@@ -123,35 +126,25 @@ describe("auth-api direct auth mutations", () => {
   })
 
   it("changeOwnPassword() clears the scheduled refresh timer and navigates to login on success", async () => {
-    const originalLocation = window.location
-    Object.defineProperty(window, "location", {
-      configurable: true,
-      writable: true,
-      value: { ...originalLocation, assign: vi.fn(), pathname: "/dashboard", search: "", hash: "" },
+    const assign = vi.fn()
+    vi.stubGlobal("window", {
+      setTimeout: window.setTimeout,
+      clearTimeout: window.clearTimeout,
+      location: { assign, pathname: "/dashboard", search: "", hash: "" },
     })
 
-    try {
-      fetchMock.mockResolvedValueOnce(jsonResponse(mockSession))
-      await authApi.login({ username: "alice", password: "secret" })
-      expect(vi.getTimerCount()).toBeGreaterThan(0)
+    fetchMock.mockResolvedValueOnce(jsonResponse(mockSession))
+    await authApi.login({ username: "alice", password: "secret" })
+    expect(vi.getTimerCount()).toBeGreaterThan(0)
 
-      fetchMock.mockResolvedValueOnce(jsonResponse({}))
-      await authApi.changeOwnPassword({
-        current_password: "old",
-        new_password: "new-password",
-      })
+    fetchMock.mockResolvedValueOnce(jsonResponse({}))
+    await authApi.changeOwnPassword({
+      current_password: "old",
+      new_password: "new-password",
+    })
 
-      expect(vi.getTimerCount()).toBe(0)
-      expect(window.location.assign).toHaveBeenCalledWith(
-        "/login?redirect=%2Fdashboard"
-      )
-    } finally {
-      Object.defineProperty(window, "location", {
-        configurable: true,
-        writable: true,
-        value: originalLocation,
-      })
-    }
+    expect(vi.getTimerCount()).toBe(0)
+    expect(assign).toHaveBeenCalledWith("/login?redirect=%2Fdashboard")
   })
 })
 
@@ -162,6 +155,7 @@ describe("auth-api refresh/logout serialization", () => {
   beforeEach(async () => {
     vi.resetModules()
     vi.useFakeTimers()
+    vi.stubGlobal("window", { setTimeout, clearTimeout })
     fetchMock = vi.fn()
     vi.stubGlobal("fetch", fetchMock)
     authApi = await import("./auth-api")

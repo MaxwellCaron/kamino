@@ -306,8 +306,10 @@ function CloneTargetSnippetCommand({
           </CodeBlockActions>
         </CodeBlockHeader>
         <CodeBlockContent lineNumbers>
-          {lines.map((line, index) => (
-            <CodeBlockLine key={index}>{line}</CodeBlockLine>
+          {command.split("\n").map((line, index) => (
+            <CodeBlockLine key={line.split("=")[0]}>
+              {lines[index]}
+            </CodeBlockLine>
           ))}
         </CodeBlockContent>
       </CodeBlock>
