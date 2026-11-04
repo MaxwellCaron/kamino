@@ -118,24 +118,6 @@ function getUsageChartLayout(
   }
 }
 
-function CapacityArea({ compact, show }: { compact: boolean; show: boolean }) {
-  if (!show) return null
-
-  return (
-    <Area
-      dataKey="total"
-      fadeEdges
-      fill="var(--color-primary)"
-      fillOpacity={0.08}
-      gradientToOpacity={0.01}
-      loadingStyle="sweep"
-      showHighlight={false}
-      stroke="var(--color-primary)"
-      strokeWidth={compact ? 1 : 1.5}
-    />
-  )
-}
-
 function UsageChartXAxis({
   formatLabel,
   numTicks,
@@ -199,7 +181,19 @@ function UsageChartBody({
           strokeDasharray="3,3"
           strokeOpacity={0.5}
         />
-        <CapacityArea compact={compact} show={showCapacitySeries} />
+        {showCapacitySeries ? (
+          <Area
+            dataKey="total"
+            fadeEdges
+            fill="var(--color-primary)"
+            fillOpacity={0.08}
+            gradientToOpacity={0.01}
+            loadingStyle="sweep"
+            showHighlight={false}
+            stroke="var(--color-primary)"
+            strokeWidth={compact ? 1 : 1.5}
+          />
+        ) : null}
         <Area
           dataKey="value"
           fadeEdges
