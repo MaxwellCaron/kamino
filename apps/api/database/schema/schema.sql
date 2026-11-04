@@ -264,8 +264,8 @@ CREATE TABLE proxmox_vms (
 CREATE UNIQUE INDEX ux_proxmox_vms_node_vmid
     ON proxmox_vms (node, vmid);
 
-CREATE UNIQUE INDEX ux_proxmox_vms_upstream_uuid
-    ON proxmox_vms (upstream_uuid);
+CREATE UNIQUE INDEX ux_proxmox_vms_upstream_uuid_vmid
+    ON proxmox_vms (upstream_uuid, vmid);
 
 CREATE INDEX ix_proxmox_vms_vmid
     ON proxmox_vms (vmid);
@@ -1074,6 +1074,11 @@ BEGIN
         excluded_id := OLD.id;
     ELSE
         excluded_id := NULL;
+    END IF;
+
+    -- Existing upstream guests must be represented even when local quotas are full.
+    IF current_setting('kamino.proxmox_inventory_import', true) = 'on' THEN
+        RETURN NEW;
     END IF;
 
     effective_vm_limit := inventory_folder_effective_vm_limit(NEW.parent_id);

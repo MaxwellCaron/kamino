@@ -45,16 +45,27 @@ func (s *InventoryImporter) SyncVM(
 		return uuid.Nil, err
 	}
 
-	if err := s.syncVMConfigSummaryInTx(syncCtx, parentID, node, vmid, gt, summary); err != nil {
+	if err := s.persistVMConfigSummary(syncCtx, parentID, node, vmid, gt, summary, false); err != nil {
 		return uuid.Nil, err
 	}
 
-	row, err := database.New(s.db).GetProxmoxVMByUpstreamUUID(syncCtx, summary.UpstreamUUID)
+	row, err := database.New(s.db).GetProxmoxVMByIdentity(syncCtx, database.GetProxmoxVMByIdentityParams{UpstreamUuid: summary.UpstreamUUID, Vmid: int32(vmid)})
 	if err != nil {
 		return uuid.Nil, fmt.Errorf("loading synced vm %d on node %s: %w", vmid, node, err)
 	}
 
 	return row.InventoryItemID, nil
+}
+
+// importVM reads an existing guest without modifying its Proxmox configuration.
+func (s *InventoryImporter) importVM(ctx context.Context, parentID uuid.UUID, node string, vmid int, gt GuestType) error {
+	ctx, cancel := context.WithTimeout(ctx, 45*time.Second)
+	defer cancel()
+	summary, err := s.client.GetVMConfigSummary(ctx, gt, node, vmid)
+	if err != nil {
+		return fmt.Errorf("reading vm %d on node %s: %w", vmid, node, err)
+	}
+	return s.persistVMConfigSummary(ctx, parentID, node, vmid, gt, summary, true)
 }
 
 func ensureFolderPath(ctx context.Context, q *database.Queries, rootID uuid.UUID, path []string) (uuid.UUID, error) {
@@ -116,14 +127,7 @@ func ensureRootFolder(ctx context.Context, q *database.Queries) (uuid.UUID, erro
 	return id, nil
 }
 
-func (s *InventoryImporter) syncVMConfigSummaryInTx(
-	ctx context.Context,
-	parentID uuid.UUID,
-	node string,
-	vmid int,
-	gt GuestType,
-	summary *VMConfigSummary,
-) error {
+func (s *InventoryImporter) persistVMConfigSummary(ctx context.Context, parentID uuid.UUID, node string, vmid int, gt GuestType, summary *VMConfigSummary, imported bool) error {
 	tx, err := s.db.Begin(ctx)
 	if err != nil {
 		return fmt.Errorf("beginning sync tx for vm %d on node %s: %w", vmid, node, err)
@@ -131,6 +135,11 @@ func (s *InventoryImporter) syncVMConfigSummaryInTx(
 	defer tx.Rollback(ctx)
 
 	q := database.New(s.db).WithTx(tx)
+	if imported {
+		if err := q.EnableProxmoxInventoryImport(ctx); err != nil {
+			return fmt.Errorf("enabling upstream inventory import: %w", err)
+		}
+	}
 	if err := syncVMConfigSummary(ctx, q, parentID, node, vmid, gt, summary); err != nil {
 		return fmt.Errorf("syncing vm %d on node %s: %w", vmid, node, err)
 	}
@@ -155,13 +164,13 @@ func syncVMConfigSummary(
 		return fmt.Errorf("vm config summary is required")
 	}
 
-	existingByUUID, err := q.GetProxmoxVMByUpstreamUUID(ctx, summary.UpstreamUUID)
+	existingByIdentity, err := q.GetProxmoxVMByIdentity(ctx, database.GetProxmoxVMByIdentityParams{UpstreamUuid: summary.UpstreamUUID, Vmid: int32(vmid)})
 	switch {
 	case err == nil:
 	case errors.Is(err, pgx.ErrNoRows):
-		existingByUUID = database.GetProxmoxVMByUpstreamUUIDRow{}
+		existingByIdentity = database.GetProxmoxVMByIdentityRow{}
 	default:
-		return fmt.Errorf("looking up VM by upstream uuid: %w", err)
+		return fmt.Errorf("looking up VM by upstream uuid and VMID: %w", err)
 	}
 
 	existingByLocator, err := q.GetProxmoxVMByNodeVMID(ctx, database.GetProxmoxVMByNodeVMIDParams{
@@ -176,23 +185,15 @@ func syncVMConfigSummary(
 		return fmt.Errorf("looking up VM by node/vmid: %w", err)
 	}
 
-	if existingByUUID.InventoryItemID != uuid.Nil && existingByLocator.InventoryItemID != uuid.Nil &&
-		existingByUUID.InventoryItemID != existingByLocator.InventoryItemID {
-		if err := removeStaleInventoryItemForReusedLocator(ctx, q, existingByLocator.InventoryItemID, node, vmid); err != nil {
-			return err
-		}
-		existingByLocator = database.GetProxmoxVMByNodeVMIDRow{}
+	if existingByLocator.InventoryItemID != uuid.Nil &&
+		(existingByLocator.UpstreamUuid != summary.UpstreamUUID || existingByLocator.GuestType != string(gt)) {
+		return fmt.Errorf("VMID %d on node %s has a different upstream identity; existing inventory item %s was preserved and requires manual reconciliation", vmid, node, existingByLocator.InventoryItemID)
+	}
+	if existingByIdentity.InventoryItemID != uuid.Nil && existingByIdentity.GuestType != string(gt) {
+		return fmt.Errorf("VMID %d upstream identity conflicts with another guest type; inventory item %s was preserved", vmid, existingByIdentity.InventoryItemID)
 	}
 
-	if existingByUUID.InventoryItemID == uuid.Nil && existingByLocator.InventoryItemID != uuid.Nil &&
-		existingByLocator.UpstreamUuid != summary.UpstreamUUID {
-		if err := removeStaleInventoryItemForReusedLocator(ctx, q, existingByLocator.InventoryItemID, node, vmid); err != nil {
-			return err
-		}
-		existingByLocator = database.GetProxmoxVMByNodeVMIDRow{}
-	}
-
-	if existingByUUID.InventoryItemID == uuid.Nil && existingByLocator.InventoryItemID == uuid.Nil {
+	if existingByIdentity.InventoryItemID == uuid.Nil && existingByLocator.InventoryItemID == uuid.Nil {
 		itemID, err := q.CreateVMItem(ctx, database.CreateVMItemParams{
 			ParentID: &parentID,
 			Name:     summary.Name,
@@ -210,7 +211,7 @@ func syncVMConfigSummary(
 			IsTemplate:      summary.IsTemplate,
 			CpuCount:        &summary.CPUCount,
 			MemoryMb:        &summary.MemoryMB,
-			DiskGb:          &summary.DiskGB,
+			DiskGb:          summary.DiskGB,
 		}); err != nil {
 			return fmt.Errorf("inserting proxmox_vms: %w", err)
 		}
@@ -218,19 +219,10 @@ func syncVMConfigSummary(
 		return applyImportedVMNotes(ctx, q, itemID, summary.Notes)
 	}
 
-	existing := existingByUUID
-	if existing.InventoryItemID == uuid.Nil {
-		existing = database.GetProxmoxVMByUpstreamUUIDRow{
-			InventoryItemID: existingByLocator.InventoryItemID,
-			Node:            existingByLocator.Node,
-			Vmid:            existingByLocator.Vmid,
-			UpstreamUuid:    existingByLocator.UpstreamUuid,
-			CpuCount:        existingByLocator.CpuCount,
-			MemoryMb:        existingByLocator.MemoryMb,
-			DiskGb:          existingByLocator.DiskGb,
-			ParentID:        existingByLocator.ParentID,
-			Name:            existingByLocator.Name,
-		}
+	existing := existingByIdentity
+	diskGB := summary.DiskGB
+	if diskGB == nil {
+		diskGB = existing.DiskGb
 	}
 
 	if err := q.UpdateProxmoxVM(ctx, database.UpdateProxmoxVMParams{
@@ -242,7 +234,7 @@ func syncVMConfigSummary(
 		IsTemplate:      summary.IsTemplate,
 		CpuCount:        &summary.CPUCount,
 		MemoryMb:        &summary.MemoryMB,
-		DiskGb:          &summary.DiskGB,
+		DiskGb:          diskGB,
 	}); err != nil {
 		return fmt.Errorf("updating proxmox_vms: %w", err)
 	}
@@ -266,32 +258,6 @@ func syncVMConfigSummary(
 	}
 
 	return applyImportedVMNotes(ctx, q, existing.InventoryItemID, summary.Notes)
-}
-
-func removeStaleInventoryItemForReusedLocator(
-	ctx context.Context,
-	q *database.Queries,
-	itemID uuid.UUID,
-	node string,
-	vmid int,
-) error {
-	blockers, err := q.ListInventoryDeletionBlockersInSubtree(ctx, itemID)
-	if err != nil {
-		return fmt.Errorf("checking stale inventory item dependencies for VMID %d on node %s: %w", vmid, node, err)
-	}
-	if len(blockers) > 0 {
-		return fmt.Errorf(
-			"cannot reuse VMID %d on node %s: inventory metadata is reserved by %s %q; restore the missing VM or remove its Kamino reference before retrying",
-			vmid,
-			node,
-			blockers[0].BlockerType,
-			blockers[0].BlockerName,
-		)
-	}
-	if err := q.DeleteInventoryItem(ctx, itemID); err != nil {
-		return fmt.Errorf("removing stale inventory item for reused locator: %w", err)
-	}
-	return nil
 }
 
 func (s *InventoryImporter) ensureVMConfigSummary(
@@ -318,10 +284,11 @@ func (s *InventoryImporter) waitForVMConfigSummary(
 		select {
 		case <-ctx.Done():
 			return nil, fmt.Errorf(
-				"waiting for vm %d on node %s config to become available in Proxmox: %w",
+				"waiting for vm %d on node %s config to become available in Proxmox: %w (last config error: %v)",
 				vmid,
 				node,
 				ctx.Err(),
+				err,
 			)
 		case <-time.After(singleVMSyncPollInterval):
 		}

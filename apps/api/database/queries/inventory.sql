@@ -71,7 +71,7 @@ FROM proxmox_vms pv
 JOIN inventory_items ii ON ii.id = pv.inventory_item_id
 WHERE pv.node = $1 AND pv.vmid = $2;
 
--- name: GetProxmoxVMByUpstreamUUID :one
+-- name: GetProxmoxVMByIdentity :one
 SELECT pv.inventory_item_id,
        pv.node,
        pv.vmid,
@@ -84,7 +84,7 @@ SELECT pv.inventory_item_id,
        ii.name
 FROM proxmox_vms pv
 JOIN inventory_items ii ON ii.id = pv.inventory_item_id
-WHERE pv.upstream_uuid = $1;
+WHERE pv.upstream_uuid = $1 AND pv.vmid = $2;
 
 -- name: GetProxmoxVMByInventoryItemID :one
 SELECT inventory_item_id,
@@ -288,3 +288,6 @@ WHERE ii.id = $1;
 UPDATE proxmox_vms
 SET notes = $1
 WHERE inventory_item_id = $2;
+
+-- name: EnableProxmoxInventoryImport :exec
+SELECT set_config('kamino.proxmox_inventory_import', 'on', true);

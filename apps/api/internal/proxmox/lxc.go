@@ -39,7 +39,7 @@ func parseLXCConfigSummary(data map[string]any, vmid int) (*VMConfigSummary, err
 		UpstreamUUID: lxcUpstreamUUID(vmid),
 		CPUCount:     int32(cores),
 		MemoryMB:     int32(memoryMB),
-		DiskGB:       diskGB,
+		DiskGB:       &diskGB,
 		Notes:        getStringValue(data["description"]),
 	}, nil
 }

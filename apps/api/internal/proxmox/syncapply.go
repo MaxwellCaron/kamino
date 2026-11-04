@@ -5,6 +5,8 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"net/http"
+	"time"
 
 	"github.com/MaxwellCaron/kamino/database"
 	"github.com/google/uuid"
@@ -82,6 +84,11 @@ func (s *InventoryImporter) SyncAll(ctx context.Context) error {
 	skipped := 0
 	var syncErrs []error
 	for _, change := range syncAllChanges(diff) {
+		if change.Kind == SyncChangeRemove && len(syncErrs) > 0 {
+			skipped++
+			log.Printf("Proxmox Sync All skipped removal %s: import failures require reconciliation first", change.ID)
+			continue
+		}
 		results, applyErr := s.ApplySync(ctx, syncSelectionForChange(change))
 		if applyErr != nil {
 			syncErrs = append(syncErrs, fmt.Errorf("%s %s: %w", change.Kind, change.ID, applyErr))
@@ -169,8 +176,20 @@ func (s *InventoryImporter) applySyncDiff(
 		results = append(results, s.applyUpdate(ctx, q, change))
 	}
 
+	// Do not remove inventory after a partially failed import.
+	importFailed := false
+	for _, result := range results {
+		if result.Status == "error" {
+			importFailed = true
+		}
+	}
+
 	// --- Removes ---
 	for _, id := range sel.RemoveIDs {
+		if importFailed {
+			results = append(results, skippedSyncResult(id, SyncChangeRemove, "import failures require reconciliation first"))
+			continue
+		}
 		change, decision := decideSyncApply(removesByID, id)
 		if decision.Skip {
 			results = append(results, skippedSyncResult(id, SyncChangeRemove, decision.Reason))
@@ -205,10 +224,10 @@ func (s *InventoryImporter) applyAdd(
 		return result
 	}
 
-	if _, err := s.SyncVM(ctx, parentID, change.Node, change.VMID, GuestType(change.GuestType)); err != nil {
+	if err := s.importVM(ctx, parentID, change.Node, change.VMID, GuestType(change.GuestType)); err != nil {
 		result.Status = "error"
-		result.Error = fmt.Sprintf("sync vm: %v", err)
-		log.Printf("proxmox sync add %s: %v", change.ID, err)
+		result.Error = fmt.Sprintf("sync vm into inventory folder %s (Proxmox pool %q): %v", parentID, change.Pool, err)
+		log.Printf("proxmox sync add %s: %s", change.ID, result.Error)
 		return result
 	}
 
@@ -236,10 +255,10 @@ func (s *InventoryImporter) applyUpdate(
 		return result
 	}
 
-	if _, err := s.SyncVM(ctx, parentID, change.Node, change.VMID, GuestType(change.GuestType)); err != nil {
+	if err := s.importVM(ctx, parentID, change.Node, change.VMID, GuestType(change.GuestType)); err != nil {
 		result.Status = "error"
-		result.Error = fmt.Sprintf("sync vm: %v", err)
-		log.Printf("proxmox sync update %s: %v", change.ID, err)
+		result.Error = fmt.Sprintf("sync vm into inventory folder %s (Proxmox pool %q): %v", parentID, change.Pool, err)
+		log.Printf("proxmox sync update %s: %s", change.ID, result.Error)
 		return result
 	}
 
@@ -267,6 +286,41 @@ func (s *InventoryImporter) applyRemove(
 		return result
 	}
 
+	// An earlier add may have reconciled a node migration onto this same item.
+	current, err := q.GetProxmoxVMByInventoryItemID(ctx, change.ItemID)
+	if err != nil {
+		result.Status = "skipped"
+		result.Error = fmt.Sprintf("cannot revalidate inventory mapping: %v", err)
+		return result
+	}
+	if current.Node != change.Node || int(current.Vmid) != change.VMID {
+		return skippedSyncResult(change.ID, SyncChangeRemove, "inventory mapping changed since the diff")
+	}
+	// Absence from a cluster listing alone is insufficient evidence for deletion.
+	checkCtx, cancel := context.WithTimeout(ctx, 45*time.Second)
+	defer cancel()
+	_, configErr := s.client.GetVMConfig(checkCtx, GuestType(current.GuestType), current.Node, int(current.Vmid))
+	var statusErr *apiStatusError
+	if configErr == nil {
+		return skippedSyncResult(change.ID, SyncChangeRemove, "guest config still exists in Proxmox")
+	}
+	if !errors.As(configErr, &statusErr) || statusErr.statusCode != http.StatusNotFound {
+		return skippedSyncResult(change.ID, SyncChangeRemove, fmt.Sprintf("cannot confirm guest is absent; inventory preserved: %v", configErr))
+	}
+
+	tx, err := s.db.Begin(ctx)
+	if err != nil {
+		result.Status = "error"
+		result.Error = fmt.Sprintf("beginning inventory removal: %v", err)
+		return result
+	}
+	defer tx.Rollback(ctx)
+	q = database.New(tx)
+	locked, err := q.GetProxmoxVMByInventoryItemIDForUpdate(ctx, change.ItemID)
+	if err != nil || locked.Node != current.Node || locked.Vmid != current.Vmid || locked.UpstreamUuid != current.UpstreamUuid || locked.GuestType != current.GuestType {
+		return skippedSyncResult(change.ID, SyncChangeRemove, "inventory mapping changed or could not be locked; inventory preserved")
+	}
+
 	// Re-check blockers immediately before deleting.
 	blockers, err := q.ListInventoryDeletionBlockersInSubtree(ctx, change.ItemID)
 	if err != nil {
@@ -288,6 +342,11 @@ func (s *InventoryImporter) applyRemove(
 		return result
 	}
 
+	if err := tx.Commit(ctx); err != nil {
+		result.Status = "error"
+		result.Error = fmt.Sprintf("committing inventory removal: %v", err)
+		return result
+	}
 	result.Status = "success"
 	return result
 }
