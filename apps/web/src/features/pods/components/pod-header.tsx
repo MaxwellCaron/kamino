@@ -22,10 +22,11 @@ function PodHeaderMetaChip({
   className?: string
 }) {
   return (
-    <div className={cn("flex items-center gap-1.5 text-sm", className)}>
+    <div className={cn("flex items-center gap-2 text-sm", className)}>
       {icon}
-      <span className="font-medium">{value}</span>
-      <span>{label}</span>
+      <span className="whitespace-nowrap">
+        <span className="font-medium">{value}</span> {label}
+      </span>
     </div>
   )
 }
@@ -80,16 +81,18 @@ export function PodHeader({
 
               <div className="mt-6 flex flex-col gap-3">
                 <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-                  <div className="flex flex-wrap items-center gap-1.5 text-sm text-muted-foreground">
-                    <span>Created</span>
-                    <RelativeTimeCard
-                      date={pod.created_at}
-                      delay={50}
-                      closeDelay={150}
-                      className="text-foreground"
-                    />
+                  <div className="flex min-w-0 flex-wrap items-center gap-2 text-sm text-muted-foreground">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span>Created</span>
+                      <RelativeTimeCard
+                        date={pod.created_at}
+                        delay={50}
+                        closeDelay={150}
+                        className="text-foreground"
+                      />
+                    </div>
                     {pod.creators.length > 0 && (
-                      <div className="flex items-center gap-1.5">
+                      <div className="flex min-w-0 items-center gap-2">
                         <span>by</span>
                         <PodCreators creators={pod.creators} />
                       </div>
