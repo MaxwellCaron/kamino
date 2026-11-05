@@ -1,6 +1,13 @@
-import React from "react"
-import { useQuery } from "@tanstack/react-query"
-import { HugeiconsIcon } from "@hugeicons/react"
+import type {
+  ApiInventoryAcl,
+  InventoryPermissionsDialogProps,
+} from "../../types/inventory-types"
+import {
+  AppDialogContent,
+  AppDialogPrimaryButton,
+  AppDialogScrollBody,
+  nestedDialogAnimationClassName,
+} from "@/components/dialogs/app-dialog"
 import {
   Cancel01Icon,
   ChevronDownIcon,
@@ -10,14 +17,12 @@ import {
   UserGroupIcon,
   UserIcon,
 } from "@hugeicons/core-free-icons"
-
-import { Badge } from "@workspace/ui/components/badge"
-import { Button } from "@workspace/ui/components/button"
 import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@workspace/ui/components/collapsible"
+
 import { Dialog, DialogFooter } from "@workspace/ui/components/dialog"
 import {
   Item,
@@ -28,31 +33,26 @@ import {
   ItemMedia,
   ItemTitle,
 } from "@workspace/ui/components/item"
-
-import { inventoryAclQueryOptions } from "../../api/inventory-api"
-import { useInventoryPermissions } from "../../hooks/use-inventory-permissions"
-import { principalTypeLabels } from "../../utils/constants"
-import { AddPrincipalsDialog } from "./add-principals-popup"
-import { CustomizePermissionsDialog } from "./customize-permissions-dialog"
-import type {
-  ApiInventoryAcl,
-  InventoryPermissionsDialogProps,
-} from "../../types/inventory-types"
-import type { ApiPrincipal } from "@/features/principals/types/principals-types"
-import { SearchInputGroup } from "@/components/forms/search-input-group"
-import { AppEmptyState } from "@/components/feedback/app-empty-state"
-import { formatVmReference } from "@/features/shared/utils/format"
 import {
   groupsQueryOptions,
   usersQueryOptions,
 } from "@/features/principals/api/principals-api"
-import {
-  AppDialogContent,
-  AppDialogPrimaryButton,
-  AppDialogScrollBody,
-  nestedDialogAnimationClassName,
-} from "@/components/dialogs/app-dialog"
+import { AddPrincipalsDialog } from "./add-principals-popup"
+import type { ApiPrincipal } from "@/features/principals/types/principals-types"
+
+import { AppEmptyState } from "@/components/feedback/app-empty-state"
+import { Badge } from "@workspace/ui/components/badge"
+import { Button } from "@workspace/ui/components/button"
+import { CustomizePermissionsDialog } from "./customize-permissions-dialog"
+import { HugeiconsIcon } from "@hugeicons/react"
 import { PreloadOverlay } from "@/components/loading-overlay"
+import React from "react"
+import { SearchInputGroup } from "@/components/forms/search-input-group"
+import { formatVmReference } from "@/features/shared/utils/format"
+import { inventoryAclQueryOptions } from "../../api/inventory-api"
+import { principalTypeLabels } from "../../utils/constants"
+import { useInventoryPermissions } from "../../hooks/use-inventory-permissions"
+import { useQuery } from "@tanstack/react-query"
 
 function InventoryPermissionsFormBody({
   props,

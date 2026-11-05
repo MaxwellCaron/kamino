@@ -1,7 +1,7 @@
+import adminGuide from "@/features/documentation/content/admin-guide.md?raw"
+import managerGuide from "@/features/documentation/content/manager-guide.md?raw"
 import { slugify } from "@workspace/ui/lib/utils"
 import userGuide from "@/features/documentation/content/user-guide.md?raw"
-import managerGuide from "@/features/documentation/content/manager-guide.md?raw"
-import adminGuide from "@/features/documentation/content/admin-guide.md?raw"
 
 export type DocsSection = {
   docKey: "user" | "manager" | "admin"

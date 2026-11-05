@@ -1,3 +1,8 @@
+import type {
+  CapacityHistoryPoint,
+  SharedStorageCapacity,
+} from "../utils/admin-dashboard"
+
 import {
   Table,
   TableBody,
@@ -6,17 +11,12 @@ import {
   TableHeader,
   TableRow,
 } from "@workspace/ui/components/table"
-
 import {
   formatUsageBytes,
   sharedStorageHistoryKey,
 } from "../utils/admin-dashboard"
 import { NodeUsageAreaChart } from "./usage-charts"
 import type { UsageHistoryTimeframe } from "../api/admin-metrics-api"
-import type {
-  CapacityHistoryPoint,
-  SharedStorageCapacity,
-} from "../utils/admin-dashboard"
 
 const nameColumnClassName = "w-[min(12rem,28vw)] max-w-[12rem]"
 const typeColumnClassName = "w-[min(7rem,18vw)] max-w-[7rem]"

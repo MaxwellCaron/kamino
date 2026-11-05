@@ -1,6 +1,6 @@
-import type { ApiVNet } from "@/features/sdn/types/sdn-types"
-import type { ApiScopedNetwork } from "@/features/vms/api/proxmox-options-api"
 import type { ApiNetworkBridge } from "@/features/vms/types/vm-types"
+import type { ApiScopedNetwork } from "@/features/vms/api/proxmox-options-api"
+import type { ApiVNet } from "@/features/sdn/types/sdn-types"
 
 export type NetworkData = {
   bridges: Array<ApiNetworkBridge>

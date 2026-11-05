@@ -1,12 +1,12 @@
-import { fireEvent, screen, waitFor } from "@testing-library/react"
-import { beforeEach, describe, expect, it, vi } from "vitest"
-import { ChangePasswordDialog } from "./change-password-dialog"
-import { showSingleMutationToast } from "@/components/feedback/mutation-progress-toast"
 import {
   authSessionQueryOptions,
   changeOwnPassword,
 } from "@/features/auth/api/auth-api"
+import { beforeEach, describe, expect, it, vi } from "vitest"
 import { createTestQueryClient, renderWithQueryClient } from "@/test/test-utils"
+import { fireEvent, screen, waitFor } from "@testing-library/react"
+import { ChangePasswordDialog } from "./change-password-dialog"
+import { showSingleMutationToast } from "@/components/feedback/mutation-progress-toast"
 
 vi.mock("@/components/feedback/mutation-progress-toast", () => ({
   showSingleMutationToast: vi.fn(),

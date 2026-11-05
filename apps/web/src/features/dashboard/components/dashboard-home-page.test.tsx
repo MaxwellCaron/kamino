@@ -1,8 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
-import { screen } from "@testing-library/react"
-import { DashboardHomePage } from "./dashboard-home-page"
 import type { AuthUser } from "@/features/auth/types/auth-types"
+import { DashboardHomePage } from "./dashboard-home-page"
 import { renderWithQueryClient } from "@/test/test-utils"
+import { screen } from "@testing-library/react"
 
 const {
   mockInventoryTreeQueryFn,

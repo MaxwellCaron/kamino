@@ -1,6 +1,6 @@
 import type { ApiInventoryItem } from "@/features/inventory/types/inventory-types"
-import type { PodNetworkProfile } from "@/features/pods/api/create-pod-api"
 import type { PodCloneTarget } from "@/features/pods/api/clone-targets-api"
+import type { PodNetworkProfile } from "@/features/pods/api/create-pod-api"
 import { apiJson } from "@/features/shared/api/api-json"
 
 export type PodRouterCloneOptions = {

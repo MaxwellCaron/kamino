@@ -1,10 +1,10 @@
 "use client";
 
 import { memo, useEffect, useMemo, useState } from "react";
-import { createPortal } from "react-dom";
 import { cn } from "@workspace/ui/lib/utils";
-import { useHeatmap } from "./heatmap-context";
+import { createPortal } from "react-dom";
 import { getHeatmapColumnMonthAnchor } from "./heatmap-utils";
+import { useHeatmap } from "./heatmap-context";
 
 export interface HeatmapXAxisProps {
   /** Additional class name for labels */

@@ -1,8 +1,8 @@
 import { createFileRoute, redirect } from "@tanstack/react-router"
-import { preloadCreatePodPage } from "@/features/pods/api/pod-route-loaders"
 import { CreatePodPage } from "@/features/pods/components/create/create-pod-page"
 import { canAccessRequestQueue } from "@/features/auth/utils/management-permissions"
 import { pageTitle } from "@/features/shared/utils/page-title"
+import { preloadCreatePodPage } from "@/features/pods/api/pod-route-loaders"
 
 export const Route = createFileRoute("/_pods/pods/create")({
   staticData: {

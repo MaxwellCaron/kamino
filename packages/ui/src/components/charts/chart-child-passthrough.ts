@@ -1,5 +1,5 @@
-import { isValidElement } from "react";
 import type { ReactElement } from "react";
+import { isValidElement } from "react";
 
 /** Marker on wrapper components whose single child should inherit clip classification. */
 export const CHART_CLIP_PASSTHROUGH = "__chartClipPassthrough" as const;

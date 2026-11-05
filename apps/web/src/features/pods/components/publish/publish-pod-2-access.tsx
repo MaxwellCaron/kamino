@@ -16,7 +16,6 @@ import {
   ComboboxValue,
   useComboboxAnchor,
 } from "@workspace/ui/components/combobox"
-import { Checkbox } from "@workspace/ui/components/checkbox"
 import {
   Field,
   FieldContent,
@@ -25,13 +24,14 @@ import {
   FieldGroup,
   FieldLabel,
 } from "@workspace/ui/components/field"
+import { Checkbox } from "@workspace/ui/components/checkbox"
 import { HugeiconsIcon } from "@hugeicons/react"
 import { LockedIcon } from "@hugeicons/core-free-icons"
+import type { PrincipalOption } from "@/features/inventory/types/inventory-types"
+import type { PublishPodFormApi } from "./publish-pod-form"
+import { PublishPodPrincipalOption } from "./publish-pod-principal-option"
 import { PublishPodStepLayout } from "./publish-pod-step-layout"
 import { toPodAudiencePrincipal } from "./publish-pod-form"
-import { PublishPodPrincipalOption } from "./publish-pod-principal-option"
-import type { PublishPodFormApi } from "./publish-pod-form"
-import type { PrincipalOption } from "@/features/inventory/types/inventory-types"
 
 type PublishPodAccessStepProps = {
   form: PublishPodFormApi

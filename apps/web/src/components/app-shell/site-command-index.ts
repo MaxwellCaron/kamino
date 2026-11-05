@@ -2,7 +2,7 @@ import {
   ComputerIcon,
   Copy02Icon,
   DashboardSquare01Icon,
-  FolderIcon,
+  FolderClosedIcon,
   GitPullRequestIcon,
   Globe02Icon,
   Home03Icon,
@@ -20,22 +20,22 @@ import {
   UserGroupIcon,
   UserIcon,
 } from "@hugeicons/core-free-icons"
-import type { IconSvgElement } from "@hugeicons/react"
-import type { ApiTreeNode } from "@/features/inventory/types/inventory-types"
-import type { ApiPrincipal } from "@/features/principals/types/principals-types"
 import type {
   PodCatalogSummary,
   PublishedPodCatalogEntry,
 } from "@/features/pods/types/pod-types"
-import type { ApiRequestSummary } from "@/features/requests/types/request-types"
-import type { ApiVNet } from "@/features/sdn/types/sdn-types"
-import { formatPrincipalReference } from "@/components/principals/principal-label"
-import { searchDocs } from "@/features/documentation/utils/docs-search"
 import {
   formatRequestKind,
   formatRequestPowerAction,
   formatRequestStatus,
 } from "@/features/requests/utils/request-presenters"
+import type { ApiPrincipal } from "@/features/principals/types/principals-types"
+import type { ApiRequestSummary } from "@/features/requests/types/request-types"
+import type { ApiTreeNode } from "@/features/inventory/types/inventory-types"
+import type { ApiVNet } from "@/features/sdn/types/sdn-types"
+import type { IconSvgElement } from "@hugeicons/react"
+import { formatPrincipalReference } from "@/components/principals/principal-label"
+import { searchDocs } from "@/features/documentation/utils/docs-search"
 
 export type CommandGroupKey =
   | "account"
@@ -520,7 +520,7 @@ function appendFolderCommands(
   results.push({
     id: `inventory:${node.id}`,
     group: "inventory",
-    icon: FolderIcon,
+    icon: FolderClosedIcon,
     label: node.name,
     subtitle: path,
     keywords: folderKeywords,

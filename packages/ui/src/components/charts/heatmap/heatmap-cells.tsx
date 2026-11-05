@@ -1,14 +1,5 @@
 "use client";
 
-import { Group } from "@visx/group";
-import { HeatmapRect } from "@visx/heatmap";
-import {
-  animate,
-  m,
-  useMotionValue,
-} from "motion/react";
-import { memo, useCallback, useEffect, useMemo, useRef } from "react";
-import { transitionWithDelay } from "../motion-utils";
 import {
   HEATMAP_DEFAULT_ENTER_EASE,
   HEATMAP_LOADING_BASE_CELL_OPACITY,
@@ -17,13 +8,13 @@ import {
   heatmapLoadingCellParticipates,
   resolveHeatmapEnterFadeDurationSec,
 } from "./heatmap-animation";
-import { heatmapLevelCellFillOpacity } from "./heatmap-colors";
+import type {HeatmapBin, HeatmapColumn} from "./heatmap-context";
+import type {MotionValue, Transition} from "motion/react";
 import {
-  
-  
-  useHeatmap,
-  useHeatmapInteraction
-} from "./heatmap-context";
+  animate,
+  m,
+  useMotionValue,
+} from "motion/react";
 import {
   getHeatmapContributionLevel,
   isHeatmapGhostBin,
@@ -32,9 +23,18 @@ import {
   resolveHeatmapHoverStyle,
   resolveHeatmapRowOpacity,
 } from "./heatmap-utils";
-import type {HeatmapBin, HeatmapColumn} from "./heatmap-context";
-import type {MotionValue, Transition} from "motion/react";
+import { memo, useCallback, useEffect, useMemo, useRef } from "react";
+import {
+
+
+  useHeatmap,
+  useHeatmapInteraction
+} from "./heatmap-context";
 import type { ChartStatus } from "../chart-phase";
+import { Group } from "@visx/group";
+import { HeatmapRect } from "@visx/heatmap";
+import { heatmapLevelCellFillOpacity } from "./heatmap-colors";
+import { transitionWithDelay } from "../motion-utils";
 
 const HEATMAP_INACTIVE_OPACITY = 0.3;
 /** Smooth tween for inactive opacity + scale on hover. */
@@ -450,6 +450,10 @@ export const HeatmapCells = memo(function HeatmapCells({
     xScale,
     yScale,
     chartStatus,
+    chartPhase,
+    isLoaded,
+    animateCells,
+    levelStyles,
     colorScale: contextColorScale,
     fillScale: contextFillScale,
   } = useHeatmap();
@@ -512,6 +516,13 @@ export const HeatmapCells = memo(function HeatmapCells({
   const isLevelHovering =
     cellsInteractive && hoveredLegendLevel !== null && inactiveEnabled;
 
+  const useStaticCells =
+    !animateCells &&
+    !inactiveEnabled &&
+    chartStatus === "ready" &&
+    chartPhase === "ready" &&
+    isLoaded;
+
   const displayRange = useMemo(
     () => (hideGhostCells ? resolveHeatmapDisplayRange(data) : null),
     [data, hideGhostCells]
@@ -542,6 +553,34 @@ export const HeatmapCells = memo(function HeatmapCells({
 
               if (displayRange && isHeatmapGhostBin(bin, displayRange)) {
                 return null;
+              }
+
+              if (useStaticCells) {
+                const levelStyle =
+                  levelStyles[getHeatmapContributionLevel(bin.count ?? 0)] ?? levelStyles[0];
+                return (
+                  <rect
+                    key={`heatmap-cell-${cell.column}-${cell.row}`}
+                    className="visx-heatmap-rect"
+                    x={cell.x}
+                    y={cell.y}
+                    width={cell.width}
+                    height={cell.height}
+                    rx={cornerRadius}
+                    ry={cornerRadius}
+                    fill={fillScale(bin.count)}
+                    fillOpacity={
+                      (cell.opacity ?? 1) *
+                      heatmapLevelCellFillOpacity(levelStyle) *
+                      resolveHeatmapRowOpacity(cell.row, rowOpacity)
+                    }
+                    style={{ cursor: cellsInteractive ? "pointer" : undefined }}
+                    onPointerEnter={() =>
+                      handleCellEnter(cell.column, cell.row, bin, cell.x, cell.y)
+                    }
+                    onPointerLeave={handleCellLeave}
+                  />
+                );
               }
 
               const hoverState = computeHeatmapCellFaded(

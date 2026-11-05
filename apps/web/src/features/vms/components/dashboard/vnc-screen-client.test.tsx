@@ -1,13 +1,13 @@
-import { createRef } from "react"
-import { act, render } from "@testing-library/react"
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
-
 import {
   VNC_COMPRESSION_LEVEL,
   VNC_QUALITY_LEVEL,
   VncScreenClient,
 } from "./vnc-screen-client"
+import { act, render } from "@testing-library/react"
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
+
 import type { VncScreenClientHandle } from "./vnc-screen-client"
+import { createRef } from "react"
 
 const {
   mockDisconnect,

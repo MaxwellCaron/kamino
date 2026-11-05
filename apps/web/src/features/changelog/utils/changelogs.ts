@@ -10,8 +10,48 @@ interface Release {
 
 export const RELEASES: Array<Release> = [
   {
-    date: "Sep 21, 2026",
+    date: "Nov 4, 2026",
     highlight: true,
+    groups: [
+      {
+        tag: "New",
+        tone: "emerald",
+        items: [
+          "Added a Your Clone card on pod detail pages with clone status, owner, creation time, question progress, networking, VMs, and clone actions.",
+        ],
+      },
+      {
+        tag: "Improved",
+        tone: "indigo",
+        items: [
+          "Refreshed code blocks with line numbers, syntax highlighting, and copy controls in Markdown content and clone target setup commands.",
+          "Updated folder and navigation icons and refined pod header spacing.",
+          "Reduced heatmap rendering work when resizing the dashboard.",
+          "Configured local development at https://kamino.local through Portless with HTTPS and LAN access.",
+          "Updated development tooling and dependencies, migrated linting to Oxlint and typechecking to bun check, and fixed CI compatibility issues.",
+        ],
+      },
+      {
+        tag: "Fixed",
+        tone: "amber",
+        items: [
+          "Fixed pod network allocation across clone targets so isolated targets can reuse network numbers while targets sharing VLAN or WAN address spaces avoid conflicts.",
+          "Fixed Proxmox inventory sync confusing cloned VMs that share an upstream UUID; identity now also includes the VMID.",
+          "Fixed imports of existing Proxmox guests being blocked by folder VM limits or unsupported disk layouts, preserving known disk sizes when they cannot be read.",
+          "Stopped inventory imports from modifying existing Proxmox guest configuration.",
+          "Preserved inventory entries when VM identities conflict, imports partially fail, or guest removal cannot be confirmed; rechecked mappings before removal to protect migrated VMs.",
+          "Fixed pods with no questions showing 0% completion instead of 100%.",
+          "Fixed the user dashboard VM count including templates, matching the admin dashboard's template exclusion.",
+          "Fixed lag when resizing the inventory sidebar.",
+          "Fixed the missing capacity series in the admin shared storage usage chart.",
+          "Resolved Tailwind class warnings across the interface.",
+        ],
+      },
+    ],
+  },
+  {
+    date: "Sep 21, 2026",
+    highlight: false,
     groups: [
       {
         tag: "New",
@@ -47,7 +87,7 @@ export const RELEASES: Array<Release> = [
   },
   {
     date: "Sep 8, 2026",
-    highlight: true,
+    highlight: false,
     groups: [
       {
         tag: "New",
@@ -107,7 +147,7 @@ export const RELEASES: Array<Release> = [
   },
   {
     date: "Aug 9, 2026",
-    highlight: true,
+    highlight: false,
     groups: [
       {
         tag: "New",
@@ -170,7 +210,7 @@ export const RELEASES: Array<Release> = [
   },
   {
     date: "Jul 20, 2026",
-    highlight: true,
+    highlight: false,
     groups: [
       {
         tag: "New",
@@ -183,7 +223,7 @@ export const RELEASES: Array<Release> = [
   },
   {
     date: "Jul 17, 2026",
-    highlight: true,
+    highlight: false,
     groups: [
       {
         tag: "New",

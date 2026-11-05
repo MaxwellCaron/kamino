@@ -1,5 +1,3 @@
-import { HugeiconsIcon } from "@hugeicons/react"
-import { Cancel01Icon } from "@hugeicons/core-free-icons"
 import {
   ActionBar,
   ActionBarClose,
@@ -7,8 +5,10 @@ import {
   ActionBarSelection,
   ActionBarSeparator,
 } from "@workspace/ui/components/action-bar"
-import { InventorySelectionPowerActions } from "./inventory-selection-power-actions"
+import { Cancel01Icon } from "@hugeicons/core-free-icons"
+import { HugeiconsIcon } from "@hugeicons/react"
 import { InventorySelectionMigrationAction } from "./inventory-selection-migration-action"
+import { InventorySelectionPowerActions } from "./inventory-selection-power-actions"
 import { InventorySelectionTemplateDeleteActions } from "./inventory-selection-template-delete-actions"
 import { useInventorySelectionActions } from "./use-inventory-selection-actions"
 

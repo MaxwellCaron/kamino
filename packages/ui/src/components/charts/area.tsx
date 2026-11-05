@@ -1,31 +1,31 @@
 "use client"
 
-import { curveMonotoneX } from "@visx/curve"
 import { AreaClosed, LinePath } from "@visx/shape"
+import type { ChartPhase, LoadingStyle } from "./chart-phase"
 
-import { useCallback, useId, useMemo, useRef, useState } from "react"
-import { AreaGradientDefs } from "./area-gradient-defs"
-import { chartCssVars, useChartStable, useYScale } from "./chart-context"
-import {  resolveFadeSides } from "./fade-edges"
 import {
   
   LineLoadingPulseStroke,
   resolveLineLoadingPulseMode
 } from "./line-loading-pulse"
-import { LINE_LOADING_LOOP_PAUSE_MS } from "./line-loading-timing"
-import { LineLoadingSweep } from "./loading-sweep"
+import { chartCssVars, useChartStable, useYScale } from "./chart-context"
 import {
   resolveDashTailBounds,
   usePathStrokeMetrics,
 } from "./path-stroke-utils"
+import { useCallback, useId, useMemo, useRef, useState } from "react"
+import { AreaGradientDefs } from "./area-gradient-defs"
+import type {FadeEdges} from "./fade-edges";
+import { LINE_LOADING_LOOP_PAUSE_MS } from "./line-loading-timing"
+import type {LineLoadingPulseMode} from "./line-loading-pulse";
+import { LineLoadingSweep } from "./loading-sweep"
 import { SeriesDashTailOverlay } from "./series-dash-tail-overlay"
 import { SeriesHighlightLayer } from "./series-highlight-layer"
 import { SeriesHoverDim } from "./series-hover-dim"
 import { SeriesMarkers } from "./series-markers"
-import type {LineLoadingPulseMode} from "./line-loading-pulse";
-import type {FadeEdges} from "./fade-edges";
-import type { ChartPhase, LoadingStyle } from "./chart-phase"
 import type { SeriesPointMarkerStyle } from "./series-point-marker"
+import { curveMonotoneX } from "@visx/curve"
+import {  resolveFadeSides } from "./fade-edges"
 
 // CurveFactory type - simplified version compatible with visx
 // biome-ignore lint/suspicious/noExplicitAny: d3 curve factory type

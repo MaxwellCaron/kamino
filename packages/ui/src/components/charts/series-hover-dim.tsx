@@ -1,9 +1,9 @@
 "use client"
 
+import type { ReactNode } from "react"
 import { m } from "motion/react"
 import { useChartHover } from "./chart-context"
 import { useChartLegendHover } from "./chart-legend-hover"
-import type { ReactNode } from "react"
 
 interface SeriesHoverDimProps {
   /** Skip the dim entirely. */

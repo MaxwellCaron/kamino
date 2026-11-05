@@ -1,5 +1,5 @@
-import type { ApiTreeNode } from "@/features/inventory/types/inventory-types"
 import type { ApiRequestDetail } from "@/features/requests/types/request-types"
+import type { ApiTreeNode } from "@/features/inventory/types/inventory-types"
 import type { ConfirmConfig } from "@/components/dialogs/confirm-dialog"
 import { ConfirmDialog } from "@/components/dialogs/confirm-dialog"
 import { RequestDetailDialog } from "@/features/requests/components/request-detail-dialog"

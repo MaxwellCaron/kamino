@@ -1,20 +1,20 @@
-import { z } from "zod"
+import type {
+  ApiPrincipal,
+  CreateGroupInput,
+} from "@/features/principals/types/principals-types"
 import type {
   FormAsyncValidateOrFn,
   FormValidateOrFn,
   ReactFormExtendedApi,
 } from "@tanstack/react-form"
-import type {
-  ApiPrincipal,
-  CreateGroupInput,
-} from "@/features/principals/types/principals-types"
-import type { CreateMode } from "@/features/principals/utils/principal-dialog-utils"
 import {
   descriptionSchema,
   normalizeDescription,
   parsePositiveIntegerString,
   splitNonEmptyLines,
 } from "@/features/principals/utils/principal-dialog-utils"
+import type { CreateMode } from "@/features/principals/utils/principal-dialog-utils"
+import { z } from "zod"
 
 export {
   descriptionFieldSchema,

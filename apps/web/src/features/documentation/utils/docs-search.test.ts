@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest"
-import { slugify } from "@workspace/ui/lib/utils"
 import { searchDocs } from "./docs-search"
+import { slugify } from "@workspace/ui/lib/utils"
 
 const noAccess = { canManage: false, canAdminister: false }
 const managerAccess = { canManage: true, canAdminister: false }

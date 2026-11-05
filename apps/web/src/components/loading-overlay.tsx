@@ -1,7 +1,7 @@
+import { AnimatePresence, m } from "motion/react"
 import { useEffect, useState } from "react"
 import { Spinner } from "@workspace/ui/components/spinner"
 import { cn } from "@workspace/ui/lib/utils"
-import { AnimatePresence, m } from "motion/react"
 import { loadingTransition } from "@/components/loading-transition"
 
 const SHOW_DELAY_MS = 150

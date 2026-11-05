@@ -1,38 +1,25 @@
-import { useMemo, useState } from "react"
-import { useForm } from "@tanstack/react-form"
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import { HugeiconsIcon } from "@hugeicons/react"
 import {
   Add01Icon,
   Globe02Icon,
   PencilEdit01Icon,
   RegexIcon,
 } from "@hugeicons/core-free-icons"
-import { DialogFooter } from "@workspace/ui/components/dialog"
-import { FieldError } from "@workspace/ui/components/field"
-import { Tabs, TabsContent, TabsTrigger } from "@workspace/ui/components/tabs"
 import type {
   ApiSDNZone,
   ApiVNet,
   CreateVNetInput,
 } from "@/features/sdn/types/sdn-types"
-import type {
-  VNetCreateMode,
-  VNetFormValues,
-} from "@/features/sdn/components/vnet-dialog-utils"
-import type { MutationItemUpdate } from "@/components/feedback/mutation-progress-toast"
 import {
   AppDialog,
   AppDialogHeaderTabs,
   AppDialogPrimaryButton,
   AppDialogScrollBody,
 } from "@/components/dialogs/app-dialog"
-import { InlineErrorAlert } from "@/components/feedback/inline-error-alert"
-import { PreloadOverlay } from "@/components/loading-overlay"
-import {
-  showSingleMutationToast,
-  showUnitMutationToast,
-} from "@/components/feedback/mutation-progress-toast"
+import { Tabs, TabsContent, TabsTrigger } from "@workspace/ui/components/tabs"
+import type {
+  VNetCreateMode,
+  VNetFormValues,
+} from "@/features/sdn/components/vnet-dialog-utils"
 import {
   applySDN,
   createVNet,
@@ -41,15 +28,28 @@ import {
   sdnZonesQueryOptions,
   updateVNet,
 } from "@/features/sdn/api/sdn-api"
-import { CreateVNetSingleForm } from "@/features/sdn/components/create-vnet-single-form"
-import { CreateVNetsPrefixForm } from "@/features/sdn/components/create-vnet-prefix-form"
-import { EditVNetForm } from "@/features/sdn/components/edit-vnet-form"
 import {
   buildCreateVNets,
   getDefaultVNetFormValues,
   getTagRule,
   isVlanAwareDisabled,
 } from "@/features/sdn/components/vnet-dialog-utils"
+import {
+  showSingleMutationToast,
+  showUnitMutationToast,
+} from "@/components/feedback/mutation-progress-toast"
+import { useMemo, useState } from "react"
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
+import { CreateVNetSingleForm } from "@/features/sdn/components/create-vnet-single-form"
+import { CreateVNetsPrefixForm } from "@/features/sdn/components/create-vnet-prefix-form"
+import { DialogFooter } from "@workspace/ui/components/dialog"
+import { EditVNetForm } from "@/features/sdn/components/edit-vnet-form"
+import { FieldError } from "@workspace/ui/components/field"
+import { HugeiconsIcon } from "@hugeicons/react"
+import { InlineErrorAlert } from "@/components/feedback/inline-error-alert"
+import type { MutationItemUpdate } from "@/components/feedback/mutation-progress-toast"
+import { PreloadOverlay } from "@/components/loading-overlay"
+import { useForm } from "@tanstack/react-form"
 
 const SDN_APPLY_ITEM_ID = "sdn-apply"
 

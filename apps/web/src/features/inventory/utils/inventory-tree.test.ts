@@ -1,14 +1,14 @@
-import { describe, expect, it } from "vitest"
-import {
-  
-  getInventoryFolderOptions
-} from "./inventory-tree"
 import {
   InventoryPermissionBits,
   InventoryPermissionKeys,
 } from "./inventory-permissions"
-import type {InventoryFolderOption} from "./inventory-tree";
+import { describe, expect, it } from "vitest"
 import type { ApiTreeNode } from "../types/inventory-types"
+import type {InventoryFolderOption} from "./inventory-tree";
+import {
+
+  getInventoryFolderOptions
+} from "./inventory-tree"
 
 function folderNode(
   id: string,

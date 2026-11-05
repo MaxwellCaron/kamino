@@ -1,8 +1,8 @@
 import { defineConfig, loadEnv } from "vite"
+import type { Plugin } from "vite"
+import tailwindcss from "@tailwindcss/vite"
 import { tanstackStart } from "@tanstack/react-start/plugin/vite"
 import viteReact from "@vitejs/plugin-react"
-import tailwindcss from "@tailwindcss/vite"
-import type { Plugin } from "vite"
 
 const NOVNC_MOUSE_MOVE_DELAY_MS = 8
 

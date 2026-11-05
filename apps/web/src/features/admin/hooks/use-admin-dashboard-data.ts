@@ -1,5 +1,7 @@
-import { useMemo } from "react"
-import { useQueries, useQuery } from "@tanstack/react-query"
+import type {
+  AdminStats,
+  DashboardStorageSummary,
+} from "../utils/admin-dashboard"
 import { UserGroupIcon, UserIcon } from "@hugeicons/core-free-icons"
 import {
   buildStorageSummary,
@@ -7,26 +9,24 @@ import {
   getRecentPrincipals,
   getRecentRequests,
 } from "../utils/admin-dashboard"
-import { getPrincipalColumns } from "../components/admin-principal-columns"
-import type {
-  AdminStats,
-  DashboardStorageSummary,
-} from "../utils/admin-dashboard"
-import type { ApiNode } from "@/features/vms/types/vm-types"
-import { inventoryTreeQueryOptions } from "@/features/inventory/api/inventory-api"
 import {
   groupsQueryOptions,
   usersQueryOptions,
 } from "@/features/principals/api/principals-api"
 import {
-  requestSummariesQueryOptions,
-  requestSummaryCountQueryOptions,
-} from "@/features/requests/api/requests-api"
-import { getRequestColumns } from "@/features/requests/components/requests-columns"
-import {
   nodesQueryOptions,
   storagesQueryOptions,
 } from "@/features/vms/api/proxmox-options-api"
+import {
+  requestSummariesQueryOptions,
+  requestSummaryCountQueryOptions,
+} from "@/features/requests/api/requests-api"
+import { useQueries, useQuery } from "@tanstack/react-query"
+import type { ApiNode } from "@/features/vms/types/vm-types"
+import { getPrincipalColumns } from "../components/admin-principal-columns"
+import { getRequestColumns } from "@/features/requests/components/requests-columns"
+import { inventoryTreeQueryOptions } from "@/features/inventory/api/inventory-api"
+import { useMemo } from "react"
 
 const EMPTY_STORAGE_SUMMARY: DashboardStorageSummary = {
   localByNode: new Map(),

@@ -1,9 +1,5 @@
 import { BoxIcon, PackageAddIcon, ReloadIcon } from "@hugeicons/core-free-icons"
 import type {
-  ProgressStateStep,
-  ProgressStateSteps,
-} from "@/components/progress-state/progress-state"
-import type {
   CreatePodProgress,
   CreatePodResult,
 } from "@/features/pods/api/create-pod-api"
@@ -11,6 +7,10 @@ import {
   ProgressErrorState,
   ProgressState,
   ProgressSuccessState,
+} from "@/components/progress-state/progress-state"
+import type {
+  ProgressStateStep,
+  ProgressStateSteps,
 } from "@/components/progress-state/progress-state"
 
 const CREATE_POD_STEP_IDS = [1, 2, 3, 4, 5, 6, 7] as const

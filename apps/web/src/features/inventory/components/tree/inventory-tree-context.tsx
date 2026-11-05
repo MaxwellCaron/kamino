@@ -1,7 +1,7 @@
 import { createContext, use } from "react"
+import type { ApiTreeNode } from "../../types/inventory-types"
 import type { RefObject } from "react"
 import type { TreeInstance } from "@headless-tree/core"
-import type { ApiTreeNode } from "../../types/inventory-types"
 
 export interface InventoryTreeDataContextValue {
   canPowerByFolderId: Map<string, boolean>

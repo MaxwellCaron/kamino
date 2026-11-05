@@ -5,16 +5,16 @@ import {
   FieldGroup,
   FieldLabel,
 } from "@workspace/ui/components/field"
-import { Input } from "@workspace/ui/components/input"
-import type React from "react"
-import type { UserFormApi } from "@/features/principals/components/users/user-dialog-utils"
 import {
   descriptionFieldSchema,
   requiredPasswordSchema,
   usernameSchema,
 } from "@/features/principals/components/users/user-dialog-utils"
 import { CountedTextareaField } from "@/components/forms/counted-textarea-field"
+import { Input } from "@workspace/ui/components/input"
+import type React from "react"
 import { UserDialogGroupAssignmentsField } from "@/features/principals/components/users/user-dialog-group-assignments-field"
+import type { UserFormApi } from "@/features/principals/components/users/user-dialog-utils"
 
 export function UserDialogCreateSingleTab({
   form,

@@ -1,4 +1,3 @@
-import { useMutation, useQueryClient } from "@tanstack/react-query"
 import {
   createFolder,
   deleteFolder,
@@ -9,8 +8,9 @@ import {
   updateFolderVmLimit,
   updateInventoryAcl,
 } from "../api/inventory-api"
-import { moveInventoryTreeNodes } from "../utils/inventory-tree"
+import { useMutation, useQueryClient } from "@tanstack/react-query"
 import type { ApiTreeNode } from "../types/inventory-types"
+import { moveInventoryTreeNodes } from "../utils/inventory-tree"
 import { personalPodQueryOptions } from "@/features/pods/api/personal-pod-api"
 
 function useInvalidateInventoryTreeMutation<TVariables>(

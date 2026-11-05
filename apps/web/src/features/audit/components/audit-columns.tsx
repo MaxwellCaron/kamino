@@ -1,6 +1,3 @@
-import { Badge } from "@workspace/ui/components/badge"
-import { RelativeTimeCard } from "@workspace/ui/components/relative-time-card"
-import { FacehashIcon } from "@workspace/ui/components/facehash"
 import {
   formatAuditStatus,
   getAuditStatusClassName,
@@ -8,7 +5,10 @@ import {
 } from "../utils/audit-presenters"
 import type { ApiActionEvent } from "../api/audit-api"
 import type { AppTableFeatures } from "@/components/data-table/data-table-types"
+import { Badge } from "@workspace/ui/components/badge"
 import type { ColumnDef } from "@tanstack/react-table"
+import { FacehashIcon } from "@workspace/ui/components/facehash"
+import { RelativeTimeCard } from "@workspace/ui/components/relative-time-card"
 
 export const columns: Array<ColumnDef<AppTableFeatures, ApiActionEvent>> = [
   {

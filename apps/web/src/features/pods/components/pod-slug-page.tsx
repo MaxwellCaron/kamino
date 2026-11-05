@@ -1,9 +1,9 @@
 import { getRouteApi, notFound } from "@tanstack/react-router"
-import { useQuery } from "@tanstack/react-query"
 import { PodPage } from "@/features/pods/components/pod-page"
-import { podCatalogEntryQueryOptions } from "@/features/pods/api/publish-pod-api"
 import { clonedPodQueryOptions } from "@/features/pods/api/clone-pod-api"
 import { isApiErrorStatus } from "@/features/auth/api/auth-api"
+import { podCatalogEntryQueryOptions } from "@/features/pods/api/publish-pod-api"
+import { useQuery } from "@tanstack/react-query"
 
 const podSlugRouteApi = getRouteApi("/_pods/pods/$podSlug")
 export function PodSlugPage() {

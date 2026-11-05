@@ -174,7 +174,7 @@ type VMConfigSummary struct {
 	UpstreamUUID uuid.UUID
 	CPUCount     int32
 	MemoryMB     int32
-	DiskGB       float64
+	DiskGB       *float64
 	Notes        string
 }
 

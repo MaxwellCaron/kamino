@@ -1,15 +1,4 @@
 import * as React from "react"
-import { mergeProps } from "@base-ui/react/merge-props"
-import { useRender } from "@base-ui/react/use-render"
-import { cva } from "class-variance-authority"
-
-import { HugeiconsIcon } from "@hugeicons/react"
-import { SidebarLeft01Icon } from "@hugeicons/core-free-icons"
-import { useIsMobile } from "@workspace/ui/hooks/use-mobile"
-import { cn } from "@workspace/ui/lib/utils"
-import { Button } from "@workspace/ui/components/button"
-import { Input } from "@workspace/ui/components/input"
-import { Separator } from "@workspace/ui/components/separator"
 import {
   Sheet,
   SheetContent,
@@ -17,13 +6,24 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@workspace/ui/components/sheet"
-import { Skeleton } from "@workspace/ui/components/skeleton"
 import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
 } from "@workspace/ui/components/tooltip"
+import { Button } from "@workspace/ui/components/button"
+
+import { HugeiconsIcon } from "@hugeicons/react"
+import { Input } from "@workspace/ui/components/input"
+import { Separator } from "@workspace/ui/components/separator"
+import { SidebarLeft01Icon } from "@hugeicons/core-free-icons"
+import { Skeleton } from "@workspace/ui/components/skeleton"
 import type { VariantProps } from "class-variance-authority"
+import { cn } from "@workspace/ui/lib/utils"
+import { cva } from "class-variance-authority"
+import { mergeProps } from "@base-ui/react/merge-props"
+import { useIsMobile } from "@workspace/ui/hooks/use-mobile"
+import { useRender } from "@base-ui/react/use-render"
 
 const SIDEBAR_COOKIE_NAME = "sidebar_state"
 const SIDEBAR_COOKIE_MAX_AGE = 60 * 60 * 24 * 7

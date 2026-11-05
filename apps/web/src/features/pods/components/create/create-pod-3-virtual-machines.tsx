@@ -1,4 +1,3 @@
-import React from "react"
 import {
   Combobox,
   ComboboxChip,
@@ -11,6 +10,13 @@ import {
   useComboboxAnchor,
 } from "@workspace/ui/components/combobox"
 import {
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "@workspace/ui/components/empty"
+import {
   Field,
   FieldDescription,
   FieldError,
@@ -18,25 +24,19 @@ import {
   FieldLabel,
   FieldSet,
 } from "@workspace/ui/components/field"
-import {
-  Empty,
-  EmptyDescription,
-  EmptyHeader,
-  EmptyMedia,
-  EmptyTitle,
-} from "@workspace/ui/components/empty"
-import { HugeiconsIcon } from "@hugeicons/react"
-import { Copy02Icon } from "@hugeicons/core-free-icons"
-import { CreatePodTemplateCard } from "./create-pod-template-card"
-import {
-  getPodDefaultVmSegmentKey,
-  syncSelectedTemplates,
-} from "./create-pod-form"
-import type { CreatePodFormApi } from "./create-pod-form"
 import type {
   PodNetworkProfile,
   PodTemplateOption,
 } from "@/features/pods/api/create-pod-api"
+import {
+  getPodDefaultVmSegmentKey,
+  syncSelectedTemplates,
+} from "./create-pod-form"
+import { Copy02Icon } from "@hugeicons/core-free-icons"
+import type { CreatePodFormApi } from "./create-pod-form"
+import { CreatePodTemplateCard } from "./create-pod-template-card"
+import { HugeiconsIcon } from "@hugeicons/react"
+import React from "react"
 import { VmTemplateComboboxItem } from "@/components/inventory/vm-template-combobox-item"
 
 type CreatePodVirtualMachinesSectionProps = {

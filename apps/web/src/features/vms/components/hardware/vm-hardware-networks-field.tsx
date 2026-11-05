@@ -1,7 +1,4 @@
-import { HugeiconsIcon } from "@hugeicons/react"
 import { Add01Icon, Delete01Icon } from "@hugeicons/core-free-icons"
-import { Button } from "@workspace/ui/components/button"
-import { Checkbox } from "@workspace/ui/components/checkbox"
 import {
   Field,
   FieldContent,
@@ -10,7 +7,6 @@ import {
   FieldGroup,
   FieldLabel,
 } from "@workspace/ui/components/field"
-import { Input } from "@workspace/ui/components/input"
 import {
   Select,
   SelectContent,
@@ -20,14 +16,18 @@ import {
   SelectValue,
 } from "@workspace/ui/components/select"
 import type { ApiScopedNetwork } from "@/features/vms/api/proxmox-options-api"
+import { Button } from "@workspace/ui/components/button"
+import { Checkbox } from "@workspace/ui/components/checkbox"
+import { HugeiconsIcon } from "@hugeicons/react"
+import { Input } from "@workspace/ui/components/input"
 import type { NetworkOption } from "@/features/vms/components/hardware/hardware-section-utils"
-import { getSelectOptionLabel } from "@/features/vms/components/hardware/hardware-section-utils"
-import { formatFieldError } from "@/features/vms/components/create/create-vm-step-utils"
-import { parseOptionalNumberInput } from "@/features/vms/components/create/create-vm-form"
-import { nicModels } from "@/features/vms/components/hardware/hardware-options"
-import { VmHardwareNetworkCard } from "@/features/vms/components/hardware/hardware-sections"
 import { VmHardwareNetworkBridgeCombobox } from "@/features/vms/components/hardware/vm-hardware-network-bridge-combobox"
+import { VmHardwareNetworkCard } from "@/features/vms/components/hardware/hardware-sections"
+import { formatFieldError } from "@/features/vms/components/create/create-vm-step-utils"
+import { getSelectOptionLabel } from "@/features/vms/components/hardware/hardware-section-utils"
 import { isScopedNetworkBridgeLocked } from "@/features/vms/utils/vm-network-scope"
+import { nicModels } from "@/features/vms/components/hardware/hardware-options"
+import { parseOptionalNumberInput } from "@/features/vms/components/create/create-vm-form"
 import { uuid } from "@/features/shared/utils/uuid"
 
 type NetworkInterfaceValue = {

@@ -1,46 +1,46 @@
 import * as React from "react"
-import { useForm } from "@tanstack/react-form"
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import {
   Add01Icon,
   PencilEdit01Icon,
   UserIcon,
 } from "@hugeicons/core-free-icons"
-import { DialogFooter } from "@workspace/ui/components/dialog"
-import { FieldError } from "@workspace/ui/components/field"
 import type {
   ApiBulkCreateResponse,
   ApiPrincipal,
   ApiPrincipalProviderCapabilities,
   CreateUserInput,
 } from "@/features/principals/types/principals-types"
-import type { CreateMode } from "@/features/principals/components/users/user-dialog-utils"
-import { formatPrincipalReference } from "@/components/principals/principal-label"
 import {
   AppDialogPrimaryButton,
   AppDialogScrollBody,
   nestedDialogAnimationClassName,
 } from "@/components/dialogs/app-dialog"
 import {
-  showSingleMutationToast,
-  showUnitMutationToast,
-} from "@/components/feedback/mutation-progress-toast"
-import { BulkCreateResultsSummary } from "@/features/principals/components/create-results-summary"
+  buildCreateUsers,
+  getDefaultUserFormValues,
+  normalizeDescription,
+  userSchema,
+} from "@/features/principals/components/users/user-dialog-utils"
 import {
   createUser,
   groupsQueryOptions,
   setUserPassword,
   updateUser,
 } from "@/features/principals/api/principals-api"
+import {
+  showSingleMutationToast,
+  showUnitMutationToast,
+} from "@/components/feedback/mutation-progress-toast"
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
+import { BulkCreateResultsSummary } from "@/features/principals/components/create-results-summary"
+import type { CreateMode } from "@/features/principals/components/users/user-dialog-utils"
+import { DialogFooter } from "@workspace/ui/components/dialog"
+import { FieldError } from "@workspace/ui/components/field"
+import { PrincipalDialogShell } from "@/features/principals/components/principal-dialog-shell"
 import { UserDialogCreateForm } from "@/features/principals/components/users/user-dialog-create-form"
 import { UserDialogEditForm } from "@/features/principals/components/users/user-dialog-edit-form"
-import { PrincipalDialogShell } from "@/features/principals/components/principal-dialog-shell"
-import {
-  buildCreateUsers,
-  getDefaultUserFormValues,
-  normalizeDescription,
-  userSchema,
-} from "@/features/principals/components/users/user-dialog-utils"
+import { formatPrincipalReference } from "@/components/principals/principal-label"
+import { useForm } from "@tanstack/react-form"
 
 export function UserDialog({
   capabilities,

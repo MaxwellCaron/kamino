@@ -1,8 +1,6 @@
 "use client";
 
 import { animate, useReducedMotion } from "motion/react";
-import { useEffect, useRef, useState } from "react";
-import { LINE_LOADING_PULSE_EASE } from "./line-loading-timing";
 import {
   
   domainsEqual,
@@ -10,8 +8,10 @@ import {
   resolveAnimatedYDestinationDomains,
   shouldTweenYDomain
 } from "./y-domain-utils";
-import type {YDomain} from "./y-domain-utils";
+import { useEffect, useRef, useState } from "react";
 import type { ChartPhase } from "./chart-phase";
+import { LINE_LOADING_PULSE_EASE } from "./line-loading-timing";
+import type {YDomain} from "./y-domain-utils";
 
 function lerpDomain(from: YDomain, to: YDomain, progress: number): YDomain {
   return [

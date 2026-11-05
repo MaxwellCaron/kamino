@@ -1,4 +1,3 @@
-import { HugeiconsIcon } from "@hugeicons/react"
 import {
   ArrowDataTransferHorizontalIcon,
   Camera01Icon,
@@ -15,23 +14,24 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
 } from "@workspace/ui/components/dropdown-menu"
-import { getVmCapabilities } from "../../utils/inventory-capabilities"
-import { InventoryDeleteConfirmItems } from "../inventory-delete-confirm-items"
-import { GeneralVmMenuItems } from "./general-vm-menu-items"
-import { assertSingleItemMutationSucceeded } from "./inventory-action-utils"
-import type { ApiTreeNodePermissions } from "../../types/inventory-types"
-import type { ConfirmConfig } from "@/components/dialogs/confirm-dialog"
-import { formatVmReference } from "@/features/shared/utils/format"
-import {
-  useConvertToTemplate,
-  useDeleteVM,
-} from "@/features/vms/hooks/use-vm-actions"
-import { useVmPowerActions } from "@/features/vms/hooks/use-vm-power-actions"
 import {
   toastDeleteVm,
   toastTemplatizeVm,
 } from "@/features/vms/utils/vm-toasts"
+import {
+  useConvertToTemplate,
+  useDeleteVM,
+} from "@/features/vms/hooks/use-vm-actions"
+import type { ApiTreeNodePermissions } from "../../types/inventory-types"
+import type { ConfirmConfig } from "@/components/dialogs/confirm-dialog"
+import { GeneralVmMenuItems } from "./general-vm-menu-items"
+import { HugeiconsIcon } from "@hugeicons/react"
+import { InventoryDeleteConfirmItems } from "../inventory-delete-confirm-items"
 import { VmIcon } from "@/components/status/vm-icon"
+import { assertSingleItemMutationSucceeded } from "./inventory-action-utils"
+import { formatVmReference } from "@/features/shared/utils/format"
+import { getVmCapabilities } from "../../utils/inventory-capabilities"
+import { useVmPowerActions } from "@/features/vms/hooks/use-vm-power-actions"
 
 type VmCapabilities = ReturnType<typeof getVmCapabilities>
 type VmPowerActions = ReturnType<typeof useVmPowerActions>

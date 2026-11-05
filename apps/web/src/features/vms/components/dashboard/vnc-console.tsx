@@ -1,6 +1,3 @@
-import { Suspense, lazy, useCallback, useEffect, useRef, useState } from "react"
-import { useQuery } from "@tanstack/react-query"
-import { HugeiconsIcon } from "@hugeicons/react"
 import {
   Cancel01Icon,
   Clock01Icon,
@@ -11,8 +8,6 @@ import {
   PowerIcon,
   TerminalIcon,
 } from "@hugeicons/core-free-icons"
-import { Badge } from "@workspace/ui/components/badge"
-import { Button } from "@workspace/ui/components/button"
 import {
   Card,
   CardAction,
@@ -21,12 +16,6 @@ import {
   CardHeader,
   CardTitle,
 } from "@workspace/ui/components/card"
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@workspace/ui/components/tooltip"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -42,14 +31,25 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from "@workspace/ui/components/empty"
-import type { VncScreenClientHandle } from "./vnc-screen-client"
-import { AppActionButton } from "@/components/actions/app-action-button"
+import { Suspense, lazy, useCallback, useEffect, useRef, useState } from "react"
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@workspace/ui/components/tooltip"
 import { apiFetch, apiUrl } from "@/features/auth/api/auth-api"
-import { vmOverviewQueryOptions } from "@/features/vms/api/vm-api"
-import { downloadSpiceConfig } from "@/features/vms/api/vm-console-api"
+import { AppActionButton } from "@/components/actions/app-action-button"
+import { Badge } from "@workspace/ui/components/badge"
+import { Button } from "@workspace/ui/components/button"
+import { HugeiconsIcon } from "@hugeicons/react"
+import type { VncScreenClientHandle } from "./vnc-screen-client"
 import { alignVncLayoutAnchorIfOverscrolled } from "@/features/vms/components/dashboard/vnc-layout-anchor"
-import { toastDownloadSpiceConfig } from "@/features/vms/utils/vm-toasts"
+import { downloadSpiceConfig } from "@/features/vms/api/vm-console-api"
 import { supportsNativeSpice } from "@/features/vms/utils/vm-console-utils"
+import { toastDownloadSpiceConfig } from "@/features/vms/utils/vm-toasts"
+import { useQuery } from "@tanstack/react-query"
+import { vmOverviewQueryOptions } from "@/features/vms/api/vm-api"
 
 function preloadVncScreenClient() {
   void import("./vnc-screen-client")

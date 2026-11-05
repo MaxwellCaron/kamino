@@ -1,25 +1,14 @@
-import {
-  CircularProgress,
-  CircularProgressIndicator,
-  CircularProgressRange,
-  CircularProgressTrack,
-} from "@workspace/ui/components/circular-progress"
-import { HugeiconsIcon } from "@hugeicons/react"
-import { CopyIcon } from "@hugeicons/core-free-icons"
 import { Button } from "@workspace/ui/components/button"
-import { Separator } from "@workspace/ui/components/separator"
-import { RelativeTimeCard } from "@workspace/ui/components/relative-time-card"
-import { cn } from "@workspace/ui/lib/utils"
-import { ClonedPodStatusHoverCard } from "./cloned-pod-status-badge"
-import { PodHeaderActions } from "./pod-header-actions"
-import { PodCoverImage } from "./pod-cover-image"
-import type { ClonedPod, Pod } from "@/features/pods/types/pod-types"
-import type { ReactNode } from "react"
-import {
-  FormatPodCreators,
-  PodCreatorIcon,
-} from "@/features/pods/components/pod-creators"
+import { CopyIcon } from "@hugeicons/core-free-icons"
 import { GrainientBackground } from "@/components/grainient-background"
+import { HugeiconsIcon } from "@hugeicons/react"
+import type { Pod } from "@/features/pods/types/pod-types"
+import { PodCoverImage } from "./pod-cover-image"
+import { PodCreators } from "@/features/pods/components/pod-creators"
+import type { ReactNode } from "react"
+import { RelativeTimeCard } from "@workspace/ui/components/relative-time-card"
+import { Separator } from "@workspace/ui/components/separator"
+import { cn } from "@workspace/ui/lib/utils"
 
 function PodHeaderMetaChip({
   icon,
@@ -33,31 +22,24 @@ function PodHeaderMetaChip({
   className?: string
 }) {
   return (
-    <div className={cn("flex items-center gap-1.5 text-sm", className)}>
+    <div className={cn("flex items-center gap-2 text-sm", className)}>
       {icon}
-      <span className="font-medium">{value}</span>
-      <span className="text-muted-foreground">{label}</span>
+      <span className="whitespace-nowrap">
+        <span className="font-medium">{value}</span> {label}
+      </span>
     </div>
   )
 }
 
 export function PodHeader({
   pod,
-  clonedPod,
-  actionsDisabled = false,
+  showClone = true,
   onClone,
-  onReclone,
-  onClonedPodChange,
 }: {
   pod: Pod
-  clonedPod?: ClonedPod | null
-  actionsDisabled?: boolean
+  showClone?: boolean
   onClone?: () => void
-  onReclone?: () => void
-  onClonedPodChange?: (clonedPod: ClonedPod | null) => void
 }) {
-  const questionSummary = clonedPod?.question_summary ?? null
-
   return (
     <div className="relative overflow-hidden">
       <div className="pointer-events-none absolute inset-0 mb-1 overflow-hidden rounded-b-[40px] shadow ring-1 ring-border/50">
@@ -75,30 +57,19 @@ export function PodHeader({
             />
           </div>
 
-          <div className="relative flex flex-1 flex-col md:min-h-56">
-            <div className="mb-4 flex justify-end md:absolute md:top-0 md:right-0 md:mb-0">
-              {clonedPod == null ? (
+          <div className="relative flex min-w-0 flex-1 flex-col md:min-h-56">
+            {showClone && (
+              <div className="mb-4 flex justify-end md:absolute md:top-0 md:right-0 md:mb-0">
                 <Button onClick={onClone} disabled={!onClone}>
                   <HugeiconsIcon icon={CopyIcon} data-icon="inline-start" />
                   Clone
                 </Button>
-              ) : (
-                <PodHeaderActions
-                  podTitle={pod.title}
-                  clonedPod={clonedPod}
-                  disabled={actionsDisabled}
-                  onReclone={onReclone}
-                  onClonedPodChange={onClonedPodChange}
-                />
-              )}
-            </div>
+              </div>
+            )}
 
             <div className="flex flex-1 flex-col justify-center">
               <div
-                className={cn(
-                  "flex flex-col gap-2",
-                  clonedPod ? "md:pr-48" : "md:pr-24"
-                )}
+                className={cn("flex flex-col gap-2", showClone && "md:pr-24")}
               >
                 <h1 className="font-heading text-4xl font-extrabold tracking-tight sm:text-5xl">
                   {pod.title}
@@ -108,95 +79,43 @@ export function PodHeader({
                 </p>
               </div>
 
-              <div className="mt-6 flex flex-wrap items-center gap-4">
-                <FormatPodCreators
-                  creators={pod.creators}
-                  className="text-sm"
-                />
+              <div className="mt-6 flex flex-col gap-3">
+                <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+                  <div className="flex min-w-0 flex-wrap items-center gap-2 text-sm text-muted-foreground">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span>Created</span>
+                      <RelativeTimeCard
+                        date={pod.created_at}
+                        delay={50}
+                        closeDelay={150}
+                        className="text-foreground"
+                      />
+                    </div>
+                    {pod.creators.length > 0 && (
+                      <div className="flex min-w-0 items-center gap-2">
+                        <span>by</span>
+                        <PodCreators creators={pod.creators} />
+                      </div>
+                    )}
+                  </div>
 
-                <Separator
-                  orientation="vertical"
-                  className="bg-foreground/15"
-                />
-
-                <PodHeaderMetaChip
-                  icon={
-                    <HugeiconsIcon
-                      icon={CopyIcon}
-                      className="size-4 text-muted-foreground"
-                    />
-                  }
-                  value={pod.clone_count}
-                  label="Clones"
-                />
-
-                {questionSummary && pod.tasks.length > 0 && (
-                  <>
+                  <div className="flex items-center gap-4">
                     <Separator
                       orientation="vertical"
                       className="bg-foreground/15"
                     />
                     <PodHeaderMetaChip
                       icon={
-                        <CircularProgress
-                          size={20}
-                          value={questionSummary.progress}
-                        >
-                          <CircularProgressIndicator>
-                            <CircularProgressTrack />
-                            <CircularProgressRange />
-                          </CircularProgressIndicator>
-                        </CircularProgress>
+                        <HugeiconsIcon
+                          icon={CopyIcon}
+                          className="size-4 text-muted-foreground"
+                        />
                       }
-                      value={`${questionSummary.answered} / ${questionSummary.total}`}
-                      label="Questions"
+                      value={pod.clone_count}
+                      label="Clones"
                     />
-                  </>
-                )}
-
-                <Separator
-                  orientation="vertical"
-                  className="bg-foreground/15"
-                />
-
-                <div className="flex flex-wrap items-center gap-1.5 text-sm text-muted-foreground">
-                  {clonedPod ? (
-                    <>
-                      <span>Cloned</span>
-                      <RelativeTimeCard
-                        date={clonedPod.cloned_at}
-                        side="bottom"
-                        delay={50}
-                        closeDelay={150}
-                      />
-                      <span>by</span>
-                      <span className="inline-flex items-center gap-1.5 font-medium text-foreground">
-                        <PodCreatorIcon creator={clonedPod.owner} size={24} />
-                        {clonedPod.owner.label}
-                      </span>
-                    </>
-                  ) : (
-                    <>
-                      <span>Created</span>
-                      <RelativeTimeCard
-                        date={pod.created_at}
-                        side="bottom"
-                        delay={50}
-                        closeDelay={150}
-                      />
-                    </>
-                  )}
+                  </div>
                 </div>
-
-                {clonedPod && (
-                  <>
-                    <Separator
-                      orientation="vertical"
-                      className="bg-foreground/15"
-                    />
-                    <ClonedPodStatusHoverCard status={clonedPod.status} />
-                  </>
-                )}
               </div>
             </div>
           </div>

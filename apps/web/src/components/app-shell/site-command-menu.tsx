@@ -1,9 +1,5 @@
 "use client"
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react"
-import { useVirtualizer } from "@tanstack/react-virtual"
-import { HugeiconsIcon } from "@hugeicons/react"
-
 import {
   Command,
   CommandDialog,
@@ -15,9 +11,6 @@ import {
   CommandSeparator,
   CommandShortcut,
 } from "@workspace/ui/components/command"
-import { Skeleton } from "@workspace/ui/components/skeleton"
-import { Spinner } from "@workspace/ui/components/spinner"
-
 import { buildSiteCommandRows, groupLabels } from "./site-command-index"
 import {
   createSiteCommandRangeExtractor,
@@ -25,9 +18,16 @@ import {
   getFirstRowIndex,
   resolveSiteCommandKeyNavigation,
 } from "./site-command-menu-utils"
-import type { SiteCommandResult } from "./site-command-index"
-import type { KeyboardEvent } from "react"
+
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { HugeiconsIcon } from "@hugeicons/react"
 import { InlineErrorAlert } from "@/components/feedback/inline-error-alert"
+
+import type { KeyboardEvent } from "react"
+import type { SiteCommandResult } from "./site-command-index"
+import { Skeleton } from "@workspace/ui/components/skeleton"
+import { Spinner } from "@workspace/ui/components/spinner"
+import { useVirtualizer } from "@tanstack/react-virtual"
 
 const COMMAND_ROW_OVERSCAN = 8
 const COMMAND_LIST_INITIAL_RECT = { height: 672, width: 576 }

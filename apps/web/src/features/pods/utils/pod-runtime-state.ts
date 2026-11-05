@@ -43,6 +43,6 @@ export function createQuestionSummary(
   return {
     total,
     answered,
-    progress: total > 0 ? (answered / total) * 100 : 0,
+    progress: total > 0 ? (answered / total) * 100 : 100,
   }
 }

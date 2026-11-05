@@ -8,7 +8,8 @@
       "outputs": [".output/**", "bin/**", "dist/**"]
     },
     "lint": {
-      "dependsOn": ["^lint"]
+      "dependsOn": ["^lint"],
+      "inputs": ["$TURBO_DEFAULT$", "$TURBO_ROOT$/.oxlintrc.json"]
     },
     "format": {
       "dependsOn": ["^format"]

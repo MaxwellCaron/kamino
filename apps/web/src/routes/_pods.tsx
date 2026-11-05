@@ -1,6 +1,6 @@
 import { createFileRoute, redirect } from "@tanstack/react-router"
-import { authSessionQueryOptions } from "@/features/auth/api/auth-api"
 import { PodsLayout } from "@/features/pods/components/pods-layout"
+import { authSessionQueryOptions } from "@/features/auth/api/auth-api"
 
 export const Route = createFileRoute("/_pods")({
   staticData: {

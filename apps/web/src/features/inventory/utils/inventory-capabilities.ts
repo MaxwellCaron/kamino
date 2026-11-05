@@ -1,12 +1,12 @@
+import type {
+  ApiTreeNode,
+  ApiTreeNodePermissions,
+} from "../types/inventory-types"
 import {
   InventoryPermissionBits,
   canRequestInventoryPermission,
   hasInventoryPermission,
 } from "./inventory-permissions"
-import type {
-  ApiTreeNode,
-  ApiTreeNodePermissions,
-} from "../types/inventory-types"
 import type { InventoryPermissionKey } from "./inventory-permissions"
 
 export type InventoryCapabilityMode = "direct" | "request" | null

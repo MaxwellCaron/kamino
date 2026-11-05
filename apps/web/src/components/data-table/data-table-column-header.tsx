@@ -1,14 +1,14 @@
-import { Button } from "@workspace/ui/components/button"
-import { HugeiconsIcon } from "@hugeicons/react"
+import type { Column, RowData } from "@tanstack/react-table"
 import {
   Sorting01Icon,
   Sorting02Icon,
   Sorting04Icon,
 } from "@hugeicons/core-free-icons"
-import { cn } from "@workspace/ui/lib/utils"
 import type { AppTableFeatures } from "./data-table-types"
+import { Button } from "@workspace/ui/components/button"
+import { HugeiconsIcon } from "@hugeicons/react"
 import type { IconSvgElement } from "@hugeicons/react"
-import type { Column, RowData } from "@tanstack/react-table"
+import { cn } from "@workspace/ui/lib/utils"
 
 type DataTableColumnHeaderProps<TData extends RowData, TValue> = {
   column: Column<AppTableFeatures, TData, TValue>

@@ -1,9 +1,9 @@
-import { HugeiconsIcon } from "@hugeicons/react"
 import { ArrowLeft01Icon, Home03Icon } from "@hugeicons/core-free-icons"
-import { buttonVariants } from "@workspace/ui/components/button"
+import { GrainientBackground } from "@/components/grainient-background"
+import { HugeiconsIcon } from "@hugeicons/react"
 import { Link } from "@tanstack/react-router"
 import type { ReactNode } from "react"
-import { GrainientBackground } from "@/components/grainient-background"
+import { buttonVariants } from "@workspace/ui/components/button"
 
 export type FullPageStatusProps = {
   statusCode: string

@@ -1,13 +1,13 @@
 import * as React from "react"
-import { mergeProps } from "@base-ui/react/merge-props"
-import { useRender } from "@base-ui/react/use-render"
-
-import { HugeiconsIcon } from "@hugeicons/react"
 import {
   ChevronRightIcon,
   MoreHorizontalIcon,
 } from "@hugeicons/core-free-icons"
+import { HugeiconsIcon } from "@hugeicons/react"
+
 import { cn } from "@workspace/ui/lib/utils"
+import { mergeProps } from "@base-ui/react/merge-props"
+import { useRender } from "@base-ui/react/use-render"
 
 function Breadcrumb({ className, ...props }: React.ComponentProps<"nav">) {
   return (

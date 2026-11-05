@@ -6,10 +6,6 @@ import {
   FieldGroup,
   FieldLabel,
 } from "@workspace/ui/components/field"
-import { Input } from "@workspace/ui/components/input"
-import { TabsContent } from "@workspace/ui/components/tabs"
-import { Textarea } from "@workspace/ui/components/textarea"
-import type { GroupFormApi } from "@/features/principals/components/groups/group-dialog-utils"
 import {
   descriptionFieldSchema,
   groupNameSchema,
@@ -17,6 +13,10 @@ import {
   prefixSchema,
 } from "@/features/principals/components/groups/group-dialog-utils"
 import { CountedTextareaField } from "@/components/forms/counted-textarea-field"
+import type { GroupFormApi } from "@/features/principals/components/groups/group-dialog-utils"
+import { Input } from "@workspace/ui/components/input"
+import { TabsContent } from "@workspace/ui/components/tabs"
+import { Textarea } from "@workspace/ui/components/textarea"
 
 type GroupDialogCreateFormProps = {
   form: GroupFormApi

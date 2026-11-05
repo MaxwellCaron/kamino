@@ -1,8 +1,8 @@
-import { scaleLinear } from "@visx/scale";
-import {  Y_DOMAIN_TWEEN_SKIP_THRESHOLD } from "./chart-phase";
 import { groupLinesByYAxisId, normalizeYAxisId } from "./y-axis-scales";
 import type {ChartPhase} from "./chart-phase";
 import type { LineConfig } from "./chart-context";
+import {  Y_DOMAIN_TWEEN_SKIP_THRESHOLD } from "./chart-phase";
+import { scaleLinear } from "@visx/scale";
 
 export type YDomain = [number, number];
 

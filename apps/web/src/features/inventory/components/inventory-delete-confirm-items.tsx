@@ -4,8 +4,8 @@ import {
   AttachmentMedia,
   AttachmentTitle,
 } from "@workspace/ui/components/attachment"
-import type { InventoryDeleteItem } from "@/features/inventory/utils/inventory-delete-items"
 import { AppDialogScrollBody } from "@/components/dialogs/app-dialog"
+import type { InventoryDeleteItem } from "@/features/inventory/utils/inventory-delete-items"
 
 export function InventoryDeleteConfirmItems({
   items,

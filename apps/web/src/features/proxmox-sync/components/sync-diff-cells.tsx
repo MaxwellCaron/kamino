@@ -1,5 +1,5 @@
-import { Badge } from "@workspace/ui/components/badge"
 import type { AppTableFeatures } from "@/components/data-table/data-table-types"
+import { Badge } from "@workspace/ui/components/badge"
 import type { Row } from "@tanstack/react-table"
 import type { SyncChange } from "@/features/proxmox-sync/api/proxmox-sync-api"
 

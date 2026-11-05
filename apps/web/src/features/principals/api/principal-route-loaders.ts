@@ -1,9 +1,9 @@
-import type { QueryClient } from "@tanstack/react-query"
 import {
   groupsQueryOptions,
   principalProviderQueryOptions,
   usersQueryOptions,
 } from "@/features/principals/api/principals-api"
+import type { QueryClient } from "@tanstack/react-query"
 
 export async function preloadUsersPage(queryClient: QueryClient) {
   await Promise.allSettled([

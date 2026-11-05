@@ -1,20 +1,20 @@
-import { useMemo } from "react"
 import { Area, AreaChart } from "@workspace/ui/components/charts/area-chart"
-import { Grid } from "@workspace/ui/components/charts/grid"
 import {
   ChartTooltip,
   TooltipContent,
 } from "@workspace/ui/components/charts/tooltip"
-import { useChartStable } from "@workspace/ui/components/charts/chart-context"
-import { XAxis } from "@workspace/ui/components/charts/x-axis"
 import {
   formatPercent,
   formatUsageBytes,
   percentage,
 } from "../utils/admin-dashboard"
-import type { UsageHistoryTimeframe } from "../api/admin-metrics-api"
-import type { XAxisProps } from "@workspace/ui/components/charts/x-axis"
 import type { CapacityHistoryPoint } from "../utils/admin-dashboard"
+import { Grid } from "@workspace/ui/components/charts/grid"
+import type { UsageHistoryTimeframe } from "../api/admin-metrics-api"
+import { XAxis } from "@workspace/ui/components/charts/x-axis"
+import type { XAxisProps } from "@workspace/ui/components/charts/x-axis"
+import { useChartStable } from "@workspace/ui/components/charts/chart-context"
+import { useMemo } from "react"
 
 function getXAxisConfig(timeframe: UsageHistoryTimeframe) {
   switch (timeframe) {
@@ -118,24 +118,6 @@ function getUsageChartLayout(
   }
 }
 
-function CapacityArea({ compact, show }: { compact: boolean; show: boolean }) {
-  if (!show) return null
-
-  return (
-    <Area
-      dataKey="total"
-      fadeEdges
-      fill="var(--color-primary)"
-      fillOpacity={0.08}
-      gradientToOpacity={0.01}
-      loadingStyle="sweep"
-      showHighlight={false}
-      stroke="var(--color-primary)"
-      strokeWidth={compact ? 1 : 1.5}
-    />
-  )
-}
-
 function UsageChartXAxis({
   formatLabel,
   numTicks,
@@ -199,7 +181,19 @@ function UsageChartBody({
           strokeDasharray="3,3"
           strokeOpacity={0.5}
         />
-        <CapacityArea compact={compact} show={showCapacitySeries} />
+        {showCapacitySeries ? (
+          <Area
+            dataKey="total"
+            fadeEdges
+            fill="var(--color-primary)"
+            fillOpacity={0.08}
+            gradientToOpacity={0.01}
+            loadingStyle="sweep"
+            showHighlight={false}
+            stroke="var(--color-primary)"
+            strokeWidth={compact ? 1 : 1.5}
+          />
+        ) : null}
         <Area
           dataKey="value"
           fadeEdges

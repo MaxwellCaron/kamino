@@ -6,6 +6,12 @@ import {
   CardTitle,
 } from "@workspace/ui/components/card"
 import {
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyTitle,
+} from "@workspace/ui/components/empty"
+import {
   HeatmapCells,
   HeatmapChart,
   HeatmapInteractionBoundary,
@@ -16,14 +22,8 @@ import {
   HeatmapYAxis,
   levelStylesFromColors,
 } from "@workspace/ui/components/charts/heatmap"
-import {
-  Empty,
-  EmptyDescription,
-  EmptyHeader,
-  EmptyTitle,
-} from "@workspace/ui/components/empty"
-import { cn } from "@workspace/ui/lib/utils"
 import type { HeatmapColumn } from "@workspace/ui/components/charts/heatmap"
+import { cn } from "@workspace/ui/lib/utils"
 
 const questionActivityLevelColors = [
   "var(--color-muted)",

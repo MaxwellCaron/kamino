@@ -1,32 +1,32 @@
-import { useMemo } from "react"
-import { useQuery } from "@tanstack/react-query"
 import {
   Clock01Icon,
   ComputerIcon,
   CopyIcon,
   PlayIcon,
 } from "@hugeicons/core-free-icons"
-import { getDashboardActivityColumns } from "../components/dashboard-requests-columns"
 import type { ClonedPodEntry, DashboardStat } from "../utils/dashboard-types"
-import type { HeatmapColumn } from "@workspace/ui/components/charts/heatmap"
-import type { ApiTreeNode } from "@/features/inventory/types/inventory-types"
-import type { PodQuestionActivityAnswer } from "@/features/pods/types/pod-types"
-import type { ApiRequestSummary } from "@/features/requests/types/request-types"
-import { principalProviderQueryOptions } from "@/features/principals/api/principals-api"
-import { inventoryTreeQueryOptions } from "@/features/inventory/api/inventory-api"
-import { useInventoryFavorites } from "@/features/inventory/hooks/use-inventory-favorites"
-import { indexInventoryTree } from "@/features/inventory/utils/inventory-tree"
 import {
   catalogCloneSummariesQueryOptions,
   podQuestionActivityQueryOptions,
 } from "@/features/pods/api/clone-pod-api"
-import { personalPodQueryOptions } from "@/features/pods/api/personal-pod-api"
-import { podCatalogQueryOptions } from "@/features/pods/api/publish-pod-api"
 import {
   requestDetailQueryOptions,
   requesterRequestSummariesQueryOptions,
   requesterRequestSummaryCountQueryOptions,
 } from "@/features/requests/api/requests-api"
+import type { ApiRequestSummary } from "@/features/requests/types/request-types"
+import type { ApiTreeNode } from "@/features/inventory/types/inventory-types"
+import type { HeatmapColumn } from "@workspace/ui/components/charts/heatmap"
+import type { PodQuestionActivityAnswer } from "@/features/pods/types/pod-types"
+import { getDashboardActivityColumns } from "../components/dashboard-requests-columns"
+import { indexInventoryTree } from "@/features/inventory/utils/inventory-tree"
+import { inventoryTreeQueryOptions } from "@/features/inventory/api/inventory-api"
+import { personalPodQueryOptions } from "@/features/pods/api/personal-pod-api"
+import { podCatalogQueryOptions } from "@/features/pods/api/publish-pod-api"
+import { principalProviderQueryOptions } from "@/features/principals/api/principals-api"
+import { useInventoryFavorites } from "@/features/inventory/hooks/use-inventory-favorites"
+import { useMemo } from "react"
+import { useQuery } from "@tanstack/react-query"
 import { vmStatusQueryOptions } from "@/features/vms/api/vm-api"
 
 export function useDashboardHomeData(
@@ -404,7 +404,7 @@ function countAccessibleInventory(nodes: Array<ApiTreeNode>): {
     (counts, node) => {
       if (node.kind === "folder") {
         counts.folders += 1
-      } else {
+      } else if (!node.vm?.is_template) {
         counts.vms += 1
       }
 
@@ -475,7 +475,7 @@ function buildQuestionActivityHeatmapData(
   let weekIndex = 0
 
   for (
-    let weekStart = new Date(firstWeekStart);
+    const weekStart = new Date(firstWeekStart);
     toLocalDateKey(weekStart) <= todayKey;
     weekStart.setDate(weekStart.getDate() + 7)
   ) {

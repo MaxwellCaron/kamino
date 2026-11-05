@@ -1,7 +1,6 @@
 "use client";
 
-import { scaleLinear, scaleTime } from "@visx/scale";
-import { bisector, extent } from "d3-array";
+import type {ChartPhase, ChartStatus} from "./chart-phase";
 import {
   Children,
   
@@ -19,61 +18,62 @@ import {
   DEFAULT_CHART_ENTER_TRANSITION,
 } from "./animation";
 import {
-  isClipExcludedComponent,
-  isPostOverlayComponent,
-  isUnderlayComponent,
-  resolveChartChildElement,
-} from "./chart-child-passthrough";
-import { ChartProvider   } from "./chart-context";
-import { isGradientDefComponent, isPatternDefComponent } from "./chart-defs";
-import { shortDateFmt } from "./chart-formatters";
-import {
   
   
   DEFAULT_CHART_STATUS,
   DEFAULT_Y_DOMAIN_TWEEN_MS,
   isChartInteractionPhase
 } from "./chart-phase";
-import { ChartRevealClip } from "./chart-reveal-clip";
-import {
-  decimateTimeSeries,
-  maxRenderPointsForWidth,
-} from "./decimate-time-series";
-import { filterDataByXDomain } from "./filter-data-by-x-domain";
-import {
-  generateChartSkeletonData,
-  generateChartSkeletonFromTarget,
-} from "./generate-chart-skeleton-data";
-import {
-  extractProjectionLineConfigs,
-  mergeProjectionXDomainMax,
-  mergeProjectionYDomain,
-} from "./projection-config";
-import {
-  
-  extractReferenceAreaConfigs
-} from "./reference-area-config";
-import { ReferenceAreaRegistrationContext } from "./reference-area-registration-context";
-import {
-  computeSeriesBarRevealClipPadding,
-  computeSeriesBarWidth,
-} from "./series-bar-layout";
-import { useStaticChartPreview } from "./static-chart-preview-context";
-import { useAnimatedYDomains } from "./use-animated-y-domains";
-import { useChartInteraction } from "./use-chart-interaction";
-import { useChartPhaseOrchestrator } from "./use-chart-phase-orchestrator";
 import {
   DEFAULT_Y_AXIS_ID,
   buildYScalesFromDomains,
   getPrimaryYScale,
   groupLinesByYAxisId,
 } from "./y-axis-scales";
-import { computeYDomainsByAxis } from "./y-domain-utils";
-import type {ReferenceAreaConfig} from "./reference-area-config";
-import type {ChartPhase, ChartStatus} from "./chart-phase";
-import type {ReactElement, ReactNode} from "react";
 import type {LineConfig, Margin} from "./chart-context";
+import type {ReactElement, ReactNode} from "react";
+import { bisector, extent } from "d3-array";
+import {
+  computeSeriesBarRevealClipPadding,
+  computeSeriesBarWidth,
+} from "./series-bar-layout";
+import {
+  decimateTimeSeries,
+  maxRenderPointsForWidth,
+} from "./decimate-time-series";
+import {
+  extractProjectionLineConfigs,
+  mergeProjectionXDomainMax,
+  mergeProjectionYDomain,
+} from "./projection-config";
+import {
+  generateChartSkeletonData,
+  generateChartSkeletonFromTarget,
+} from "./generate-chart-skeleton-data";
+import {
+  isClipExcludedComponent,
+  isPostOverlayComponent,
+  isUnderlayComponent,
+  resolveChartChildElement,
+} from "./chart-child-passthrough";
+import { isGradientDefComponent, isPatternDefComponent } from "./chart-defs";
+import { scaleLinear, scaleTime } from "@visx/scale";
+import { ChartProvider   } from "./chart-context";
+import { ChartRevealClip } from "./chart-reveal-clip";
+import type {ReferenceAreaConfig} from "./reference-area-config";
+import { ReferenceAreaRegistrationContext } from "./reference-area-registration-context";
 import type { Transition } from "motion/react";
+import { computeYDomainsByAxis } from "./y-domain-utils";
+import {
+  
+  extractReferenceAreaConfigs
+} from "./reference-area-config";
+import { filterDataByXDomain } from "./filter-data-by-x-domain";
+import { shortDateFmt } from "./chart-formatters";
+import { useAnimatedYDomains } from "./use-animated-y-domains";
+import { useChartInteraction } from "./use-chart-interaction";
+import { useChartPhaseOrchestrator } from "./use-chart-phase-orchestrator";
+import { useStaticChartPreview } from "./static-chart-preview-context";
 
 function collectNumericExtents(
   data: Array<Record<string, unknown>>,

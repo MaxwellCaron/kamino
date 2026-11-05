@@ -1,17 +1,17 @@
-import { mergeProps } from "@base-ui/react/merge-props"
-import { useRender } from "@base-ui/react/use-render"
 import * as React from "react"
 import * as ReactDOM from "react-dom"
-import { useComposedRefs } from "@workspace/ui/lib/compose-refs"
-import { cn } from "@workspace/ui/lib/utils"
-import { useAsRef } from "@workspace/ui/hooks/use-as-ref"
-import { useIsomorphicLayoutEffect } from "@workspace/ui/hooks/use-isomorphic-layout-effect"
-import { Button } from "@workspace/ui/components/button"
 import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
 } from "@workspace/ui/components/tooltip"
+import { Button } from "@workspace/ui/components/button"
+import { cn } from "@workspace/ui/lib/utils"
+import { mergeProps } from "@base-ui/react/merge-props"
+import { useAsRef } from "@workspace/ui/hooks/use-as-ref"
+import { useComposedRefs } from "@workspace/ui/lib/compose-refs"
+import { useIsomorphicLayoutEffect } from "@workspace/ui/hooks/use-isomorphic-layout-effect"
+import { useRender } from "@base-ui/react/use-render"
 
 const ROOT_NAME = "ActionBar"
 const GROUP_NAME = "ActionBarGroup"

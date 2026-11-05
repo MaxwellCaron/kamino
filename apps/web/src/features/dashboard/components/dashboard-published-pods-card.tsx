@@ -1,11 +1,7 @@
-import { Link } from "@tanstack/react-router"
-import { HugeiconsIcon } from "@hugeicons/react"
 import {
   ArrowUpRight01Icon,
   PackageRemoveIcon,
 } from "@hugeicons/core-free-icons"
-import { buttonVariants } from "@workspace/ui/components/button"
-import { ScrollArea, ScrollBar } from "@workspace/ui/components/scroll-area"
 import {
   Card,
   CardAction,
@@ -21,10 +17,14 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from "@workspace/ui/components/empty"
-import { cn } from "@workspace/ui/lib/utils"
-import type { PodCatalogSummary } from "@/features/pods/types/pod-types"
+import { ScrollArea, ScrollBar } from "@workspace/ui/components/scroll-area"
 import { BrowsePodsCard } from "@/features/pods/components/browse/browse-pods-card"
+import { HugeiconsIcon } from "@hugeicons/react"
+import { Link } from "@tanstack/react-router"
+import type { PodCatalogSummary } from "@/features/pods/types/pod-types"
 import { browsePodsCarouselItemClassName } from "@/features/pods/components/browse/browse-pods-skeleton"
+import { buttonVariants } from "@workspace/ui/components/button"
+import { cn } from "@workspace/ui/lib/utils"
 
 export function DashboardRecentPodsCard({
   className,

@@ -1,4 +1,3 @@
-import { Checkbox } from "@workspace/ui/components/checkbox"
 import {
   Field,
   FieldContent,
@@ -6,7 +5,6 @@ import {
   FieldError,
   FieldLabel,
 } from "@workspace/ui/components/field"
-import { Input } from "@workspace/ui/components/input"
 import {
   Select,
   SelectContent,
@@ -17,11 +15,13 @@ import {
   SelectValue,
 } from "@workspace/ui/components/select"
 import { getFirstIssueMessage, optionalVmNameSchema } from "./create-vm-form"
-import { formatFieldError } from "./create-vm-step-utils"
-import type { ComponentType } from "react"
-import type { InventoryFolderOption } from "@/features/inventory/utils/inventory-tree"
 import type { ApiNode } from "@/features/vms/types/vm-types"
+import { Checkbox } from "@workspace/ui/components/checkbox"
+import type { ComponentType } from "react"
+import { Input } from "@workspace/ui/components/input"
 import { InventoryFolderCombobox } from "@/components/forms/inventory-folder-combobox"
+import type { InventoryFolderOption } from "@/features/inventory/utils/inventory-tree"
+import { formatFieldError } from "./create-vm-step-utils"
 import { replaceWhitespaceWithHyphen } from "@/features/shared/utils/sanitize"
 
 type AppFieldComponent = ComponentType<any>

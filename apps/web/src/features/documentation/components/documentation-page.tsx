@@ -1,8 +1,8 @@
 import { useEffect, useMemo } from "react"
-import { useRouterState } from "@tanstack/react-router"
-import { MarkdownContent } from "@workspace/ui/components/markdown-content"
 import { DocsToc } from "@/features/documentation/components/docs-toc"
+import { MarkdownContent } from "@workspace/ui/components/markdown-content"
 import { extractDocsToc } from "@/features/documentation/utils/docs-toc"
+import { useRouterState } from "@tanstack/react-router"
 
 type DocumentationPageProps = {
   content: string

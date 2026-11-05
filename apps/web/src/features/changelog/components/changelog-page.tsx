@@ -1,6 +1,6 @@
 import { Calendar04Icon, SparklesIcon } from "@hugeicons/core-free-icons"
-import { HugeiconsIcon } from "@hugeicons/react"
 import { Badge } from "@workspace/ui/components/badge"
+import { HugeiconsIcon } from "@hugeicons/react"
 import { RELEASES } from "../utils/changelogs"
 
 const TONE_BG: Record<string, string> = {

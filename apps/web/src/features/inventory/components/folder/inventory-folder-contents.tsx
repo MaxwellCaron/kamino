@@ -1,12 +1,12 @@
-import { m } from "motion/react"
-import { useQuery } from "@tanstack/react-query"
-import { ItemGroup } from "@workspace/ui/components/item"
-import { useInventoryFavorites } from "../../hooks/use-inventory-favorites"
-import { sortInventoryTree } from "../../utils/inventory-tree"
-import { InventoryFolderItem } from "./inventory-folder-item"
-import type { ApiTreeNode } from "../../types/inventory-types"
-import { vmStatusQueryOptions } from "@/features/vms/api/vm-api"
 import { animateContainer, animateTableRow } from "@/components/animate"
+import type { ApiTreeNode } from "../../types/inventory-types"
+import { InventoryFolderItem } from "./inventory-folder-item"
+import { ItemGroup } from "@workspace/ui/components/item"
+import { m } from "motion/react"
+import { sortInventoryTree } from "../../utils/inventory-tree"
+import { useInventoryFavorites } from "../../hooks/use-inventory-favorites"
+import { useQuery } from "@tanstack/react-query"
+import { vmStatusQueryOptions } from "@/features/vms/api/vm-api"
 
 export function InventoryFolderContents({ folder }: { folder: ApiTreeNode }) {
   const { data: vmStatuses } = useQuery(vmStatusQueryOptions)

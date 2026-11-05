@@ -1,4 +1,3 @@
-import { HugeiconsIcon } from "@hugeicons/react"
 import {
   CpuIcon,
   Globe02Icon,
@@ -20,6 +19,7 @@ import {
   ItemMedia,
   ItemTitle,
 } from "@workspace/ui/components/item"
+import { HugeiconsIcon } from "@hugeicons/react"
 import type { ReactNode } from "react"
 
 export function VmHardwareOperatingSystemSection({

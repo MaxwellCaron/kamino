@@ -89,9 +89,19 @@ func parseVMConfigSummary(data map[string]any, vmid int) (*VMConfigSummary, erro
 	sockets := maxInt(getIntValue(data["sockets"]), 1)
 	cores := maxInt(getIntValue(data["cores"]), 1)
 	memoryMB := maxInt(getIntValue(data["memory"]), 0)
-	_, _, diskSizeGB, err := parseVMHardwareDiskConfig(data)
-	if err != nil {
-		return nil, err
+	// Inventory can represent diskless guests and disks the hardware editor cannot edit.
+	var diskGB *float64
+	if _, _, size, err := parseVMHardwareDiskConfig(data); err == nil {
+		diskGB = new(float64(size))
+	} else {
+		diskGB = new(float64(0))
+		for key, value := range data {
+			raw := strings.ToLower(strings.TrimSpace(getStringValue(value)))
+			if isSupportedDiskDevice(key) && raw != "" && !strings.Contains(raw, "media=cdrom") && !strings.Contains(raw, "cloudinit") {
+				diskGB = nil
+				break
+			}
+		}
 	}
 
 	return &VMConfigSummary{
@@ -100,7 +110,7 @@ func parseVMConfigSummary(data map[string]any, vmid int) (*VMConfigSummary, erro
 		UpstreamUUID: identity.UpstreamUUID,
 		CPUCount:     int32(sockets * cores),
 		MemoryMB:     int32(memoryMB),
-		DiskGB:       float64(diskSizeGB),
+		DiskGB:       diskGB,
 		Notes:        getStringValue(data["description"]),
 	}, nil
 }

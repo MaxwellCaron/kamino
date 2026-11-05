@@ -1,7 +1,7 @@
 import { act, render, screen } from "@testing-library/react"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
-import { formatRelativeTime } from "./relative-time-schedule"
 import { RelativeTimeCard } from "./relative-time-card"
+import { formatRelativeTime } from "./relative-time-schedule"
 
 describe("RelativeTimeCard", () => {
   beforeEach(() => {

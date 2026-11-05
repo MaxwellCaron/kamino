@@ -1,4 +1,14 @@
 import {
+  INVENTORY_TREE_ROW_GAP,
+  INVENTORY_TREE_ROW_HEIGHT,
+} from "./inventory-tree-row-skeleton"
+import { Tree, TreeDragLine } from "@workspace/ui/components/reui/tree"
+import {
+  computeRowGuideContinues,
+  createTreeRangeExtractor,
+  upsertRowVm,
+} from "./tree-content-utils"
+import {
   useCallback,
   useEffect,
   useLayoutEffect,
@@ -6,31 +16,21 @@ import {
   useRef,
   useState,
 } from "react"
-import { useVirtualizer } from "@tanstack/react-virtual"
-import { Tree, TreeDragLine } from "@workspace/ui/components/reui/tree"
-import { TREE_INDENT } from "../../utils/constants"
-import { hasNodeActions } from "../../utils/inventory-capabilities"
 import {
   useInventoryTreeDataContext,
   useInventoryTreeNavigationContext,
   useInventoryTreeViewContext,
 } from "./inventory-tree-context"
-import { InventoryTreeRow } from "./inventory-tree-row"
-import {
-  INVENTORY_TREE_ROW_GAP,
-  INVENTORY_TREE_ROW_HEIGHT,
-} from "./inventory-tree-row-skeleton"
-import {
-  computeRowGuideContinues,
-  createTreeRangeExtractor,
-  upsertRowVm,
-} from "./tree-content-utils"
-import { useInventoryTreeDragAutoscroll } from "./use-inventory-tree-drag-autoscroll"
-import type { TreeInstance } from "@headless-tree/core"
 import type { ApiTreeNode } from "../../types/inventory-types"
+import { InventoryTreeRow } from "./inventory-tree-row"
 import type { InventoryTreeRowVm } from "./tree-content-utils"
+import { TREE_INDENT } from "../../utils/constants"
+import type { TreeInstance } from "@headless-tree/core"
+import { hasNodeActions } from "../../utils/inventory-capabilities"
+import { useInventoryTreeDragAutoscroll } from "./use-inventory-tree-drag-autoscroll"
+import { useVirtualizer } from "@tanstack/react-virtual"
 
-const TREE_ROW_OVERSCAN = 50
+const TREE_ROW_OVERSCAN = 8
 const TREE_ROW_CONTENT_HEIGHT =
   INVENTORY_TREE_ROW_HEIGHT - INVENTORY_TREE_ROW_GAP
 
@@ -99,7 +99,6 @@ export function InventoryTreeContent({
     getItemKey,
     scrollMargin,
     rangeExtractor,
-    directDomUpdates: true,
     useFlushSync: false,
   })
 
@@ -159,25 +158,11 @@ export function InventoryTreeContent({
   const virtualRows = virtualizer.getVirtualItems()
 
   return (
-    <div ref={wrapperRef}>
-      <Tree
-        ref={virtualizer.containerRef}
-        tree={tree}
-        indent={TREE_INDENT}
-        className="relative"
-      >
+    <div ref={wrapperRef} style={{ height: virtualizer.getTotalSize() }}>
+      <Tree tree={tree} indent={TREE_INDENT} className="relative h-full">
         {virtualRows.map((virtualRow) => {
           const item = items.at(virtualRow.index)
-          if (!item) {
-            return (
-              <div
-                key={virtualRow.key}
-                data-index={virtualRow.index}
-                ref={virtualizer.measureElement}
-                className="absolute top-0 left-0 flex w-full flex-col"
-              />
-            )
-          }
+          if (!item) return null
 
           const id = item.getId()
           const data = item.getItemData()
@@ -209,9 +194,10 @@ export function InventoryTreeContent({
           return (
             <div
               key={virtualRow.key}
-              data-index={virtualRow.index}
-              ref={virtualizer.measureElement}
               className="absolute top-0 left-0 flex w-full flex-col"
+              style={{
+                transform: `translateY(${virtualRow.start - scrollMargin}px)`,
+              }}
             >
               <InventoryTreeRow
                 vm={vm}

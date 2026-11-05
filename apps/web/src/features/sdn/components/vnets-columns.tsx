@@ -1,12 +1,3 @@
-import { Button } from "@workspace/ui/components/button"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuGroup,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@workspace/ui/components/dropdown-menu"
-import { HugeiconsIcon } from "@hugeicons/react"
 import {
   Delete01Icon,
   EthernetPortIcon,
@@ -18,11 +9,20 @@ import {
   Tag02Icon,
   Wifi02Icon,
 } from "@hugeicons/core-free-icons"
-import { EnabledBadge } from "@workspace/ui/components/enabled-badge"
-import type { ColumnDef } from "@tanstack/react-table"
-import type { AppTableFeatures } from "@/components/data-table/data-table-types"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuGroup,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@workspace/ui/components/dropdown-menu"
 import type { ApiVNet } from "@/features/sdn/types/sdn-types"
+import type { AppTableFeatures } from "@/components/data-table/data-table-types"
+import { Button } from "@workspace/ui/components/button"
+import type { ColumnDef } from "@tanstack/react-table"
 import { DataTableColumnHeader } from "@/components/data-table/data-table-column-header"
+import { EnabledBadge } from "@workspace/ui/components/enabled-badge"
+import { HugeiconsIcon } from "@hugeicons/react"
 import { createRowSelectionColumn } from "@/components/data-table/data-table-row-selection-column"
 
 type VNetColumnsOptions = {

@@ -1,4 +1,3 @@
-import { m } from "motion/react"
 import {
   Collapsible,
   CollapsibleContent,
@@ -11,19 +10,20 @@ import {
   ItemMedia,
   ItemTitle,
 } from "@workspace/ui/components/item"
-import { Link } from "@tanstack/react-router"
-import { useCallback, useMemo, useSyncExternalStore } from "react"
-import { HugeiconsIcon } from "@hugeicons/react"
 import { ViewIcon, ViewOffSlashIcon } from "@hugeicons/core-free-icons"
-import { buttonVariants } from "@workspace/ui/components/button"
-import { InventoryNodeMenu } from "../inventory-actions/inventory-node-menu"
-import { InventoryNodeIcon } from "../inventory-node-icon"
+import { animateContainer, animateTableRow } from "@/components/animate"
+import { useCallback, useMemo, useSyncExternalStore } from "react"
 import {
   useInventoryTreeDataContext,
   useInventoryTreeViewContext,
 } from "./inventory-tree-context"
 import type { ApiTreeNode } from "../../types/inventory-types"
-import { animateContainer, animateTableRow } from "@/components/animate"
+import { HugeiconsIcon } from "@hugeicons/react"
+import { InventoryNodeIcon } from "../inventory-node-icon"
+import { InventoryNodeMenu } from "../inventory-actions/inventory-node-menu"
+import { Link } from "@tanstack/react-router"
+import { buttonVariants } from "@workspace/ui/components/button"
+import { m } from "motion/react"
 
 const FAVORITES_OPEN_STORAGE_KEY = "kamino-favorite-inventory-open"
 const favoritesOpenListeners = new Set<() => void>()

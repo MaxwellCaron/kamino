@@ -1,11 +1,11 @@
 "use client";
 
-import { localPoint } from "@visx/event";
-import { useCallback, useEffect, useRef, useState } from "react";
-import { useScheduledTooltip } from "./use-scheduled-tooltip";
-import { normalizeYAxisId } from "./y-axis-scales";
 import type { LineConfig, Margin, TooltipData } from "./chart-context";
 import type { scaleLinear, scaleTime } from "@visx/scale";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { localPoint } from "@visx/event";
+import { normalizeYAxisId } from "./y-axis-scales";
+import { useScheduledTooltip } from "./use-scheduled-tooltip";
 
 type ScaleTime = ReturnType<typeof scaleTime<number>>;
 type ScaleLinear = ReturnType<typeof scaleLinear<number>>;

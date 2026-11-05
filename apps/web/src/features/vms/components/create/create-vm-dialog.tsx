@@ -1,15 +1,23 @@
-import { useEffect, useLayoutEffect, useRef, useState } from "react"
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import { useNavigate } from "@tanstack/react-router"
-import { useSelector } from "@tanstack/react-store"
-import { HugeiconsIcon } from "@hugeicons/react"
+import type { ApiISO, ApiNode, ApiStorage } from "@/features/vms/types/vm-types"
+import {
+  AppDialogContent,
+  AppDialogPrimaryButton,
+  AppDialogScrollBody,
+} from "@/components/dialogs/app-dialog"
 import {
   ArrowLeft01Icon,
   ArrowRight01Icon,
   ComputerIcon,
 } from "@hugeicons/core-free-icons"
-import { toast } from "sonner"
-import { Button } from "@workspace/ui/components/button"
+import {
+  CreateVmConfigurationStep,
+  CreateVmMethodStep,
+  CreateVmSummaryStep,
+} from "./create-vm-steps"
+import type {
+  CreateVmFormValues,
+  VmTemplateOption,
+} from "@/features/vms/components/create/create-vm-form"
 import { Dialog, DialogFooter } from "@workspace/ui/components/dialog"
 import {
   Stepper,
@@ -22,19 +30,7 @@ import {
   StepperSeparator,
   StepperTrigger,
 } from "@workspace/ui/components/stepper"
-import {
-  CreateVmConfigurationStep,
-  CreateVmMethodStep,
-  CreateVmSummaryStep,
-} from "./create-vm-steps"
-import type { ComponentProps } from "react"
-import type {
-  CreateVmFormValues,
-  VmTemplateOption,
-} from "@/features/vms/components/create/create-vm-form"
-import type { InventoryFolderOption } from "@/features/inventory/utils/inventory-tree"
-import type { NetworkData } from "@/features/vms/components/create/create-vm-step-utils"
-import type { ApiISO, ApiNode, ApiStorage } from "@/features/vms/types/vm-types"
+import { cloneVM, createVM } from "@/features/vms/api/vm-api"
 import {
   createVmFormOptions,
   createVmFormSchema,
@@ -44,27 +40,31 @@ import {
   useCreateVmForm,
 } from "@/features/vms/components/create/create-vm-form"
 import {
-  AppDialogContent,
-  AppDialogPrimaryButton,
-  AppDialogScrollBody,
-} from "@/components/dialogs/app-dialog"
-import { InlineErrorAlert } from "@/components/feedback/inline-error-alert"
-import { PreloadOverlay } from "@/components/loading-overlay"
+  createVmIsosQueryOptions,
+  createVmOptionsQueryOptions,
+} from "@/features/vms/api/proxmox-options-api"
 import {
   getInventoryFolderOptions,
   getSelectedFolder,
 } from "@/features/inventory/utils/inventory-tree"
-import { InventoryPermissionKeys } from "@/features/inventory/utils/inventory-permissions"
-import { toastCreateVm } from "@/features/vms/utils/vm-toasts"
 import {
   inventoryTreeQueryOptions,
   seedInventoryItemCache,
 } from "@/features/inventory/api/inventory-api"
-import {
-  createVmIsosQueryOptions,
-  createVmOptionsQueryOptions,
-} from "@/features/vms/api/proxmox-options-api"
-import { cloneVM, createVM } from "@/features/vms/api/vm-api"
+import { useEffect, useLayoutEffect, useRef, useState } from "react"
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
+import { Button } from "@workspace/ui/components/button"
+import type { ComponentProps } from "react"
+import { HugeiconsIcon } from "@hugeicons/react"
+import { InlineErrorAlert } from "@/components/feedback/inline-error-alert"
+import type { InventoryFolderOption } from "@/features/inventory/utils/inventory-tree"
+import { InventoryPermissionKeys } from "@/features/inventory/utils/inventory-permissions"
+import type { NetworkData } from "@/features/vms/components/create/create-vm-step-utils"
+import { PreloadOverlay } from "@/components/loading-overlay"
+import { toast } from "sonner"
+import { toastCreateVm } from "@/features/vms/utils/vm-toasts"
+import { useNavigate } from "@tanstack/react-router"
+import { useSelector } from "@tanstack/react-store"
 
 const steps = [
   { value: "method", title: "Method" },

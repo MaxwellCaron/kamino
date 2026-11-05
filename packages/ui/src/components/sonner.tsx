@@ -1,6 +1,3 @@
-import { useTheme } from "next-themes"
-import { Toaster as Sonner } from "sonner"
-import { HugeiconsIcon } from "@hugeicons/react"
 import {
   Alert01Icon,
   AlertDiamondIcon,
@@ -8,7 +5,10 @@ import {
   InformationCircleIcon,
   Loading01Icon,
 } from "@hugeicons/core-free-icons"
+import { HugeiconsIcon } from "@hugeicons/react"
+import { Toaster as Sonner } from "sonner"
 import type { ToasterProps } from "sonner"
+import { useTheme } from "next-themes"
 
 const Toaster = ({ ...props }: ToasterProps) => {
   const { theme = "system" } = useTheme()

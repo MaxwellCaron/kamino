@@ -1,17 +1,17 @@
 import { Children, isValidElement } from "react";
-import { resolveChartChildElement } from "../chart-child-passthrough";
 import {
   HEATMAP_SEPARATOR_MARKER,
   HeatmapSeparator,
 } from "./heatmap-separator";
-import { resolveHeatmapSeparatorLayout } from "./heatmap-utils";
-import type { HeatmapColumn } from "./heatmap-context";
 import type {
   HeatmapSeparatorGroupBy,
   HeatmapSeparatorLayout,
   HeatmapSeparatorParsedConfig,
 } from "./heatmap-utils";
 import type { ReactElement, ReactNode } from "react";
+import type { HeatmapColumn } from "./heatmap-context";
+import { resolveChartChildElement } from "../chart-child-passthrough";
+import { resolveHeatmapSeparatorLayout } from "./heatmap-utils";
 
 function getChildComponentName(child: ReactElement): string {
   const childType = child.type as { displayName?: string; name?: string };

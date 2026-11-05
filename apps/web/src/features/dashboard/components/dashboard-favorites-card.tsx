@@ -1,5 +1,3 @@
-import { HugeiconsIcon } from "@hugeicons/react"
-import { StarIcon } from "@hugeicons/core-free-icons"
 import {
   Card,
   CardContent,
@@ -14,13 +12,15 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from "@workspace/ui/components/empty"
+import type { ApiTreeNode } from "@/features/inventory/types/inventory-types"
+import { HugeiconsIcon } from "@hugeicons/react"
+import { InlineErrorAlert } from "@/components/feedback/inline-error-alert"
+import { InventoryFolderItem } from "@/features/inventory/components/folder/inventory-folder-item"
 import { ItemGroup } from "@workspace/ui/components/item"
 import { Skeleton } from "@workspace/ui/components/skeleton"
+import { StarIcon } from "@hugeicons/core-free-icons"
 import { cn } from "@workspace/ui/lib/utils"
-import type { ApiTreeNode } from "@/features/inventory/types/inventory-types"
-import { InventoryFolderItem } from "@/features/inventory/components/folder/inventory-folder-item"
 import { useInventoryFavorites } from "@/features/inventory/hooks/use-inventory-favorites"
-import { InlineErrorAlert } from "@/components/feedback/inline-error-alert"
 
 export function DashboardFavoritesCard({
   className,

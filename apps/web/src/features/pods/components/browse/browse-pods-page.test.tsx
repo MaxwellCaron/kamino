@@ -1,9 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
-import { screen } from "@testing-library/react"
 import { BrowsePodsPage } from "./browse-pods-page"
-import type { PodCatalogSummary } from "@/features/pods/types/pod-types"
 import type { CatalogCloneSummary } from "@/features/pods/api/clone-pod-api"
+import type { PodCatalogSummary } from "@/features/pods/types/pod-types"
 import { renderWithQueryClient } from "@/test/test-utils"
+import { screen } from "@testing-library/react"
 
 const { mockCatalogQueryFn, mockCloneSummariesQueryFn } = vi.hoisted(() => ({
   mockCatalogQueryFn: vi.fn(),

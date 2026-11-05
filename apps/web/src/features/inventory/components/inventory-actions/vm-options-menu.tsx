@@ -1,18 +1,18 @@
-import { HugeiconsIcon } from "@hugeicons/react"
-import { MoreHorizontalIcon } from "@hugeicons/core-free-icons"
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuTrigger,
 } from "@workspace/ui/components/dropdown-menu"
+import type { ApiTreeNodePermissions } from "../../types/inventory-types"
 import { Button } from "@workspace/ui/components/button"
-import { useInventoryFavorites } from "../../hooks/use-inventory-favorites"
-import { hasFolderActions } from "../../utils/inventory-capabilities"
-import { useInventoryDialogs } from "../inventory-dialogs-context"
 import { FolderMenuItems } from "./folder-menu-items"
+import { HugeiconsIcon } from "@hugeicons/react"
+import { MoreHorizontalIcon } from "@hugeicons/core-free-icons"
 import { TemplateMenuItems } from "./template-menu-items"
 import { VmMenuItems } from "./vm-menu-items"
-import type { ApiTreeNodePermissions } from "../../types/inventory-types"
+import { hasFolderActions } from "../../utils/inventory-capabilities"
+import { useInventoryDialogs } from "../inventory-dialogs-context"
+import { useInventoryFavorites } from "../../hooks/use-inventory-favorites"
 
 export function VmOptionsMenu({
   nodeId,

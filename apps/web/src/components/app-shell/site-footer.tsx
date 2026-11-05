@@ -1,6 +1,6 @@
 import { Image } from "@unpic/react"
-import { buttonVariants } from "@workspace/ui/components/button"
 import { Separator } from "@workspace/ui/components/separator"
+import { buttonVariants } from "@workspace/ui/components/button"
 
 export function SiteFooter() {
   return (

@@ -1,7 +1,5 @@
 "use client";
 
-import { memo } from "react";
-import { renderPatternPreset } from "../pattern-preset";
 import {
   
   heatmapLevelPatternId,
@@ -9,6 +7,8 @@ import {
   isHeatmapLevelPattern
 } from "./heatmap-colors";
 import type {HeatmapLevelStyle} from "./heatmap-colors";
+import { memo } from "react";
+import { renderPatternPreset } from "../pattern-preset";
 
 export const HeatmapLegendSwatch = memo(function HeatmapLegendSwatch({
   level,

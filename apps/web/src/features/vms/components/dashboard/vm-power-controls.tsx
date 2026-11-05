@@ -1,6 +1,3 @@
-import { HugeiconsIcon } from "@hugeicons/react"
-import { PowerIcon } from "@hugeicons/core-free-icons"
-import { Button } from "@workspace/ui/components/button"
 import {
   Card,
   CardContent,
@@ -9,6 +6,9 @@ import {
   CardTitle,
 } from "@workspace/ui/components/card"
 import type { ApiTreeNode } from "@/features/inventory/types/inventory-types"
+import { Button } from "@workspace/ui/components/button"
+import { HugeiconsIcon } from "@hugeicons/react"
+import { PowerIcon } from "@hugeicons/core-free-icons"
 import type { VmPowerActionItem } from "@/features/vms/hooks/use-vm-power-actions"
 import { useInventoryDialogs } from "@/features/inventory/components/inventory-dialogs-context"
 import { useVmPowerActions } from "@/features/vms/hooks/use-vm-power-actions"

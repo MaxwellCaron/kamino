@@ -1,3 +1,4 @@
+import type { ComponentProps, ReactNode } from "react"
 import {
   Field,
   FieldContent,
@@ -11,7 +12,6 @@ import {
   InputGroupTextarea,
 } from "@workspace/ui/components/input-group"
 import { cn } from "@workspace/ui/lib/utils"
-import type { ComponentProps, ReactNode } from "react"
 
 type CountedTextareaFieldProps = Omit<
   ComponentProps<typeof InputGroupTextarea>,

@@ -1,12 +1,12 @@
-import { HugeiconsIcon } from "@hugeicons/react"
-import { Camera01Icon } from "@hugeicons/core-free-icons"
+import type { ApiSnapshot } from "@/features/vms/types/vm-types"
+import type { AppTableFeatures } from "@/components/data-table/data-table-types"
 import { Badge } from "@workspace/ui/components/badge"
+import { Camera01Icon } from "@hugeicons/core-free-icons"
+import type { ColumnDef } from "@tanstack/react-table"
+import { HugeiconsIcon } from "@hugeicons/react"
 import { RelativeTimeCard } from "@workspace/ui/components/relative-time-card"
 import { SnapshotTableRowActions } from "./snapshot-table-row-actions"
 import type { SnapshotTableRowActionsProps } from "./snapshot-table-row-actions"
-import type { ApiSnapshot } from "@/features/vms/types/vm-types"
-import type { AppTableFeatures } from "@/components/data-table/data-table-types"
-import type { ColumnDef } from "@tanstack/react-table"
 
 type SnapshotTableColumnsOptions = Omit<
   SnapshotTableRowActionsProps,

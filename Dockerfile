@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1.7
 
-FROM oven/bun:1.3.11-alpine AS web-deps
+FROM oven/bun:1.4.4-alpine AS web-deps
 WORKDIR /repo
 
 COPY package.json bun.lock turbo.json tsconfig.json ./
@@ -24,7 +24,7 @@ COPY --from=web-build /repo/apps/web/dist/nginx/default.conf /etc/nginx/conf.d/d
 COPY --from=web-build /repo/apps/web/dist/client /usr/share/nginx/html
 EXPOSE 3000
 
-FROM golang:1.26.6-bookworm AS api-build
+FROM golang:1.27.3-bookworm AS api-build
 WORKDIR /src/apps/api
 
 COPY apps/api/go.mod apps/api/go.sum ./

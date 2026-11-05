@@ -6,11 +6,11 @@ import {
   FieldLabel,
   FieldSet,
 } from "@workspace/ui/components/field"
+import type { CreatePodFormApi } from "./create-pod-form"
 import { Input } from "@workspace/ui/components/input"
 import { podNameSchema } from "./create-pod-form"
-import type { CreatePodFormApi } from "./create-pod-form"
-import { validatePodNameAvailability } from "@/features/pods/api/create-pod-api"
 import { replaceWhitespaceWithHyphen } from "@/features/shared/utils/sanitize"
+import { validatePodNameAvailability } from "@/features/pods/api/create-pod-api"
 
 const podNameConflictError = {
   message: "A Pod with this name already exists.",

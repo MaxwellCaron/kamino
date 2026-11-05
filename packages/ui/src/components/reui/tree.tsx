@@ -1,15 +1,15 @@
-import { createContext, useContext, useMemo } from "react"
-import { mergeProps } from "@base-ui/react/merge-props"
-import { useRender } from "@base-ui/react/use-render"
-import { HugeiconsIcon } from "@hugeicons/react"
 import {
   Add01Icon,
   ChevronDownIcon,
   MinusSignIcon,
 } from "@hugeicons/core-free-icons"
-import { cn } from "@workspace/ui/lib/utils"
-import { useComposedRefs } from "@workspace/ui/lib/compose-refs"
+import { createContext, useContext, useMemo } from "react"
+import { HugeiconsIcon } from "@hugeicons/react"
 import type { ItemInstance } from "@headless-tree/core"
+import { cn } from "@workspace/ui/lib/utils"
+import { mergeProps } from "@base-ui/react/merge-props"
+import { useComposedRefs } from "@workspace/ui/lib/compose-refs"
+import { useRender } from "@base-ui/react/use-render"
 
 type ToggleIconType = "chevron" | "plus-minus"
 

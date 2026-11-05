@@ -3,8 +3,8 @@ import {
   Globe02Icon,
   HomeWifiIcon,
 } from "@hugeicons/core-free-icons"
-import type { IconSvgElement } from "@hugeicons/react"
 import type { ClonedPodNetwork } from "@/features/pods/types/pod-types"
+import type { IconSvgElement } from "@hugeicons/react"
 import type { PodCloneTarget } from "@/features/pods/api/clone-targets-api"
 import { getPodNetworkingModeLabel } from "@/features/pods/components/create/create-pod-form"
 

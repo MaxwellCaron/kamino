@@ -1,8 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
-import { screen } from "@testing-library/react"
-import { InventoryFolderPage } from "./inventory-folder-page"
 import type { ApiTreeNode } from "../../types/inventory-types"
+import { InventoryFolderPage } from "./inventory-folder-page"
 import { renderWithQueryClient } from "@/test/test-utils"
+import { screen } from "@testing-library/react"
 
 const { mockInventoryTreeQueryFn, mockInventoryNodeMenuProps } = vi.hoisted(
   () => ({

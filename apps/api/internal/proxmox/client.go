@@ -115,12 +115,19 @@ func unexpectedStatusError(resp *http.Response, path string) error {
 	return unexpectedStatusErrorWithBody(resp.StatusCode, path, string(body))
 }
 
+type apiStatusError struct {
+	statusCode int
+	message    string
+}
+
+func (e *apiStatusError) Error() string { return e.message }
+
 func unexpectedStatusErrorWithBody(statusCode int, path string, body string) error {
 	detail := strings.TrimSpace(body)
 	if detail == "" {
-		return fmt.Errorf("unexpected status %d for %s", statusCode, path)
+		return &apiStatusError{statusCode: statusCode, message: fmt.Sprintf("unexpected status %d for %s", statusCode, path)}
 	}
-	return fmt.Errorf("unexpected status %d for %s: %s", statusCode, path, detail)
+	return &apiStatusError{statusCode: statusCode, message: fmt.Sprintf("unexpected status %d for %s: %s", statusCode, path, detail)}
 }
 
 func (c *Client) filterNodes(nodes []Node) []Node {

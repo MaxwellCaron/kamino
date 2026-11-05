@@ -1,10 +1,10 @@
-import type { ApiVNet } from "@/features/sdn/types/sdn-types"
 import type {
   ApiISO,
   ApiNetworkBridge,
   ApiNode,
   ApiStorage,
 } from "../types/vm-types"
+import type { ApiVNet } from "@/features/sdn/types/sdn-types"
 import { apiJson } from "@/features/shared/api/api-json"
 
 export type ApiScopedNetwork = {

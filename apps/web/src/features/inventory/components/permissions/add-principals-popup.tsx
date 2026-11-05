@@ -1,6 +1,3 @@
-import { useMemo } from "react"
-import { HugeiconsIcon } from "@hugeicons/react"
-import { Add01Icon } from "@hugeicons/core-free-icons"
 import {
   Combobox,
   ComboboxContent,
@@ -16,9 +13,12 @@ import {
   ItemDescription,
   ItemTitle,
 } from "@workspace/ui/components/item"
+import { Add01Icon } from "@hugeicons/core-free-icons"
 import { Button } from "@workspace/ui/components/button"
-import { principalTypeLabels } from "../../utils/constants"
+import { HugeiconsIcon } from "@hugeicons/react"
 import type { PrincipalOption } from "../../types/inventory-types"
+import { principalTypeLabels } from "../../utils/constants"
+import { useMemo } from "react"
 
 type AddPrincipalsDialogProps = {
   availablePrincipalIds: Array<string>

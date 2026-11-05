@@ -1,5 +1,9 @@
 import { Field, FieldError, FieldLabel } from "@workspace/ui/components/field"
-import { Input } from "@workspace/ui/components/input"
+import type {
+  HardwareFormLike,
+  NumberFieldApi,
+  StringFieldApi,
+} from "@/features/vms/components/hardware/hardware-dialog-schema"
 import {
   Select,
   SelectContent,
@@ -8,22 +12,18 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@workspace/ui/components/select"
-import type {
-  HardwareFormLike,
-  NumberFieldApi,
-  StringFieldApi,
-} from "@/features/vms/components/hardware/hardware-dialog-schema"
-import { formatFieldError } from "@/features/vms/components/create/create-vm-step-utils"
-import {
-  getFirstIssueMessage,
-  parseNumberInput,
-} from "@/features/vms/components/create/create-vm-form"
-import { getSelectOptionLabel } from "@/features/vms/components/hardware/hardware-section-utils"
-import { cpuTypes } from "@/features/vms/components/hardware/hardware-options"
 import {
   VmHardwareCpuBlock,
   VmHardwareMemoryBlock,
 } from "@/features/vms/components/hardware/hardware-sections"
+import {
+  getFirstIssueMessage,
+  parseNumberInput,
+} from "@/features/vms/components/create/create-vm-form"
+import { Input } from "@workspace/ui/components/input"
+import { cpuTypes } from "@/features/vms/components/hardware/hardware-options"
+import { formatFieldError } from "@/features/vms/components/create/create-vm-step-utils"
+import { getSelectOptionLabel } from "@/features/vms/components/hardware/hardware-section-utils"
 import { vmHardwareFormSchema } from "@/features/vms/components/hardware/hardware-dialog-schema"
 
 export function VmHardwareComputeFields({ form }: { form: HardwareFormLike }) {

@@ -1,17 +1,17 @@
-import { useCallback } from "react"
-import { useMutation, useQueryClient } from "@tanstack/react-query"
-import type { ApiPrincipal } from "@/features/principals/types/principals-types"
 import {
   deleteUser,
   disableUser,
   enableUser,
   triggerPrincipalSync,
 } from "@/features/principals/api/principals-api"
-import { formatPrincipalReference } from "@/components/principals/principal-label"
 import {
   showSingleMutationToast,
   showUnitMutationToast,
 } from "@/components/feedback/mutation-progress-toast"
+import { useMutation, useQueryClient } from "@tanstack/react-query"
+import type { ApiPrincipal } from "@/features/principals/types/principals-types"
+import { formatPrincipalReference } from "@/components/principals/principal-label"
+import { useCallback } from "react"
 
 export function useUsersPageMutations() {
   const queryClient = useQueryClient()

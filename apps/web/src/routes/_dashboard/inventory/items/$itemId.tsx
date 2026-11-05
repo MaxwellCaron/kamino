@@ -1,14 +1,14 @@
 import { Navigate, createFileRoute, notFound } from "@tanstack/react-router"
+import type { AppBreadcrumb } from "@/components/app-shell/site-breadcrumb-data"
+import { InventoryFolderPage } from "@/features/inventory/components/folder/inventory-folder-page"
+import { VmDashboardPage } from "@/features/vms/components/dashboard/vm-dashboard-page"
+import { findInventoryTreeNode } from "@/features/inventory/utils/inventory-tree"
+import { inventoryTreeQueryOptions } from "@/features/inventory/api/inventory-api"
+import { loadInventoryItemRouteSources } from "@/features/inventory/utils/inventory-item-route-loader"
+import { pageTitle } from "@/features/shared/utils/page-title"
+import { resolveInventoryRouteRecovery } from "@/features/inventory/utils/inventory-route-recovery"
 import { useQuery } from "@tanstack/react-query"
 import { z } from "zod"
-import type { AppBreadcrumb } from "@/components/app-shell/site-breadcrumb-data"
-import { inventoryTreeQueryOptions } from "@/features/inventory/api/inventory-api"
-import { InventoryFolderPage } from "@/features/inventory/components/folder/inventory-folder-page"
-import { loadInventoryItemRouteSources } from "@/features/inventory/utils/inventory-item-route-loader"
-import { resolveInventoryRouteRecovery } from "@/features/inventory/utils/inventory-route-recovery"
-import { findInventoryTreeNode } from "@/features/inventory/utils/inventory-tree"
-import { pageTitle } from "@/features/shared/utils/page-title"
-import { VmDashboardPage } from "@/features/vms/components/dashboard/vm-dashboard-page"
 
 const inventoryItemIdSchema = z.uuid()
 

@@ -1,5 +1,7 @@
-import { Fragment } from "react"
-import { Link, useMatches } from "@tanstack/react-router"
+import type {
+  AppBreadcrumb,
+  AppBreadcrumbLoaderData,
+} from "./site-breadcrumb-data"
 import {
   Breadcrumb,
   BreadcrumbEllipsis,
@@ -9,7 +11,6 @@ import {
   BreadcrumbPage,
   BreadcrumbSeparator,
 } from "@workspace/ui/components/breadcrumb"
-import { Button } from "@workspace/ui/components/button"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -17,10 +18,9 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@workspace/ui/components/dropdown-menu"
-import type {
-  AppBreadcrumb,
-  AppBreadcrumbLoaderData,
-} from "./site-breadcrumb-data"
+import { Link, useMatches } from "@tanstack/react-router"
+import { Button } from "@workspace/ui/components/button"
+import { Fragment } from "react"
 
 const COLLAPSE_THRESHOLD = 4
 

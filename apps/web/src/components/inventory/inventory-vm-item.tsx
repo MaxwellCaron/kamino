@@ -1,5 +1,3 @@
-import { Link } from "@tanstack/react-router"
-import { HugeiconsIcon } from "@hugeicons/react"
 import {
   CpuIcon,
   HardDriveIcon,
@@ -13,13 +11,15 @@ import {
   ItemMedia,
   ItemTitle,
 } from "@workspace/ui/components/item"
-import { Separator } from "@workspace/ui/components/separator"
-import { cn } from "@workspace/ui/lib/utils"
 import { Fragment } from "react"
-import type { ReactNode } from "react"
+import { HugeiconsIcon } from "@hugeicons/react"
+import { Link } from "@tanstack/react-router"
 import type { PodNetworkSegmentKind } from "@/features/pods/utils/pod-networking"
-import { podNetworkSegments } from "@/features/pods/utils/pod-networking"
+import type { ReactNode } from "react"
+import { Separator } from "@workspace/ui/components/separator"
 import { VmIcon } from "@/components/status/vm-icon"
+import { cn } from "@workspace/ui/lib/utils"
+import { podNetworkSegments } from "@/features/pods/utils/pod-networking"
 
 function formatVmRowMemoryMb(mb: number): string {
   return mb >= 1024 ? `${(mb / 1024).toFixed(1)} GB` : `${mb} MB`

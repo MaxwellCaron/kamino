@@ -1,6 +1,6 @@
+import type { DocsTocItem } from "@/features/documentation/utils/docs-toc"
 import { Link } from "@tanstack/react-router"
 import { cn } from "@workspace/ui/lib/utils"
-import type { DocsTocItem } from "@/features/documentation/utils/docs-toc"
 import { getDocsTocIndentClass } from "@/features/documentation/utils/docs-toc"
 
 export function DocsToc({ items }: { items: Array<DocsTocItem> }) {

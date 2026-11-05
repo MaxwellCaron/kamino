@@ -1,5 +1,3 @@
-import { useMemo, useState } from "react"
-import { useQuery } from "@tanstack/react-query"
 import {
   Card,
   CardAction,
@@ -8,15 +6,13 @@ import {
   CardHeader,
   CardTitle,
 } from "@workspace/ui/components/card"
-import { Tabs, TabsList, TabsTrigger } from "@workspace/ui/components/tabs"
 import {
   Empty,
   EmptyDescription,
   EmptyHeader,
   EmptyTitle,
 } from "@workspace/ui/components/empty"
-
-import { clusterUsageHistoryQueryOptions } from "../api/admin-metrics-api"
+import { Tabs, TabsList, TabsTrigger } from "@workspace/ui/components/tabs"
 import {
   buildUsageHistorySeries,
   formatCores,
@@ -24,13 +20,17 @@ import {
   getClusterCapacitySummary,
   sharedStorageHistoryKey,
 } from "../utils/admin-dashboard"
-import { UsageAreaChart } from "./usage-charts"
+import { useMemo, useState } from "react"
+
 import { AdminNodeTable } from "./admin-node-table"
 import { AdminSharedStorageTable } from "./admin-shared-storage-table"
-import type { DashboardStorageSummary } from "../utils/admin-dashboard"
 import type { ApiNode } from "@/features/vms/types/vm-types"
-import type { UsageHistoryTimeframe } from "../api/admin-metrics-api"
+import type { DashboardStorageSummary } from "../utils/admin-dashboard"
 import { InlineErrorAlert } from "@/components/feedback/inline-error-alert"
+import { UsageAreaChart } from "./usage-charts"
+import type { UsageHistoryTimeframe } from "../api/admin-metrics-api"
+import { clusterUsageHistoryQueryOptions } from "../api/admin-metrics-api"
+import { useQuery } from "@tanstack/react-query"
 
 function normalizeTimeframe(value: string): UsageHistoryTimeframe {
   switch (value) {

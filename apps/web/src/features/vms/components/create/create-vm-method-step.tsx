@@ -3,8 +3,6 @@ import {
   FloppyDiskIcon,
   Upload01Icon,
 } from "@hugeicons/core-free-icons"
-import { HugeiconsIcon } from "@hugeicons/react"
-import { Badge } from "@workspace/ui/components/badge"
 import {
   Field,
   FieldContent,
@@ -19,8 +17,10 @@ import {
   RadioGroupItem,
 } from "@workspace/ui/components/radio-group"
 import { createVmFormOptions, withCreateVmForm } from "./create-vm-form"
-import type { IconSvgElement } from "@hugeicons/react"
+import { Badge } from "@workspace/ui/components/badge"
 import type { CreateVmMethod } from "./create-vm-form"
+import { HugeiconsIcon } from "@hugeicons/react"
+import type { IconSvgElement } from "@hugeicons/react"
 
 const createMethodCards: Array<{
   value: CreateVmMethod

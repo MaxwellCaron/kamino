@@ -1,17 +1,18 @@
 import * as React from "react"
-
-import { cn } from "@workspace/ui/lib/utils"
 import {
   CodeBlock,
-  CodeBlockBody,
+  CodeBlockActions,
   CodeBlockContent,
   CodeBlockCopyButton,
-  CodeBlockFilename,
-  CodeBlockFiles,
   CodeBlockHeader,
-  CodeBlockItem,
-} from "./kibo-ui/code-block"
-import type { BundledLanguage } from "./kibo-ui/code-block"
+  CodeBlockLine,
+  CodeBlockTitle,
+} from "@workspace/ui/components/code-block"
+import { HugeiconsIcon } from "@hugeicons/react"
+
+import { SourceCodeIcon } from "@hugeicons/core-free-icons"
+import { cn } from "@workspace/ui/lib/utils"
+import { useHighlightedCode } from "@workspace/ui/hooks/use-highlighted-code"
 
 type MarkdownCodeElementProps = {
   children?: React.ReactNode
@@ -80,6 +81,7 @@ export function MarkdownCodeBlock({
   ...props
 }: React.ComponentProps<"pre">) {
   const block = extractCodeBlock(children)
+  const lines = useHighlightedCode(block?.code ?? "", block?.language ?? "text")
 
   if (!block) {
     return (
@@ -90,43 +92,21 @@ export function MarkdownCodeBlock({
   }
 
   return (
-    <CodeBlock
-      className={cn("my-6", className)}
-      data={[
-        {
-          language: block.language,
-          filename: block.filename ?? block.language,
-          code: block.code,
-        },
-      ]}
-      defaultValue={block.language}
-    >
-      <CodeBlockHeader className="justify-between gap-2 bg-muted pr-1 pl-3">
-        <CodeBlockFiles>
-          {(item) => (
-            <CodeBlockFilename key={item.language} value={item.language}>
-              {item.filename}
-            </CodeBlockFilename>
-          )}
-        </CodeBlockFiles>
-        <CodeBlockCopyButton
-          className="text-muted-foreground"
-          size="icon-sm"
-          text={block.code}
-        />
+    <CodeBlock className={cn("my-6", className)}>
+      <CodeBlockHeader>
+        <CodeBlockTitle>
+          <HugeiconsIcon icon={SourceCodeIcon} aria-hidden="true" />
+          {block.filename ?? block.language}
+        </CodeBlockTitle>
+        <CodeBlockActions>
+          <CodeBlockCopyButton value={block.code} />
+        </CodeBlockActions>
       </CodeBlockHeader>
-      <CodeBlockBody>
-        {(item) => (
-          <CodeBlockItem key={item.language} value={item.language}>
-            <CodeBlockContent
-              className="overflow-x-auto"
-              language={item.language as BundledLanguage}
-            >
-              {item.code}
-            </CodeBlockContent>
-          </CodeBlockItem>
-        )}
-      </CodeBlockBody>
+      <CodeBlockContent {...props} lineNumbers>
+        {lines.map((line, index) => (
+          <CodeBlockLine key={index}>{line}</CodeBlockLine>
+        ))}
+      </CodeBlockContent>
     </CodeBlock>
   )
 }

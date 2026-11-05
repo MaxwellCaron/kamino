@@ -1,6 +1,6 @@
 import { useEffect, useRef } from "react"
-import type { TreeInstance } from "@headless-tree/core"
 import type { ApiTreeNode } from "../../types/inventory-types"
+import type { TreeInstance } from "@headless-tree/core"
 
 /** Maximum width/height of an edge zone, in pixels. */
 const EDGE_ZONE_MAX_PX = 64

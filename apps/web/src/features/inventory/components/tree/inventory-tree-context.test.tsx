@@ -1,16 +1,16 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { act, fireEvent, render, waitFor } from "@testing-library/react"
-import { useEffect } from "react"
 import { beforeEach, describe, expect, it, vi } from "vitest"
-
-import { InventoryPermissionBits } from "../../utils/inventory-permissions"
 import {
   useInventoryTreeDataContext,
   useInventoryTreeNavigationContext,
   useInventoryTreeViewContext,
 } from "./inventory-tree-context"
-import { InventoryTreeProvider } from "./inventory-tree-provider"
+
 import type { ApiTreeNode } from "../../types/inventory-types"
+import { InventoryPermissionBits } from "../../utils/inventory-permissions"
+import { InventoryTreeProvider } from "./inventory-tree-provider"
+import { useEffect } from "react"
 
 const renders = vi.hoisted(() => ({
   data: 0,

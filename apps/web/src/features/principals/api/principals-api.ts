@@ -1,8 +1,4 @@
 import type {
-  ApiManagementPermissionSection,
-  ManagementPermissionKey,
-} from "@/features/auth/utils/management-permissions"
-import type {
   ApiBulkCreateResponse,
   ApiBulkMembershipResponse,
   ApiGroupMember,
@@ -11,9 +7,13 @@ import type {
   CreateGroupInput,
   CreateUserInput,
 } from "../types/principals-types"
+import type {
+  ApiManagementPermissionSection,
+  ManagementPermissionKey,
+} from "@/features/auth/utils/management-permissions"
+import { apiJson, apiVoid } from "@/features/shared/api/api-json"
 import type { ApiBulkDeleteResponse } from "@/features/shared/types/api-types"
 import { normalizeManagementPermissionGrants } from "@/features/auth/utils/management-permissions"
-import { apiJson, apiVoid } from "@/features/shared/api/api-json"
 
 export type ApiGroupManagementAcl = {
   can_edit_bootstrap_only: boolean

@@ -1,8 +1,8 @@
-import { QueryClientProvider } from "@tanstack/react-query"
 import { LazyMotion, MotionConfig, domMax } from "motion/react"
-import { TooltipProvider } from "@workspace/ui/components/tooltip"
 import { Outlet, getRouteApi } from "@tanstack/react-router"
+import { QueryClientProvider } from "@tanstack/react-query"
 import { SiteCommandProvider } from "./site-command"
+import { TooltipProvider } from "@workspace/ui/components/tooltip"
 
 export const themeStorageKey = "vite-ui-theme"
 export const defaultTheme = "dark"

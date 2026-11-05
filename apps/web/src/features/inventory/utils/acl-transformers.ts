@@ -1,4 +1,3 @@
-import type { ApiPrincipal } from "@/features/principals/types/principals-types"
 import type {
   ApiInheritedInventoryAclEntry,
   ApiInventoryAcl,
@@ -11,6 +10,7 @@ import type {
   PrincipalListSectionKey,
   PrincipalOption,
 } from "../types/inventory-types"
+import type { ApiPrincipal } from "@/features/principals/types/principals-types"
 import { formatPrincipalReference } from "@/components/principals/principal-label"
 
 function createEmptyScope(): DraftScope {

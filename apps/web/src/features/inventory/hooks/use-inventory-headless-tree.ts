@@ -1,3 +1,15 @@
+import type {
+  DragTarget,
+  ItemInstance,
+  TreeInstance,
+} from "@headless-tree/core"
+import { TREE_INDENT, VIRTUAL_ROOT } from "../utils/constants"
+import {
+  dragAndDropFeature,
+  expandAllFeature,
+  selectionFeature,
+  syncDataLoaderFeature,
+} from "@headless-tree/core"
 import {
   useCallback,
   useEffect,
@@ -5,22 +17,10 @@ import {
   useRef,
   useState,
 } from "react"
-import {
-  dragAndDropFeature,
-  expandAllFeature,
-  selectionFeature,
-  syncDataLoaderFeature,
-} from "@headless-tree/core"
-import { useTree } from "@headless-tree/react"
-import { toast } from "sonner"
-import { TREE_INDENT, VIRTUAL_ROOT } from "../utils/constants"
-import type {
-  DragTarget,
-  ItemInstance,
-  TreeInstance,
-} from "@headless-tree/core"
 import type { ApiTreeNode } from "../types/inventory-types"
 import { formatToastError } from "@/features/shared/utils/format"
+import { toast } from "sonner"
+import { useTree } from "@headless-tree/react"
 
 interface UseInventoryHeadlessTreeOptions {
   children: Map<string, Array<string>>

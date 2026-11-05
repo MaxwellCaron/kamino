@@ -1,4 +1,3 @@
-import { HugeiconsIcon } from "@hugeicons/react"
 import {
   BoltIcon,
   CpuIcon,
@@ -20,9 +19,10 @@ import {
   ItemMedia,
   ItemTitle,
 } from "@workspace/ui/components/item"
-import type { ReactNode } from "react"
 import type { CreateVmFormValues } from "./create-vm-form"
+import { HugeiconsIcon } from "@hugeicons/react"
 import type { InventoryFolderOption } from "@/features/inventory/utils/inventory-tree"
+import type { ReactNode } from "react"
 
 function getMachineTypeLabel(machine: string) {
   return machine === "pc" ? "i440fx" : machine

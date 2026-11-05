@@ -7,9 +7,9 @@ import type {
   CreateVMParams,
   VmResources,
 } from "../types/vm-types"
-import type { ApiVmMutationResult } from "@/features/inventory/types/inventory-types"
-import type { ApiRequestDetail } from "@/features/requests/types/request-types"
 import { apiJson, apiVoid } from "@/features/shared/api/api-json"
+import type { ApiRequestDetail } from "@/features/requests/types/request-types"
+import type { ApiVmMutationResult } from "@/features/inventory/types/inventory-types"
 
 async function fetchVmStatuses(): Promise<Record<number, string>> {
   return apiJson<Record<number, string>>(

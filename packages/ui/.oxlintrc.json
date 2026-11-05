@@ -1,0 +1,16 @@
+{
+  "$schema": "../../node_modules/oxlint/configuration_schema.json",
+  "extends": ["../../.oxlintrc.json"],
+  "overrides": [
+    {
+      "files": [
+        "src/components/charts/**/*.{ts,tsx}",
+        "src/components/shimmering-text.tsx"
+      ],
+      "rules": {
+        "typescript/no-unnecessary-condition": "off",
+        "no-shadow": "off"
+      }
+    }
+  ]
+}

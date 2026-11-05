@@ -1,5 +1,5 @@
-import { createFileRoute } from "@tanstack/react-router"
 import { DocumentationPage } from "@/features/documentation/components/documentation-page"
+import { createFileRoute } from "@tanstack/react-router"
 import { pageTitle } from "@/features/shared/utils/page-title"
 import userGuideContent from "@/features/documentation/content/user-guide.md?raw"
 

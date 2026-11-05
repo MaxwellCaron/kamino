@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest"
-import { buildCreatePodRequestBody } from "./create-pod-api"
 import type { CreatePodFormValues } from "@/features/pods/components/create/create-pod-form"
+import { buildCreatePodRequestBody } from "./create-pod-api"
 
 function createValues(
   overrides: Partial<CreatePodFormValues> = {}

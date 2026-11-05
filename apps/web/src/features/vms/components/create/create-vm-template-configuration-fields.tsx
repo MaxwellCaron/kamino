@@ -1,4 +1,16 @@
 import {
+  CloneFullCloneField,
+  CloneNameField,
+  CloneNodeField,
+} from "./clone-form-fields"
+import {
+  Combobox,
+  ComboboxContent,
+  ComboboxEmpty,
+  ComboboxInput,
+  ComboboxList,
+} from "@workspace/ui/components/combobox"
+import {
   Field,
   FieldDescription,
   FieldError,
@@ -9,27 +21,15 @@ import {
   FieldSet,
 } from "@workspace/ui/components/field"
 import {
-  Combobox,
-  ComboboxContent,
-  ComboboxEmpty,
-  ComboboxInput,
-  ComboboxList,
-} from "@workspace/ui/components/combobox"
-import {
-  CloneFullCloneField,
-  CloneNameField,
-  CloneNodeField,
-} from "./clone-form-fields"
-import {
   createVmFormOptions,
   getSelectedTemplate,
   withCreateVmForm,
 } from "./create-vm-form"
-import { formatFieldError } from "./create-vm-step-utils"
-import type { VmTemplateOption } from "./create-vm-form"
 import type { ApiNode } from "@/features/vms/types/vm-types"
 import { VMIDField } from "@/components/vms/vmid-field"
 import { VmTemplateComboboxItem } from "@/components/inventory/vm-template-combobox-item"
+import type { VmTemplateOption } from "./create-vm-form"
+import { formatFieldError } from "./create-vm-step-utils"
 
 export const TemplateConfigurationFields = withCreateVmForm({
   ...createVmFormOptions,

@@ -4,13 +4,13 @@ import {
   SidebarProvider,
   SidebarTrigger,
 } from "@workspace/ui/components/sidebar"
-import { Separator } from "@workspace/ui/components/separator"
-import type { CSSProperties } from "react"
-import { SiteHeader } from "@/components/app-shell/site-header"
 import { AppSidebarIconRailContent } from "@/components/app-shell/app-sidebar"
-import { SiteCommandTrigger } from "@/components/app-shell/site-command"
+import type { CSSProperties } from "react"
 import { DashboardEvents } from "@/features/dashboard/components/dashboard-events"
 import { InventoryDialogsProvider } from "@/features/inventory/components/inventory-dialogs-provider"
+import { Separator } from "@workspace/ui/components/separator"
+import { SiteCommandTrigger } from "@/components/app-shell/site-command"
+import { SiteHeader } from "@/components/app-shell/site-header"
 import { SiteLayoutInset } from "@/components/app-shell/site-layout-inset"
 
 const podsRouteApi = getRouteApi("/_pods")

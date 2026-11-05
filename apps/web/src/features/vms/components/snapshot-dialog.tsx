@@ -1,8 +1,8 @@
-import { useLayoutEffect, useRef, useState } from "react"
-import { useForm } from "@tanstack/react-form"
-import { Camera01Icon } from "@hugeicons/core-free-icons"
-import { z } from "zod"
-import { DialogFooter } from "@workspace/ui/components/dialog"
+import {
+  AppDialog,
+  AppDialogPrimaryButton,
+  AppDialogScrollBody,
+} from "@/components/dialogs/app-dialog"
 import {
   Field,
   FieldContent,
@@ -11,23 +11,23 @@ import {
   FieldGroup,
   FieldLabel,
 } from "@workspace/ui/components/field"
-import { Input } from "@workspace/ui/components/input"
-import { Checkbox } from "@workspace/ui/components/checkbox"
-import {
-  AppDialog,
-  AppDialogPrimaryButton,
-  AppDialogScrollBody,
-} from "@/components/dialogs/app-dialog"
-import { CountedTextareaField } from "@/components/forms/counted-textarea-field"
-import {
-  useCreateSnapshot,
-  useSubmitInventorySnapshotCreateRequest,
-} from "@/features/vms/hooks/use-vm-actions"
 import {
   toastCreateSnapshot,
   toastSubmitSnapshotRequest,
 } from "@/features/vms/utils/vm-toasts"
+import {
+  useCreateSnapshot,
+  useSubmitInventorySnapshotCreateRequest,
+} from "@/features/vms/hooks/use-vm-actions"
+import { useLayoutEffect, useRef, useState } from "react"
+import { Camera01Icon } from "@hugeicons/core-free-icons"
+import { Checkbox } from "@workspace/ui/components/checkbox"
+import { CountedTextareaField } from "@/components/forms/counted-textarea-field"
+import { DialogFooter } from "@workspace/ui/components/dialog"
+import { Input } from "@workspace/ui/components/input"
 import { formatVmReference } from "@/features/shared/utils/format"
+import { useForm } from "@tanstack/react-form"
+import { z } from "zod"
 
 const generateSnapshotName = () =>
   `snapshot-${new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19)}Z`

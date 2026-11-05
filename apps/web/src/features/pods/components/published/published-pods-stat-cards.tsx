@@ -4,13 +4,13 @@ import {
   PackageIcon,
   ViewIcon,
 } from "@hugeicons/core-free-icons"
-import { HugeiconsIcon } from "@hugeicons/react"
 import {
   Item,
   ItemFooter,
   ItemMedia,
   ItemTitle,
 } from "@workspace/ui/components/item"
+import { HugeiconsIcon } from "@hugeicons/react"
 import type { PublishedPodsStats } from "../../types/published-pods-types"
 
 export function PublishedPodsStatCards({

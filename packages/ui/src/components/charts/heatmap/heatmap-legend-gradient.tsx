@@ -1,12 +1,12 @@
 "use client";
 
-import { m } from "motion/react";
-import { memo } from "react";
 import {
   buildHeatmapLegendGradient,
   resolveHeatmapHoverStyle,
 } from "./heatmap-utils";
 import type { HeatmapLevelStyles } from "./heatmap-colors";
+import { m } from "motion/react";
+import { memo } from "react";
 
 const HEATMAP_INACTIVE_TRANSITION = {
   duration: 0.22,

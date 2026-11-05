@@ -1,3 +1,4 @@
+import type { CellData, RowData, TableFeatures } from "@tanstack/react-table"
 import {
   columnFilteringFeature,
   columnVisibilityFeature,
@@ -14,7 +15,6 @@ import {
   sortFns,
   tableFeatures,
 } from "@tanstack/react-table"
-import type { CellData, RowData, TableFeatures } from "@tanstack/react-table"
 
 export const appTableFeatures = tableFeatures({
   rowSortingFeature,

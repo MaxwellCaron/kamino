@@ -1,8 +1,8 @@
-import { useLayoutEffect, useRef, useState } from "react"
 import {
   INVENTORY_TREE_ROW_HEIGHT,
   InventoryTreeRowSkeleton,
 } from "./inventory-tree-row-skeleton"
+import { useLayoutEffect, useRef, useState } from "react"
 
 const MIN_LOADING_ROWS = 6
 

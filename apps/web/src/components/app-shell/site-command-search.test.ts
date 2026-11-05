@@ -1,6 +1,3 @@
-import { Home03Icon } from "@hugeicons/core-free-icons"
-import { describe, expect, it } from "vitest"
-
 import {
   buildCommandSearchIndex,
   commandMatchesQuery,
@@ -9,6 +6,9 @@ import {
   normalizeCommandSearchText,
   tokenizeCommandQuery,
 } from "./site-command-search"
+import { describe, expect, it } from "vitest"
+
+import { Home03Icon } from "@hugeicons/core-free-icons"
 import type { SiteCommandResult } from "./site-command-index"
 
 function makeCommand(

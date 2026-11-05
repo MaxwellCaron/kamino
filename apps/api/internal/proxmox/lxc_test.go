@@ -30,7 +30,7 @@ func TestParseLXCConfigSummary(t *testing.T) {
 				UpstreamUUID: lxcUpstreamUUID(616),
 				CPUCount:     2,
 				MemoryMB:     2048,
-				DiskGB:       8,
+				DiskGB:       new(float64(8)),
 				Notes:        "service web tier",
 			},
 		},
@@ -47,7 +47,7 @@ func TestParseLXCConfigSummary(t *testing.T) {
 				UpstreamUUID: lxcUpstreamUUID(100),
 				CPUCount:     1,
 				MemoryMB:     512,
-				DiskGB:       4,
+				DiskGB:       new(float64(4)),
 			},
 		},
 		{
@@ -64,7 +64,7 @@ func TestParseLXCConfigSummary(t *testing.T) {
 				UpstreamUUID: lxcUpstreamUUID(200),
 				CPUCount:     1,
 				MemoryMB:     0,
-				DiskGB:       2,
+				DiskGB:       new(float64(2)),
 			},
 		},
 	}
@@ -86,7 +86,7 @@ func TestParseLXCConfigSummary(t *testing.T) {
 				got.UpstreamUUID != tc.want.UpstreamUUID ||
 				got.CPUCount != tc.want.CPUCount ||
 				got.MemoryMB != tc.want.MemoryMB ||
-				got.DiskGB != tc.want.DiskGB ||
+				*got.DiskGB != *tc.want.DiskGB ||
 				got.Notes != tc.want.Notes {
 				t.Fatalf("parseLXCConfigSummary() = %+v, want %+v", got, tc.want)
 			}

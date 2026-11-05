@@ -5,13 +5,13 @@ import {
   FieldGroup,
   FieldLabel,
 } from "@workspace/ui/components/field"
-import { Input } from "@workspace/ui/components/input"
-import type { GroupFormApi } from "@/features/principals/components/groups/group-dialog-utils"
 import {
   descriptionFieldSchema,
   groupNameSchema,
 } from "@/features/principals/components/groups/group-dialog-utils"
 import { CountedTextareaField } from "@/components/forms/counted-textarea-field"
+import type { GroupFormApi } from "@/features/principals/components/groups/group-dialog-utils"
+import { Input } from "@workspace/ui/components/input"
 
 type GroupDialogEditFormProps = {
   form: GroupFormApi

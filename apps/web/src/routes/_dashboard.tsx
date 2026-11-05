@@ -1,6 +1,6 @@
 import { createFileRoute, redirect } from "@tanstack/react-router"
-import { authSessionQueryOptions } from "@/features/auth/api/auth-api"
 import { DashboardLayout } from "@/features/dashboard/components/dashboard-layout"
+import { authSessionQueryOptions } from "@/features/auth/api/auth-api"
 
 export const Route = createFileRoute("/_dashboard")({
   beforeLoad: async ({ context, location }) => {

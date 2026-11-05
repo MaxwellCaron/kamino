@@ -1,13 +1,13 @@
-import { Button } from "@workspace/ui/components/button"
-import { HugeiconsIcon } from "@hugeicons/react"
 import {
   ChevronLeftIcon,
   ChevronRightIcon,
   ChevronsLeftIcon,
   ChevronsRightIcon,
 } from "@hugeicons/core-free-icons"
-import type { AppTableFeatures } from "./data-table-types"
 import type { ReactTable, RowData } from "@tanstack/react-table"
+import type { AppTableFeatures } from "./data-table-types"
+import { Button } from "@workspace/ui/components/button"
+import { HugeiconsIcon } from "@hugeicons/react"
 
 interface DataTablePaginationProps<TData extends RowData> {
   table: ReactTable<AppTableFeatures, TData>

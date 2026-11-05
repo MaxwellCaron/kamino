@@ -1,10 +1,10 @@
 import * as React from "react"
-import { HugeiconsIcon } from "@hugeicons/react"
-import { Search01Icon } from "@hugeicons/core-free-icons"
-import { useRouterState } from "@tanstack/react-router"
 import { Kbd, KbdGroup } from "@workspace/ui/components/kbd"
 import { Button } from "@workspace/ui/components/button"
+import { HugeiconsIcon } from "@hugeicons/react"
+import { Search01Icon } from "@hugeicons/core-free-icons"
 import { SiteCommandDialog } from "./site-command-dialog"
+import { useRouterState } from "@tanstack/react-router"
 
 type SiteCommandContextValue = {
   open: boolean

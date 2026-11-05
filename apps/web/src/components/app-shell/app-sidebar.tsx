@@ -1,7 +1,4 @@
 import * as React from "react"
-import { Link, useRouterState } from "@tanstack/react-router"
-
-import { HugeiconsIcon } from "@hugeicons/react"
 import {
   DashboardSquare01Icon,
   GitPullRequestIcon,
@@ -18,11 +15,13 @@ import {
   UserGroupIcon,
   UserIcon,
 } from "@hugeicons/core-free-icons"
+
 import {
   HoverCard,
   HoverCardContent,
   HoverCardTrigger,
 } from "@workspace/ui/components/hover-card"
+import { Link, useRouterState } from "@tanstack/react-router"
 import {
   Sidebar,
   SidebarContent,
@@ -34,17 +33,18 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@workspace/ui/components/sidebar"
-import { Separator } from "@workspace/ui/components/separator"
-import { cn } from "@workspace/ui/lib/utils"
-import { Image } from "@unpic/react"
-import { NavUser } from "./nav-user"
-import type { AuthUser } from "@/features/auth/types/auth-types"
 import {
   canAccessAdmin,
   canAccessRequestQueue,
 } from "@/features/auth/utils/management-permissions"
+import type { AuthUser } from "@/features/auth/types/auth-types"
+import { HugeiconsIcon } from "@hugeicons/react"
+import { Image } from "@unpic/react"
 import { InventoryTreeBody } from "@/features/inventory/components/tree/inventory-tree-body"
 import { InventoryTreeHeader } from "@/features/inventory/components/tree/inventory-tree-header"
+import { NavUser } from "./nav-user"
+import { Separator } from "@workspace/ui/components/separator"
+import { cn } from "@workspace/ui/lib/utils"
 
 const navItems = [
   {

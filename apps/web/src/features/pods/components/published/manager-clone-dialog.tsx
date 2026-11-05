@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { AppDialog, AppDialogScrollBody } from "@/components/dialogs/app-dialog"
 import {
   CopyIcon,
   FilterIcon,
@@ -6,9 +6,6 @@ import {
   UserGroupIcon,
   UserIcon,
 } from "@hugeicons/core-free-icons"
-import { HugeiconsIcon } from "@hugeicons/react"
-import { Button } from "@workspace/ui/components/button"
-import { DialogFooter } from "@workspace/ui/components/dialog"
 import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
@@ -22,18 +19,21 @@ import {
   InputGroupAddon,
   InputGroupInput,
 } from "@workspace/ui/components/input-group"
-import { useQuery } from "@tanstack/react-query"
-import type { RowSelectionState } from "@tanstack/react-table"
-import type { PublishedPodCatalogEntry } from "@/features/pods/types/pod-types"
-import type { PrincipalOption } from "@/features/inventory/types/inventory-types"
-import { buildPrincipalOptions } from "@/features/inventory/utils/acl-transformers"
-import { AppDialog, AppDialogScrollBody } from "@/components/dialogs/app-dialog"
-import { PrincipalSelectionTable } from "@/components/principals/principal-selection-table"
 import {
   groupsQueryOptions,
   usersQueryOptions,
 } from "@/features/principals/api/principals-api"
+import { Button } from "@workspace/ui/components/button"
+import { DialogFooter } from "@workspace/ui/components/dialog"
+import { HugeiconsIcon } from "@hugeicons/react"
+import type { PrincipalOption } from "@/features/inventory/types/inventory-types"
+import { PrincipalSelectionTable } from "@/components/principals/principal-selection-table"
+import type { PublishedPodCatalogEntry } from "@/features/pods/types/pod-types"
+import type { RowSelectionState } from "@tanstack/react-table"
+import { buildPrincipalOptions } from "@/features/inventory/utils/acl-transformers"
 import { publishedPodClonesQueryOptions } from "@/features/pods/api/publish-pod-api"
+import { useQuery } from "@tanstack/react-query"
+import { useState } from "react"
 
 export function ManagerCloneDialog({
   pod,

@@ -1,9 +1,9 @@
-import { HugeiconsIcon } from "@hugeicons/react"
 import { Cancel01Icon, Tick01Icon } from "@hugeicons/core-free-icons"
 import {
   ToggleGroup,
   ToggleGroupItem,
 } from "@workspace/ui/components/toggle-group"
+import { HugeiconsIcon } from "@hugeicons/react"
 import type { PermissionState } from "../../types/inventory-types"
 
 type PermissionStateControlProps = {

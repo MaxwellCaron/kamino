@@ -1,13 +1,3 @@
-import { HugeiconsIcon } from "@hugeicons/react"
-import { ArrowUpRight01Icon } from "@hugeicons/core-free-icons"
-import { Badge } from "@workspace/ui/components/badge"
-import { Button } from "@workspace/ui/components/button"
-import { RelativeTimeCard } from "@workspace/ui/components/relative-time-card"
-import type { ColumnDef } from "@tanstack/react-table"
-import type { AppTableFeatures } from "@/components/data-table/data-table-types"
-import type { ApiTreeNode } from "@/features/inventory/types/inventory-types"
-import type { ApiRequestSummary } from "@/features/requests/types/request-types"
-import { findTreePath } from "@/features/inventory/utils/inventory-tree"
 import {
   formatRequestKind,
   formatRequestPowerAction,
@@ -15,6 +5,16 @@ import {
   getRequestIcon,
   getRequestStatusClassName,
 } from "@/features/requests/utils/request-presenters"
+import type { ApiRequestSummary } from "@/features/requests/types/request-types"
+import type { ApiTreeNode } from "@/features/inventory/types/inventory-types"
+import type { AppTableFeatures } from "@/components/data-table/data-table-types"
+import { ArrowUpRight01Icon } from "@hugeicons/core-free-icons"
+import { Badge } from "@workspace/ui/components/badge"
+import { Button } from "@workspace/ui/components/button"
+import type { ColumnDef } from "@tanstack/react-table"
+import { HugeiconsIcon } from "@hugeicons/react"
+import { RelativeTimeCard } from "@workspace/ui/components/relative-time-card"
+import { findTreePath } from "@/features/inventory/utils/inventory-tree"
 import { formatVmReference } from "@/features/shared/utils/format"
 
 type ActivityColumnsOptions = {

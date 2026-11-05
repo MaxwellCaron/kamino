@@ -1,5 +1,11 @@
 "use client";
 
+import type { ChartPhase, ChartStatus } from "../chart-phase";
+import type {Dispatch, ReactNode, RefObject, SetStateAction} from "react";
+import type {
+  HeatmapSeparatorLayout,
+  HeatmapWeekStartDay,
+} from "./heatmap-utils";
 import {
   
   
@@ -11,21 +17,15 @@ import {
   useMemo,
   useState
 } from "react";
-import { cn } from "@workspace/ui/lib/utils";
+import type { scaleLinear, scaleTime } from "@visx/scale";
 import {
   HEATMAP_DEFAULT_LEVEL_COLORS
   
 } from "./heatmap-colors";
-import type {Dispatch, ReactNode, RefObject, SetStateAction} from "react";
-import type { scaleLinear, scaleTime } from "@visx/scale";
-import type { Transition } from "motion/react";
-import type { Margin } from "../chart-context";
-import type { ChartPhase, ChartStatus } from "../chart-phase";
 import type {HeatmapLevelStyles} from "./heatmap-colors";
-import type {
-  HeatmapSeparatorLayout,
-  HeatmapWeekStartDay,
-} from "./heatmap-utils";
+import type { Margin } from "../chart-context";
+import type { Transition } from "motion/react";
+import { cn } from "@workspace/ui/lib/utils";
 
 type HeatmapTimeScale = ReturnType<typeof scaleTime<number>>;
 type HeatmapLinearScale = ReturnType<typeof scaleLinear<number>>;

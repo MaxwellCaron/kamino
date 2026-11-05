@@ -1,5 +1,8 @@
-import { Link } from "@tanstack/react-router"
-import { HugeiconsIcon } from "@hugeicons/react"
+import {
+  Alert,
+  AlertDescription,
+  AlertTitle,
+} from "@workspace/ui/components/alert"
 import {
   Alert01Icon,
   Cancel01Icon,
@@ -11,15 +14,12 @@ import {
   UserSearch01Icon,
   ZoomIcon,
 } from "@hugeicons/core-free-icons"
-
 import {
-  Alert,
-  AlertDescription,
-  AlertTitle,
-} from "@workspace/ui/components/alert"
-import { Badge } from "@workspace/ui/components/badge"
+  AppDialogContent,
+  AppDialogScrollBody,
+} from "@/components/dialogs/app-dialog"
+
 import { Dialog, DialogFooter } from "@workspace/ui/components/dialog"
-import { FacehashIcon } from "@workspace/ui/components/facehash"
 import {
   Item,
   ItemActions,
@@ -28,8 +28,6 @@ import {
   ItemMedia,
   ItemTitle,
 } from "@workspace/ui/components/item"
-import { RelativeTimeCard } from "@workspace/ui/components/relative-time-card"
-
 import {
   STATUS_ICONS,
   formatRequestKind,
@@ -38,19 +36,21 @@ import {
   getRequestIcon,
   getRequestStatusClassName,
 } from "../utils/request-presenters"
-import type { IconSvgElement } from "@hugeicons/react"
-import type { ApiTreeNode } from "@/features/inventory/types/inventory-types"
 import type { ApiRequestDetail } from "@/features/requests/types/request-types"
-import { findTreePath } from "@/features/inventory/utils/inventory-tree"
-
-import {
-  AppDialogContent,
-  AppDialogScrollBody,
-} from "@/components/dialogs/app-dialog"
-import { PreloadOverlay } from "@/components/loading-overlay"
+import type { ApiTreeNode } from "@/features/inventory/types/inventory-types"
 import { AppActionButton } from "@/components/actions/app-action-button"
-import { formatVmReference } from "@/features/shared/utils/format"
+
 import { AppEmptyState } from "@/components/feedback/app-empty-state"
+import { Badge } from "@workspace/ui/components/badge"
+import { FacehashIcon } from "@workspace/ui/components/facehash"
+import { HugeiconsIcon } from "@hugeicons/react"
+import type { IconSvgElement } from "@hugeicons/react"
+
+import { Link } from "@tanstack/react-router"
+import { PreloadOverlay } from "@/components/loading-overlay"
+import { RelativeTimeCard } from "@workspace/ui/components/relative-time-card"
+import { findTreePath } from "@/features/inventory/utils/inventory-tree"
+import { formatVmReference } from "@/features/shared/utils/format"
 
 type RequestDetailDialogProps = {
   canReview: boolean

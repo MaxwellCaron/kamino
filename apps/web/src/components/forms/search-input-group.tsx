@@ -1,10 +1,10 @@
-import { HugeiconsIcon } from "@hugeicons/react"
-import { Search01Icon } from "@hugeicons/core-free-icons"
 import {
   InputGroup,
   InputGroupAddon,
   InputGroupInput,
 } from "@workspace/ui/components/input-group"
+import { HugeiconsIcon } from "@hugeicons/react"
+import { Search01Icon } from "@hugeicons/core-free-icons"
 
 type SearchInputGroupProps = {
   value: string

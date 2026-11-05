@@ -1,14 +1,13 @@
-import { PodTasks } from "../pod-tasks"
-import { PodVms } from "../pod-vms"
-import { createPublishPodPreview } from "./publish-pod-preview"
-import { PublishPodStepLayout } from "./publish-pod-step-layout"
 import type {
   PublishPodFormApi,
   PublishPodFormValues,
 } from "./publish-pod-form"
-import type { PodTask } from "@/features/pods/types/pod-types"
-import type { PublishPodFolder } from "@/features/pods/api/publish-pod-api"
 import type { PodCloneTarget } from "@/features/pods/api/clone-targets-api"
+import type { PodTask } from "@/features/pods/types/pod-types"
+import { PodTasks } from "../pod-tasks"
+import type { PublishPodFolder } from "@/features/pods/api/publish-pod-api"
+import { PublishPodStepLayout } from "./publish-pod-step-layout"
+import { createPublishPodPreview } from "./publish-pod-preview"
 
 type PublishPodPreviewStepProps = {
   cloneTargets: Array<PodCloneTarget>
@@ -47,7 +46,6 @@ export function PublishPodPreviewStep({
 
         return (
           <PublishPodStepLayout form={form} clonedPod={preview} actionsDisabled>
-            <PodVms network={preview.network} vms={preview.vms} readOnly />
             {values.tasks.length > 0 ? (
               <PodTasks
                 tasks={maskTaskAnswers(values.tasks)}

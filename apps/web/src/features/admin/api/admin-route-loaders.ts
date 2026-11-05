@@ -1,17 +1,17 @@
-import type { QueryClient } from "@tanstack/react-query"
-import { inventoryTreeQueryOptions } from "@/features/inventory/api/inventory-api"
 import {
   groupsQueryOptions,
   usersQueryOptions,
 } from "@/features/principals/api/principals-api"
 import {
-  requestSummariesQueryOptions,
-  requestSummaryCountQueryOptions,
-} from "@/features/requests/api/requests-api"
-import {
   nodesQueryOptions,
   storagesQueryOptions,
 } from "@/features/vms/api/proxmox-options-api"
+import {
+  requestSummariesQueryOptions,
+  requestSummaryCountQueryOptions,
+} from "@/features/requests/api/requests-api"
+import type { QueryClient } from "@tanstack/react-query"
+import { inventoryTreeQueryOptions } from "@/features/inventory/api/inventory-api"
 
 async function preloadClusterCapacity(queryClient: QueryClient) {
   const nodes = await queryClient.ensureQueryData(nodesQueryOptions)

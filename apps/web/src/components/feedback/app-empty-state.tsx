@@ -1,4 +1,4 @@
-import { HugeiconsIcon } from "@hugeicons/react"
+import type { ComponentProps, ReactNode } from "react"
 import {
   Empty,
   EmptyDescription,
@@ -6,8 +6,8 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from "@workspace/ui/components/empty"
+import { HugeiconsIcon } from "@hugeicons/react"
 import type { IconSvgElement } from "@hugeicons/react"
-import type { ComponentProps, ReactNode } from "react"
 
 type AppEmptyStateProps = ComponentProps<typeof Empty> & {
   description: ReactNode

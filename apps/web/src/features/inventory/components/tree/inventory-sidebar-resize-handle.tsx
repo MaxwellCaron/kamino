@@ -1,7 +1,7 @@
 import { useEffect, useRef } from "react"
-import { useSidebar } from "@workspace/ui/components/sidebar"
-import { cn } from "@workspace/ui/lib/utils"
 import { INVENTORY_SIDEBAR_KEYBOARD_STEP } from "@/features/inventory/hooks/use-inventory-sidebar-resize"
+import { cn } from "@workspace/ui/lib/utils"
+import { useSidebar } from "@workspace/ui/components/sidebar"
 
 type InventorySidebarResizeHandleProps = {
   width: number
@@ -9,8 +9,6 @@ type InventorySidebarResizeHandleProps = {
   maxWidth: number
   onLiveUpdate: (width: number) => void
   onCommit: (width: number) => void
-  onResizeStart: () => void
-  onResizeEnd: () => void
 }
 
 export function InventorySidebarResizeHandle({
@@ -19,25 +17,16 @@ export function InventorySidebarResizeHandle({
   maxWidth,
   onLiveUpdate,
   onCommit,
-  onResizeStart,
-  onResizeEnd,
 }: InventorySidebarResizeHandleProps) {
   const { isMobile, state } = useSidebar()
   const isDraggingRef = useRef(false)
   const startXRef = useRef(0)
   const startWidthRef = useRef(0)
   const lastWidthRef = useRef(width)
-  const handleRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     lastWidthRef.current = width
   }, [width])
-
-  useEffect(() => {
-    return () => {
-      isDraggingRef.current = false
-    }
-  }, [])
 
   if (isMobile) {
     return null
@@ -48,7 +37,6 @@ export function InventorySidebarResizeHandle({
 
     isDraggingRef.current = false
     onCommit(lastWidthRef.current)
-    onResizeEnd()
   }
 
   const handlePointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
@@ -60,7 +48,6 @@ export function InventorySidebarResizeHandle({
     startWidthRef.current = width
     lastWidthRef.current = width
     event.currentTarget.setPointerCapture(event.pointerId)
-    onResizeStart()
   }
 
   const handlePointerMove = (event: React.PointerEvent<HTMLDivElement>) => {
@@ -72,19 +59,11 @@ export function InventorySidebarResizeHandle({
       Math.min(maxWidth, Math.round(startWidthRef.current + delta))
     )
     lastWidthRef.current = nextWidth
+    event.currentTarget.setAttribute("aria-valuenow", String(nextWidth))
     onLiveUpdate(nextWidth)
   }
 
-  const handlePointerUp = (event: React.PointerEvent<HTMLDivElement>) => {
-    if (!isDraggingRef.current) return
-
-    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
-      event.currentTarget.releasePointerCapture(event.pointerId)
-    }
-    finishDrag()
-  }
-
-  const handlePointerCancel = (event: React.PointerEvent<HTMLDivElement>) => {
+  const handlePointerEnd = (event: React.PointerEvent<HTMLDivElement>) => {
     if (!isDraggingRef.current) return
 
     if (event.currentTarget.hasPointerCapture(event.pointerId)) {
@@ -120,7 +99,7 @@ export function InventorySidebarResizeHandle({
 
   return (
     <div
-      ref={handleRef}
+      data-slot="inventory-sidebar-resize-handle"
       role="separator"
       aria-orientation="vertical"
       aria-label="Resize inventory sidebar"
@@ -130,16 +109,16 @@ export function InventorySidebarResizeHandle({
       aria-hidden={state === "collapsed"}
       tabIndex={state === "collapsed" ? -1 : 0}
       className={cn(
-        "invisible fixed inset-y-0 z-20 my-7 hidden w-4 -translate-x-1/2 cursor-col-resize touch-none opacity-0 transition-[opacity,visibility] delay-0 duration-0 md:flex",
-        "peer-data-[state=expanded]:visible peer-data-[state=expanded]:opacity-100 peer-data-[state=expanded]:delay-200",
+        "invisible fixed inset-y-0 left-(--sidebar-width) z-20 my-7 hidden w-4 -translate-x-1/2 cursor-col-resize touch-none opacity-0 md:flex",
+        "peer-data-[state=expanded]:visible peer-data-[state=expanded]:opacity-100",
         "after:absolute after:inset-y-0 after:left-1/2 after:w-px after:-translate-x-1/2 after:bg-sidebar-border",
         "focus-visible:ring-2 focus-visible:ring-sidebar-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background focus-visible:outline-none"
       )}
-      style={{ left: "var(--sidebar-width)" }}
       onPointerDown={handlePointerDown}
       onPointerMove={handlePointerMove}
-      onPointerUp={handlePointerUp}
-      onPointerCancel={handlePointerCancel}
+      onPointerUp={handlePointerEnd}
+      onPointerCancel={handlePointerEnd}
+      onLostPointerCapture={finishDrag}
       onKeyDown={handleKeyDown}
     />
   )

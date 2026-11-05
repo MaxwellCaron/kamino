@@ -1,14 +1,14 @@
 "use client"
 
-import { memo } from "react"
-import { TooltipBox } from "../tooltip/tooltip-box"
-import { Separator } from "../../separator"
-import { useHeatmap, useHeatmapInteraction } from "./heatmap-context"
 import {
   formatHeatmapContributionLabel,
   formatHeatmapTooltipDate,
   formatHeatmapTooltipWeekday,
 } from "./heatmap-utils"
+import { useHeatmap, useHeatmapInteraction } from "./heatmap-context"
+import { Separator } from "../../separator"
+import { TooltipBox } from "../tooltip/tooltip-box"
+import { memo } from "react"
 import { useDelayedTooltipData } from "./use-delayed-tooltip-data"
 
 export interface HeatmapTooltipProps {

@@ -1,4 +1,7 @@
-import { HugeiconsIcon } from "@hugeicons/react"
+import {
+  ActionBarItem,
+  ActionBarSeparator,
+} from "@workspace/ui/components/action-bar"
 import {
   AddTeam02Icon,
   Cancel01Icon,
@@ -6,12 +9,9 @@ import {
   Tick01Icon,
   UserMinusIcon,
 } from "@hugeicons/core-free-icons"
-import {
-  ActionBarItem,
-  ActionBarSeparator,
-} from "@workspace/ui/components/action-bar"
 import type { ApiPrincipal } from "@/features/principals/types/principals-types"
 import type { ConfirmConfig } from "@/components/dialogs/confirm-dialog"
+import { HugeiconsIcon } from "@hugeicons/react"
 import { formatPrincipalReference } from "@/components/principals/principal-label"
 
 type BulkGroupContext = {

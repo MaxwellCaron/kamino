@@ -1,39 +1,39 @@
 "use client"
 
-import { useCallback, useMemo, useState } from "react"
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import { useNavigate, useRouter } from "@tanstack/react-router"
-import { toast } from "sonner"
-
-import { useTheme } from "@workspace/ui/components/theme-provider"
-
-import {
-  buildDocsCommandsForQuery,
-  buildSiteCommands,
-} from "./site-command-index"
-import { SiteCommandMenu } from "./site-command-menu"
+import { authSessionQueryOptions, logout } from "@/features/auth/api/auth-api"
 import {
   buildCommandSearchIndex,
   filterIndexedCommands,
   tokenizeCommandQuery,
 } from "./site-command-search"
-import type { BuildSiteCommandsActions } from "./site-command-index"
-import { authSessionQueryOptions, logout } from "@/features/auth/api/auth-api"
+import {
+  buildDocsCommandsForQuery,
+  buildSiteCommands,
+} from "./site-command-index"
 import {
   canAccessAdmin,
   canAccessRequestQueue,
 } from "@/features/auth/utils/management-permissions"
-import { inventoryTreeQueryOptions } from "@/features/inventory/api/inventory-api"
-import { useOptionalInventoryTreeNavigationContext } from "@/features/inventory/components/tree/inventory-tree-context"
+
 import {
   groupsQueryOptions,
   usersQueryOptions,
 } from "@/features/principals/api/principals-api"
+
 import {
   podCatalogQueryOptions,
   publishedPodsQueryOptions,
 } from "@/features/pods/api/publish-pod-api"
+import { useCallback, useMemo, useState } from "react"
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
+import { useNavigate, useRouter } from "@tanstack/react-router"
+import type { BuildSiteCommandsActions } from "./site-command-index"
+import { SiteCommandMenu } from "./site-command-menu"
+import { inventoryTreeQueryOptions } from "@/features/inventory/api/inventory-api"
 import { requestSummariesQueryOptions } from "@/features/requests/api/requests-api"
+import { toast } from "sonner"
+import { useOptionalInventoryTreeNavigationContext } from "@/features/inventory/components/tree/inventory-tree-context"
+import { useTheme } from "@workspace/ui/components/theme-provider"
 import { vnetsQueryOptions } from "@/features/sdn/api/sdn-api"
 
 type SiteCommandIndexState = {

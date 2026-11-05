@@ -1,12 +1,3 @@
-import { HugeiconsIcon } from "@hugeicons/react"
-import {
-  ComputerIcon,
-  Copy02Icon,
-  FolderIcon,
-  GitPullRequestIcon,
-  UserGroupIcon,
-  UserIcon,
-} from "@hugeicons/core-free-icons"
 import {
   Card,
   CardContent,
@@ -14,9 +5,18 @@ import {
   CardHeader,
   CardTitle,
 } from "@workspace/ui/components/card"
+import {
+  ComputerIcon,
+  Copy02Icon,
+  FolderClosedIcon,
+  GitPullRequestIcon,
+  UserGroupIcon,
+  UserIcon,
+} from "@hugeicons/core-free-icons"
 import { Item, ItemMedia, ItemTitle } from "@workspace/ui/components/item"
-import type { ReactNode } from "react"
 import type { AdminStats } from "../utils/admin-dashboard"
+import { HugeiconsIcon } from "@hugeicons/react"
+import type { ReactNode } from "react"
 
 type Stat = {
   icon: ReactNode
@@ -52,7 +52,7 @@ function buildStats(stats: AdminStats | null): Array<Stat> {
     {
       icon: (
         <HugeiconsIcon
-          icon={FolderIcon}
+          icon={FolderClosedIcon}
           className="size-5 text-muted-foreground"
         />
       ),

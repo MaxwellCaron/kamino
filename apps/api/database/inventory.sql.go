@@ -73,6 +73,15 @@ func (q *Queries) DeleteInventoryItem(ctx context.Context, id uuid.UUID) error {
 	return err
 }
 
+const enableProxmoxInventoryImport = `-- name: EnableProxmoxInventoryImport :exec
+SELECT set_config('kamino.proxmox_inventory_import', 'on', true)
+`
+
+func (q *Queries) EnableProxmoxInventoryImport(ctx context.Context) error {
+	_, err := q.db.Exec(ctx, enableProxmoxInventoryImport)
+	return err
+}
+
 const getAllInventoryItems = `-- name: GetAllInventoryItems :many
 SELECT ii.id, ii.parent_id, ii.kind, ii.name, ii.description,
        ii.vm_limit AS direct_vm_limit,
@@ -261,6 +270,58 @@ func (q *Queries) GetInventoryItemForUpdate(ctx context.Context, id uuid.UUID) (
 	return i, err
 }
 
+const getProxmoxVMByIdentity = `-- name: GetProxmoxVMByIdentity :one
+SELECT pv.inventory_item_id,
+       pv.node,
+       pv.vmid,
+       pv.guest_type,
+       pv.upstream_uuid,
+       pv.cpu_count,
+       pv.memory_mb,
+       pv.disk_gb,
+       ii.parent_id,
+       ii.name
+FROM proxmox_vms pv
+JOIN inventory_items ii ON ii.id = pv.inventory_item_id
+WHERE pv.upstream_uuid = $1 AND pv.vmid = $2
+`
+
+type GetProxmoxVMByIdentityParams struct {
+	UpstreamUuid uuid.UUID `json:"upstream_uuid"`
+	Vmid         int32     `json:"vmid"`
+}
+
+type GetProxmoxVMByIdentityRow struct {
+	InventoryItemID uuid.UUID  `json:"inventory_item_id"`
+	Node            string     `json:"node"`
+	Vmid            int32      `json:"vmid"`
+	GuestType       string     `json:"guest_type"`
+	UpstreamUuid    uuid.UUID  `json:"upstream_uuid"`
+	CpuCount        *int32     `json:"cpu_count"`
+	MemoryMb        *int32     `json:"memory_mb"`
+	DiskGb          *float64   `json:"disk_gb"`
+	ParentID        *uuid.UUID `json:"parent_id"`
+	Name            string     `json:"name"`
+}
+
+func (q *Queries) GetProxmoxVMByIdentity(ctx context.Context, arg GetProxmoxVMByIdentityParams) (GetProxmoxVMByIdentityRow, error) {
+	row := q.db.QueryRow(ctx, getProxmoxVMByIdentity, arg.UpstreamUuid, arg.Vmid)
+	var i GetProxmoxVMByIdentityRow
+	err := row.Scan(
+		&i.InventoryItemID,
+		&i.Node,
+		&i.Vmid,
+		&i.GuestType,
+		&i.UpstreamUuid,
+		&i.CpuCount,
+		&i.MemoryMb,
+		&i.DiskGb,
+		&i.ParentID,
+		&i.Name,
+	)
+	return i, err
+}
+
 const getProxmoxVMByInventoryItemID = `-- name: GetProxmoxVMByInventoryItemID :one
 SELECT inventory_item_id,
        node,
@@ -391,53 +452,6 @@ type GetProxmoxVMByNodeVMIDRow struct {
 func (q *Queries) GetProxmoxVMByNodeVMID(ctx context.Context, arg GetProxmoxVMByNodeVMIDParams) (GetProxmoxVMByNodeVMIDRow, error) {
 	row := q.db.QueryRow(ctx, getProxmoxVMByNodeVMID, arg.Node, arg.Vmid)
 	var i GetProxmoxVMByNodeVMIDRow
-	err := row.Scan(
-		&i.InventoryItemID,
-		&i.Node,
-		&i.Vmid,
-		&i.GuestType,
-		&i.UpstreamUuid,
-		&i.CpuCount,
-		&i.MemoryMb,
-		&i.DiskGb,
-		&i.ParentID,
-		&i.Name,
-	)
-	return i, err
-}
-
-const getProxmoxVMByUpstreamUUID = `-- name: GetProxmoxVMByUpstreamUUID :one
-SELECT pv.inventory_item_id,
-       pv.node,
-       pv.vmid,
-       pv.guest_type,
-       pv.upstream_uuid,
-       pv.cpu_count,
-       pv.memory_mb,
-       pv.disk_gb,
-       ii.parent_id,
-       ii.name
-FROM proxmox_vms pv
-JOIN inventory_items ii ON ii.id = pv.inventory_item_id
-WHERE pv.upstream_uuid = $1
-`
-
-type GetProxmoxVMByUpstreamUUIDRow struct {
-	InventoryItemID uuid.UUID  `json:"inventory_item_id"`
-	Node            string     `json:"node"`
-	Vmid            int32      `json:"vmid"`
-	GuestType       string     `json:"guest_type"`
-	UpstreamUuid    uuid.UUID  `json:"upstream_uuid"`
-	CpuCount        *int32     `json:"cpu_count"`
-	MemoryMb        *int32     `json:"memory_mb"`
-	DiskGb          *float64   `json:"disk_gb"`
-	ParentID        *uuid.UUID `json:"parent_id"`
-	Name            string     `json:"name"`
-}
-
-func (q *Queries) GetProxmoxVMByUpstreamUUID(ctx context.Context, upstreamUuid uuid.UUID) (GetProxmoxVMByUpstreamUUIDRow, error) {
-	row := q.db.QueryRow(ctx, getProxmoxVMByUpstreamUUID, upstreamUuid)
-	var i GetProxmoxVMByUpstreamUUIDRow
 	err := row.Scan(
 		&i.InventoryItemID,
 		&i.Node,

@@ -5,12 +5,12 @@ import {
   CardHeader,
   CardTitle,
 } from "@workspace/ui/components/card"
+import type { AppTableFeatures } from "@/components/data-table/data-table-types"
+import type { ColumnDef } from "@tanstack/react-table"
+import { DataTable } from "@/components/data-table/data-table"
+import type { PublishedPodCatalogEntry } from "@/features/pods/types/pod-types"
 import { PublishedPodClonesTable } from "./published-pod-clones-table"
 import { PublishedPodsEmptyState } from "./published-pods-empty-state"
-import type { ColumnDef } from "@tanstack/react-table"
-import type { AppTableFeatures } from "@/components/data-table/data-table-types"
-import type { PublishedPodCatalogEntry } from "@/features/pods/types/pod-types"
-import { DataTable } from "@/components/data-table/data-table"
 
 export function PublishedPodsCatalogCard({
   columns,

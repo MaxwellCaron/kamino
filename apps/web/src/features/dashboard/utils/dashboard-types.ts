@@ -1,8 +1,8 @@
-import type { IconSvgElement } from "@hugeicons/react"
 import type {
   ClonedPod,
   PublishedPodCatalogEntry,
 } from "@/features/pods/types/pod-types"
+import type { IconSvgElement } from "@hugeicons/react"
 
 export type ClonedPodEntry = {
   clonedPod: ClonedPod

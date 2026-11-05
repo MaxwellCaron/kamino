@@ -1,16 +1,13 @@
-import { useCallback, useMemo, useState } from "react"
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import { Navigate, getRouteApi } from "@tanstack/react-router"
-import { HugeiconsIcon } from "@hugeicons/react"
 import {
   Add01Icon,
   Delete01Icon,
   ReloadIcon,
   UserGroupIcon,
 } from "@hugeicons/core-free-icons"
-import { ActionBarItem } from "@workspace/ui/components/action-bar"
-import { Badge } from "@workspace/ui/components/badge"
-import { Button } from "@workspace/ui/components/button"
+import type {
+  ApiPrincipal,
+  ApiPrincipalProviderCapabilities,
+} from "@/features/principals/types/principals-types"
 import {
   Card,
   CardAction,
@@ -19,34 +16,37 @@ import {
   CardHeader,
   CardTitle,
 } from "@workspace/ui/components/card"
-import type {
-  ApiPrincipal,
-  ApiPrincipalProviderCapabilities,
-} from "@/features/principals/types/principals-types"
-import type { ConfirmConfig } from "@/components/dialogs/confirm-dialog"
-import { ConfirmDialog } from "@/components/dialogs/confirm-dialog"
-import { AppActionButton } from "@/components/actions/app-action-button"
 import {
   ManagementPermissionKeys,
   canAccessAdmin,
   hasManagementPermission,
 } from "@/features/auth/utils/management-permissions"
+import { Navigate, getRouteApi } from "@tanstack/react-router"
 import {
   deleteGroup,
   groupsQueryOptions,
   principalProviderQueryOptions,
   triggerPrincipalSync,
 } from "@/features/principals/api/principals-api"
-import { getGroupColumns } from "@/features/principals/components/groups/groups-columns"
-import { GroupDialog } from "@/features/principals/components/groups/group-dialog"
-import { GroupPermissionsDialog } from "@/features/principals/components/groups/group-permissions-dialog"
-import { MembershipDialog } from "@/features/principals/components/membership-dialog"
-import { DataTable } from "@/components/data-table/data-table"
-import { useItemDialogState } from "@/features/shared/hooks/use-item-dialog-state"
 import {
   showSingleMutationToast,
   showUnitMutationToast,
 } from "@/components/feedback/mutation-progress-toast"
+import { useCallback, useMemo, useState } from "react"
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
+import { ActionBarItem } from "@workspace/ui/components/action-bar"
+import { AppActionButton } from "@/components/actions/app-action-button"
+import { Badge } from "@workspace/ui/components/badge"
+import { Button } from "@workspace/ui/components/button"
+import type { ConfirmConfig } from "@/components/dialogs/confirm-dialog"
+import { ConfirmDialog } from "@/components/dialogs/confirm-dialog"
+import { DataTable } from "@/components/data-table/data-table"
+import { GroupDialog } from "@/features/principals/components/groups/group-dialog"
+import { GroupPermissionsDialog } from "@/features/principals/components/groups/group-permissions-dialog"
+import { HugeiconsIcon } from "@hugeicons/react"
+import { MembershipDialog } from "@/features/principals/components/membership-dialog"
+import { getGroupColumns } from "@/features/principals/components/groups/groups-columns"
+import { useItemDialogState } from "@/features/shared/hooks/use-item-dialog-state"
 
 const groupsRouteApi = getRouteApi("/_dashboard/admin/principals/groups")
 

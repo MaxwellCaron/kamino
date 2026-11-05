@@ -1,9 +1,7 @@
-import { HugeiconsIcon } from "@hugeicons/react"
-import {
-  InformationCircleIcon,
-  PencilEdit01Icon,
-} from "@hugeicons/core-free-icons"
-import { Button } from "@workspace/ui/components/button"
+import type {
+  ApiTreeNode,
+  ApiTreeNodeVM,
+} from "@/features/inventory/types/inventory-types"
 import {
   Card,
   CardAction,
@@ -11,13 +9,15 @@ import {
   CardHeader,
   CardTitle,
 } from "@workspace/ui/components/card"
-import { useState } from "react"
-import type {
-  ApiTreeNode,
-  ApiTreeNodeVM,
-} from "@/features/inventory/types/inventory-types"
-import { getVmCapabilities } from "@/features/inventory/utils/inventory-capabilities"
+import {
+  InformationCircleIcon,
+  PencilEdit01Icon,
+} from "@hugeicons/core-free-icons"
+import { Button } from "@workspace/ui/components/button"
+import { HugeiconsIcon } from "@hugeicons/react"
 import { VmNotesDialog } from "@/features/vms/components/dashboard/vm-notes-dialog"
+import { getVmCapabilities } from "@/features/inventory/utils/inventory-capabilities"
+import { useState } from "react"
 
 export function VmNotes({
   node,

@@ -21,7 +21,7 @@ func TestNewPodQuestionSummaryResponse(t *testing.T) {
 			name:     "zero questions",
 			total:    0,
 			answered: 0,
-			want:     podQuestionSummaryResponse{Total: 0, Answered: 0, Progress: 0},
+			want:     podQuestionSummaryResponse{Total: 0, Answered: 0, Progress: 100},
 		},
 		{
 			name:     "partial progress",

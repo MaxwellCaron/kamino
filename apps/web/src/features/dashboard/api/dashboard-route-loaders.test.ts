@@ -1,8 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
-import { preloadUserDashboard } from "./dashboard-route-loaders"
-import { inventoryTreeQueryOptions } from "@/features/inventory/api/inventory-api"
-import { vmStatusQueryOptions } from "@/features/vms/api/vm-api"
 import { createTestQueryClient } from "@/test/test-utils"
+import { inventoryTreeQueryOptions } from "@/features/inventory/api/inventory-api"
+import { preloadUserDashboard } from "./dashboard-route-loaders"
+import { vmStatusQueryOptions } from "@/features/vms/api/vm-api"
 
 const {
   mockInventoryTreeQueryFn,

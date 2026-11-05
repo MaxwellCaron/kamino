@@ -1,34 +1,34 @@
 "use client"
 
-import { useMemo } from "react"
-import { FolderAddIcon, PencilEdit01Icon } from "@hugeicons/core-free-icons"
-import { useForm } from "@tanstack/react-form"
-import { z } from "zod"
-
-import { DialogFooter } from "@workspace/ui/components/dialog"
+import {
+  AppDialog,
+  AppDialogPrimaryButton,
+} from "@/components/dialogs/app-dialog"
 import {
   Field,
   FieldError,
   FieldGroup,
   FieldLabel,
 } from "@workspace/ui/components/field"
-import { Input } from "@workspace/ui/components/input"
-
+import { FolderAddIcon, PencilEdit01Icon } from "@hugeicons/core-free-icons"
 import {
   useCreateFolder,
   useRenameFolder,
 } from "../hooks/use-inventory-actions"
-import {
-  AppDialog,
-  AppDialogPrimaryButton,
-} from "@/components/dialogs/app-dialog"
+
 import { CountedTextareaField } from "@/components/forms/counted-textarea-field"
-import { isTouchedInvalid } from "@/components/forms/form-errors"
-import { showSingleMutationToast } from "@/components/feedback/mutation-progress-toast"
+import { DialogFooter } from "@workspace/ui/components/dialog"
+import { Input } from "@workspace/ui/components/input"
+
 import { formatVmReference } from "@/features/shared/utils/format"
+import { isTouchedInvalid } from "@/components/forms/form-errors"
 import { replaceWhitespaceWithHyphen } from "@/features/shared/utils/sanitize"
+import { showSingleMutationToast } from "@/components/feedback/mutation-progress-toast"
+import { useForm } from "@tanstack/react-form"
+import { useMemo } from "react"
 import { useRenameVM } from "@/features/vms/hooks/use-vm-actions"
 import { vmNameSchema } from "@/features/vms/utils/vm-name"
+import { z } from "zod"
 
 const folderNameSchema = z
   .string()

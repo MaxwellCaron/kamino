@@ -1,11 +1,11 @@
-import { inventoryTreeFixtureVmCount } from "../dev/inventory-tree-fixture-config"
 import type {
   ApiInventoryAcl,
   ApiInventoryItem,
   ApiTreeNode,
 } from "../types/inventory-types"
-import { shouldRetryApiQuery } from "@/features/auth/api/auth-api"
 import { apiJson, apiVoid } from "@/features/shared/api/api-json"
+import { inventoryTreeFixtureVmCount } from "../dev/inventory-tree-fixture-config"
+import { shouldRetryApiQuery } from "@/features/auth/api/auth-api"
 
 let inventoryTreeFixtureCache: Array<ApiTreeNode> | null = null
 

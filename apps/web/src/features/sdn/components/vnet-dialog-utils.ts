@@ -1,9 +1,9 @@
-import { z } from "zod"
 import type {
   ApiSDNZone,
   ApiVNet,
   CreateVNetInput,
 } from "@/features/sdn/types/sdn-types"
+import { z } from "zod"
 
 export type VNetCreateMode = "single" | "prefix"
 

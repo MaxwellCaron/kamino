@@ -1,37 +1,37 @@
-import { useForm } from "@tanstack/react-form"
-import { useQuery } from "@tanstack/react-query"
-import { z } from "zod"
-import { CopyIcon } from "@hugeicons/core-free-icons"
-import { DialogFooter } from "@workspace/ui/components/dialog"
-import {
-  FieldError,
-  FieldGroup,
-  FieldSeparator,
-  FieldSet,
-} from "@workspace/ui/components/field"
 import {
   AppDialog,
   AppDialogPrimaryButton,
   AppDialogScrollBody,
 } from "@/components/dialogs/app-dialog"
-import { InlineErrorAlert } from "@/components/feedback/inline-error-alert"
-import { PreloadOverlay } from "@/components/loading-overlay"
-import { useCloneVM } from "@/features/vms/hooks/use-vm-actions"
 import {
   CloneDestinationFolderField,
   CloneFullCloneField,
   CloneNameField,
   CloneNodeField,
 } from "@/features/vms/components/create/clone-form-fields"
-import { optionalVmNameSchema } from "@/features/vms/components/create/create-vm-form"
-import { VMIDField } from "@/components/vms/vmid-field"
-import { optionalVmidSchema } from "@/components/vms/vmid-schema"
-import { getInventoryFolderOptions } from "@/features/inventory/utils/inventory-tree"
+import {
+  FieldError,
+  FieldGroup,
+  FieldSeparator,
+  FieldSet,
+} from "@workspace/ui/components/field"
+import { CopyIcon } from "@hugeicons/core-free-icons"
+import { DialogFooter } from "@workspace/ui/components/dialog"
+import { InlineErrorAlert } from "@/components/feedback/inline-error-alert"
 import { InventoryPermissionKeys } from "@/features/inventory/utils/inventory-permissions"
+import { PreloadOverlay } from "@/components/loading-overlay"
+import { VMIDField } from "@/components/vms/vmid-field"
+import { formatVmReference } from "@/features/shared/utils/format"
+import { getInventoryFolderOptions } from "@/features/inventory/utils/inventory-tree"
 import { inventoryTreeQueryOptions } from "@/features/inventory/api/inventory-api"
 import { nodesQueryOptions } from "@/features/vms/api/proxmox-options-api"
+import { optionalVmNameSchema } from "@/features/vms/components/create/create-vm-form"
+import { optionalVmidSchema } from "@/components/vms/vmid-schema"
 import { toastCloneVm } from "@/features/vms/utils/vm-toasts"
-import { formatVmReference } from "@/features/shared/utils/format"
+import { useCloneVM } from "@/features/vms/hooks/use-vm-actions"
+import { useForm } from "@tanstack/react-form"
+import { useQuery } from "@tanstack/react-query"
+import { z } from "zod"
 
 const cloneSchema = z.object({
   target_folder_id: z

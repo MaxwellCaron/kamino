@@ -1,4 +1,3 @@
-import { useCallback } from "react"
 import {
   PlayIcon,
   PowerIcon,
@@ -9,13 +8,14 @@ import {
   useSubmitInventoryPowerRequest,
   useVmPowerAction,
 } from "./use-vm-actions"
-import type { IconSvgElement } from "@hugeicons/react"
-import type { ConfirmConfig } from "@/components/dialogs/confirm-dialog"
-import type { ApiTreeNodePermissions } from "@/features/inventory/types/inventory-types"
 import type { ApiBulkVmMutationResponse } from "../types/vm-types"
-import { showSingleMutationToast } from "@/components/feedback/mutation-progress-toast"
-import { getInventoryPermissionMode } from "@/features/inventory/utils/inventory-capabilities"
+import type { ApiTreeNodePermissions } from "@/features/inventory/types/inventory-types"
+import type { ConfirmConfig } from "@/components/dialogs/confirm-dialog"
+import type { IconSvgElement } from "@hugeicons/react"
 import { formatVmReference } from "@/features/shared/utils/format"
+import { getInventoryPermissionMode } from "@/features/inventory/utils/inventory-capabilities"
+import { showSingleMutationToast } from "@/components/feedback/mutation-progress-toast"
+import { useCallback } from "react"
 
 export type VmPowerAction = "start" | "shutdown" | "reboot" | "stop"
 export type VmPowerMode = "direct" | "request"

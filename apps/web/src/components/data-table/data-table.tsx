@@ -5,14 +5,25 @@ import {
   ActionBarSelection,
   ActionBarSeparator,
 } from "@workspace/ui/components/action-bar"
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@workspace/ui/components/table"
+import type {
+  AppTableFeatures,
+  DataTableFeatures,
+  DataTableSelectionActionsContext,
+} from "./data-table-types"
+import { Cancel01Icon, Search01Icon } from "@hugeicons/core-free-icons"
+import type {
+  ColumnDef,
+  ExpandedState,
+  OnChangeFn,
+  PaginationState,
+  ReactTable,
+  RowData,
+  RowSelectionState,
+  SortingState,
+  TableOptions,
+} from "@tanstack/react-table"
+import type { ComponentType, ReactNode } from "react"
+import { Fragment, useState } from "react"
 import {
   InputGroup,
   InputGroupAddon,
@@ -27,31 +38,20 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@workspace/ui/components/select"
-import { HugeiconsIcon } from "@hugeicons/react"
-import { Cancel01Icon, Search01Icon } from "@hugeicons/core-free-icons"
-import { Skeleton } from "@workspace/ui/components/skeleton"
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@workspace/ui/components/table"
+import { appTableFeatures, defaultDataTableFeatures } from "./data-table-types"
 import { flexRender, useTable } from "@tanstack/react-table"
-import { Fragment, useState } from "react"
 import { DataTablePagination } from "./data-table-pagination"
 import { DataTableStateRow } from "./data-table-state-row"
-import { appTableFeatures, defaultDataTableFeatures } from "./data-table-types"
-import type { ComponentType, ReactNode } from "react"
-import type {
-  AppTableFeatures,
-  DataTableFeatures,
-  DataTableSelectionActionsContext,
-} from "./data-table-types"
-import type {
-  ColumnDef,
-  ExpandedState,
-  OnChangeFn,
-  PaginationState,
-  ReactTable,
-  RowData,
-  RowSelectionState,
-  SortingState,
-  TableOptions,
-} from "@tanstack/react-table"
+import { HugeiconsIcon } from "@hugeicons/react"
+import { Skeleton } from "@workspace/ui/components/skeleton"
 
 const LOADING_ROW_IDS = ["loading-row-1", "loading-row-2", "loading-row-3"]
 

@@ -1,25 +1,25 @@
-import { HugeiconsIcon } from "@hugeicons/react"
 import {
   ArrowLeft01Icon,
   ComputerIcon,
   PackageIcon,
   PackageMovingIcon,
 } from "@hugeicons/core-free-icons"
-import { Badge } from "@workspace/ui/components/badge"
-import { PUBLISH_POD_STEP_IDS } from "./publish-pod-submit-types"
-import type {
-  PublishPodStepId,
-  PublishPodSubmitStatus,
-  PublishPodUpdateVirtualMachine,
-} from "./publish-pod-submit-types"
-import type { ProgressStateStep } from "@/components/progress-state/progress-state"
-import type { PublishPodProgress } from "@/features/pods/api/publish-pod-api"
 import {
   ProgressErrorState,
   ProgressLoadingState,
   ProgressState,
   ProgressSuccessState,
 } from "@/components/progress-state/progress-state"
+import type {
+  PublishPodStepId,
+  PublishPodSubmitStatus,
+  PublishPodUpdateVirtualMachine,
+} from "./publish-pod-submit-types"
+import { Badge } from "@workspace/ui/components/badge"
+import { HugeiconsIcon } from "@hugeicons/react"
+import { PUBLISH_POD_STEP_IDS } from "./publish-pod-submit-types"
+import type { ProgressStateStep } from "@/components/progress-state/progress-state"
+import type { PublishPodProgress } from "@/features/pods/api/publish-pod-api"
 
 const PUBLISH_POD_STEPS = [
   {

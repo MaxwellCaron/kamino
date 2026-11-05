@@ -1,5 +1,5 @@
-import { Slot as SlotPrimitive } from "radix-ui"
 import * as React from "react"
+import { Slot as SlotPrimitive } from "radix-ui"
 import { cn } from "@workspace/ui/lib/utils"
 
 const CIRCULAR_PROGRESS_NAME = "CircularProgress"

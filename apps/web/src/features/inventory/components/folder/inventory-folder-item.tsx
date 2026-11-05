@@ -1,6 +1,8 @@
-import { Link } from "@tanstack/react-router"
-import { HugeiconsIcon } from "@hugeicons/react"
-import { ComputerIcon, FolderIcon, StarIcon } from "@hugeicons/core-free-icons"
+import {
+  ComputerIcon,
+  FolderClosedIcon,
+  StarIcon,
+} from "@hugeicons/core-free-icons"
 import {
   Item,
   ItemActions,
@@ -9,13 +11,15 @@ import {
   ItemMedia,
   ItemTitle,
 } from "@workspace/ui/components/item"
+import type { ApiTreeNode } from "../../types/inventory-types"
 import { Button } from "@workspace/ui/components/button"
+import { HugeiconsIcon } from "@hugeicons/react"
+import { InventoryNodeIcon } from "../inventory-node-icon"
+import { InventoryNodeMenu } from "../inventory-actions/inventory-node-menu"
+import { InventoryVmItem } from "@/components/inventory/inventory-vm-item"
+import { Link } from "@tanstack/react-router"
 import { Separator } from "@workspace/ui/components/separator"
 import { cn } from "@workspace/ui/lib/utils"
-import { InventoryNodeMenu } from "../inventory-actions/inventory-node-menu"
-import { InventoryNodeIcon } from "../inventory-node-icon"
-import type { ApiTreeNode } from "../../types/inventory-types"
-import { InventoryVmItem } from "@/components/inventory/inventory-vm-item"
 
 function FolderDescription({ node }: { node: ApiTreeNode }) {
   const children = node.children ?? []
@@ -25,7 +29,7 @@ function FolderDescription({ node }: { node: ApiTreeNode }) {
   return (
     <>
       <div className="flex items-center gap-1">
-        <HugeiconsIcon icon={FolderIcon} className="size-3.5" />
+        <HugeiconsIcon icon={FolderClosedIcon} className="size-3.5" />
         {folderCount} {folderCount === 1 ? "Folder" : "Folders"}
       </div>
       <Separator orientation="vertical" className="mx-1" />

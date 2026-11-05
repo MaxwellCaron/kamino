@@ -4,12 +4,12 @@ import {
   createFormHookContexts,
   formOptions,
 } from "@tanstack/react-form"
-import { z } from "zod"
-import { vmNameSchema } from "../../utils/vm-name"
 import type { ApiVMTemplateOption } from "@/features/vms/api/proxmox-options-api"
 import type { CreateVMParams } from "@/features/vms/types/vm-types"
 import { optionalVmidSchema } from "@/components/vms/vmid-schema"
 import { uuid } from "@/features/shared/utils/uuid"
+import { vmNameSchema } from "../../utils/vm-name"
+import { z } from "zod"
 
 const createVmMethodSchema = z.enum(["template", "iso", "upload"])
 

@@ -1,9 +1,9 @@
 import { createFileRoute, redirect } from "@tanstack/react-router"
-import { z } from "zod"
-import { authSessionQueryOptions } from "@/features/auth/api/auth-api"
 import { LoginPage } from "@/features/auth/components/login-page"
-import { safeRedirectPath } from "@/features/auth/utils/safe-redirect"
+import { authSessionQueryOptions } from "@/features/auth/api/auth-api"
 import { pageTitle } from "@/features/shared/utils/page-title"
+import { safeRedirectPath } from "@/features/auth/utils/safe-redirect"
+import { z } from "zod"
 
 export const Route = createFileRoute("/login")({
   validateSearch: z.object({

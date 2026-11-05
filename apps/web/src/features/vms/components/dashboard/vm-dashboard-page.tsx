@@ -1,26 +1,26 @@
-import { getRouteApi, notFound } from "@tanstack/react-router"
-import { useQuery } from "@tanstack/react-query"
 import type {
   ApiInventoryItem,
   ApiTreeNode,
 } from "@/features/inventory/types/inventory-types"
+import { getRouteApi, notFound } from "@tanstack/react-router"
 import {
   inventoryItemQueryOptions,
   inventoryTreeQueryOptions,
 } from "@/features/inventory/api/inventory-api"
-import { findInventoryTreeNode as findTreeNode } from "@/features/inventory/utils/inventory-tree"
 import {
   vmOverviewQueryOptions,
   vmStatusQueryOptions,
 } from "@/features/vms/api/vm-api"
-import { useVmDashboardResources } from "@/features/vms/hooks/use-vm-dashboard-resources"
-import { getVmCapabilities } from "@/features/inventory/utils/inventory-capabilities"
-import { useIsVncSessionPinned } from "@/features/vms/components/dashboard/vnc-session-visibility-context"
 import { SnapshotsTable } from "@/features/vms/components/dashboard/snapshot-table"
 import { VmHeader } from "@/features/vms/components/dashboard/vm-header"
 import { VmNotes } from "@/features/vms/components/dashboard/vm-notes"
 import { VmPowerControls } from "@/features/vms/components/dashboard/vm-power-controls"
+import { findInventoryTreeNode as findTreeNode } from "@/features/inventory/utils/inventory-tree"
+import { getVmCapabilities } from "@/features/inventory/utils/inventory-capabilities"
 import { isApiErrorStatus } from "@/features/auth/api/auth-api"
+import { useIsVncSessionPinned } from "@/features/vms/components/dashboard/vnc-session-visibility-context"
+import { useQuery } from "@tanstack/react-query"
+import { useVmDashboardResources } from "@/features/vms/hooks/use-vm-dashboard-resources"
 
 const vmDashboardRouteApi = getRouteApi("/_dashboard/inventory/items/$itemId")
 

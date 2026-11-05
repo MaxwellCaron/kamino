@@ -1,10 +1,10 @@
-import { forwardRef, useEffect, useImperativeHandle, useRef } from "react"
-import RFB from "@novnc/novnc"
 import {
   VNC_PERFORMANCE_COMPRESSION_LEVEL,
   VNC_PERFORMANCE_QUALITY_LEVEL,
   getVncStreamSettings,
 } from "@/features/vms/utils/vm-console-utils"
+import { forwardRef, useEffect, useImperativeHandle, useRef } from "react"
+import RFB from "@novnc/novnc"
 
 export const VNC_QUALITY_LEVEL = VNC_PERFORMANCE_QUALITY_LEVEL
 export const VNC_COMPRESSION_LEVEL = VNC_PERFORMANCE_COMPRESSION_LEVEL
