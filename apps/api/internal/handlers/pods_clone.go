@@ -179,7 +179,7 @@ type podQuestionSummaryResponse struct {
 }
 
 func newPodQuestionSummaryResponse(total, answered int32) podQuestionSummaryResponse {
-	progress := 0.0
+	progress := 100.0
 	if total > 0 {
 		progress = (float64(answered) / float64(total)) * 100
 	}
