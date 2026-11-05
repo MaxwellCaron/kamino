@@ -1,4 +1,5 @@
 import type { ClonedPod } from "@/features/pods/types/pod-types"
+import { PodCloneCard } from "../pod-clone-card"
 import { PodHeader } from "../pod-header"
 import type { PublishPodFormApi } from "./publish-pod-form"
 import type { ReactNode } from "react"
@@ -21,14 +22,21 @@ export function PublishPodStepLayout({
     <div className="flex flex-col">
       <form.Subscribe selector={(state) => state.values}>
         {(values) => (
-          <PodHeader
-            pod={toPodDraft(values)}
-            clonedPod={clonedPod}
-            actionsDisabled={actionsDisabled}
-          />
+          <PodHeader pod={toPodDraft(values)} showClone={!clonedPod} />
         )}
       </form.Subscribe>
       <div className="mx-auto flex w-full max-w-7xl flex-col gap-6 px-4 py-4 md:py-6 lg:px-6">
+        {clonedPod && (
+          <form.Subscribe selector={(state) => state.values}>
+            {(values) => (
+              <PodCloneCard
+                pod={toPodDraft(values)}
+                clonedPod={clonedPod}
+                actionsDisabled={actionsDisabled}
+              />
+            )}
+          </form.Subscribe>
+        )}
         {children}
       </div>
     </div>

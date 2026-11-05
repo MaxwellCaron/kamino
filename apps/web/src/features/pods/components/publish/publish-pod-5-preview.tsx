@@ -5,7 +5,6 @@ import type {
 import type { PodCloneTarget } from "@/features/pods/api/clone-targets-api"
 import type { PodTask } from "@/features/pods/types/pod-types"
 import { PodTasks } from "../pod-tasks"
-import { PodVms } from "../pod-vms"
 import type { PublishPodFolder } from "@/features/pods/api/publish-pod-api"
 import { PublishPodStepLayout } from "./publish-pod-step-layout"
 import { createPublishPodPreview } from "./publish-pod-preview"
@@ -47,7 +46,6 @@ export function PublishPodPreviewStep({
 
         return (
           <PublishPodStepLayout form={form} clonedPod={preview} actionsDisabled>
-            <PodVms network={preview.network} vms={preview.vms} readOnly />
             {values.tasks.length > 0 ? (
               <PodTasks
                 tasks={maskTaskAnswers(values.tasks)}

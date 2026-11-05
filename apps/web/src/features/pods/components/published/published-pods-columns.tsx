@@ -35,11 +35,11 @@ import type { AppTableFeatures } from "@/components/data-table/data-table-types"
 import { Badge } from "@workspace/ui/components/badge"
 import { Button } from "@workspace/ui/components/button"
 import type { ColumnDef } from "@tanstack/react-table"
-import { FormatPodCreatorsShort } from "@/features/pods/components/pod-creators"
 import { HugeiconsIcon } from "@hugeicons/react"
 import { Image } from "@unpic/react"
 import { Link } from "@tanstack/react-router"
 import type { PodCloneAction } from "@/features/pods/utils/pod-clone-actions"
+import { PodCreators } from "@/features/pods/components/pod-creators"
 import { PublishedPodStatusBadge } from "./published-pod-status-badge"
 import { RelativeTimeCard } from "@workspace/ui/components/relative-time-card"
 
@@ -144,7 +144,7 @@ export function getPublishedPodsColumns({
       header: "Creators",
       cell: ({ row }) => (
         <div className="min-w-48 py-1">
-          {FormatPodCreatorsShort(row.original.creators)}
+          <PodCreators creators={row.original.creators} />
         </div>
       ),
     },

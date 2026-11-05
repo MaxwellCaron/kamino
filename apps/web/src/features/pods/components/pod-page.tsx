@@ -2,9 +2,9 @@ import type { ClonedPod, Pod } from "@/features/pods/types/pod-types"
 import { useCallback, useState } from "react"
 import { ClonePodDialog } from "./clone/clone-pod-dialog"
 import { InventoryDialogsProvider } from "@/features/inventory/components/inventory-dialogs-provider"
+import { PodCloneCard } from "./pod-clone-card"
 import { PodHeader } from "./pod-header"
 import { PodTasks } from "./pod-tasks"
-import { PodVms } from "./pod-vms"
 import { clonedPodQueryOptions } from "@/features/pods/api/clone-pod-api"
 import { podCatalogEntryQueryOptions } from "@/features/pods/api/publish-pod-api"
 import { useQueryClient } from "@tanstack/react-query"
@@ -52,17 +52,17 @@ export function PodPage({
         <div className="@container/main flex flex-1 flex-col">
           <PodHeader
             pod={pod}
-            clonedPod={localClonedPod}
+            showClone={isPreview}
             onClone={() => setCloneDialogMode("clone")}
-            onReclone={() => setCloneDialogMode("reclone")}
-            onClonedPodChange={setClonedPod}
           />
 
           <div className="mx-auto flex w-full max-w-7xl flex-col gap-6 px-4 py-4 md:py-6 lg:px-6">
             {localClonedPod && (
-              <PodVms
-                network={localClonedPod.network}
-                vms={localClonedPod.vms}
+              <PodCloneCard
+                pod={pod}
+                clonedPod={localClonedPod}
+                onReclone={() => setCloneDialogMode("reclone")}
+                onClonedPodChange={setClonedPod}
               />
             )}
             {pod.tasks.length > 0 && (
