@@ -404,7 +404,7 @@ function countAccessibleInventory(nodes: Array<ApiTreeNode>): {
     (counts, node) => {
       if (node.kind === "folder") {
         counts.folders += 1
-      } else {
+      } else if (!node.vm?.is_template) {
         counts.vms += 1
       }
 
