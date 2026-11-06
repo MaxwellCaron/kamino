@@ -5,7 +5,7 @@ import type {
   PodQuestionActivityAnswer,
 } from "@/features/pods/types/pod-types"
 import { apiJson, apiVoid } from "@/features/shared/api/api-json"
-import { shouldRetryApiQuery } from "@/features/auth/api/auth-api"
+import { shouldRetryApiQuery } from "@/features/shared/api/api-error"
 
 export type CatalogCloneSummary = {
   summary: {
@@ -171,7 +171,11 @@ export async function powerClonedPod(params: {
 export async function deleteClonedPod(params: {
   clonedPodId: string
 }): Promise<void> {
-  await apiVoid(`/api/v1/pods/clones/${params.clonedPodId}`, "delete cloned pod", {
-    method: "DELETE",
-  })
+  await apiVoid(
+    `/api/v1/pods/clones/${params.clonedPodId}`,
+    "delete cloned pod",
+    {
+      method: "DELETE",
+    }
+  )
 }

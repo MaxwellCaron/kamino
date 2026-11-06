@@ -25,7 +25,6 @@ func parseIntParam(c *gin.Context, name string) (int, error) {
 	return val, err
 }
 
-// vmProxmox is the seam VMHandler uses to talk to Proxmox
 type vmProxmox interface {
 	GetVMIdentity(ctx context.Context, gt proxmox.GuestType, node string, vmid int) (*proxmox.VMIdentity, error)
 	GetVMs(ctx context.Context) ([]proxmox.VM, error)
@@ -48,7 +47,6 @@ type vmProxmox interface {
 	DeleteVM(ctx context.Context, gt proxmox.GuestType, node string, vmid int) error
 }
 
-// vmAuthz is the seam VMHandler uses to talk to the authorization service
 type vmAuthz interface {
 	Require(ctx context.Context, principalID uuid.UUID, itemID uuid.UUID, required authorization.Mask) error
 	GetVMRecord(ctx context.Context, itemID uuid.UUID) (authorization.VMRecord, error)
@@ -58,7 +56,6 @@ type vmAuthz interface {
 	IsManager(ctx context.Context, principalID uuid.UUID) (bool, error)
 }
 
-// VMHandler handles all VM-related API endpoints (status, power, snapshots, etc.).
 type VMHandler struct {
 	PX                    vmProxmox
 	Importer              *proxmox.InventoryImporter

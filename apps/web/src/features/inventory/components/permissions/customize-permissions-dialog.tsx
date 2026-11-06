@@ -12,7 +12,7 @@ import type {
 import { Search01Icon, Settings01Icon } from "@hugeicons/core-free-icons"
 import { AppEmptyState } from "@/components/feedback/app-empty-state"
 import type { InventoryPermissionSection } from "../../utils/inventory-permissions"
-import { PermissionScopeSection } from "./permission-scope-section"
+import { PermissionScopeSection } from "@/components/inventory/permissions/permission-scope-section"
 import React from "react"
 import { SearchInputGroup } from "@/components/forms/search-input-group"
 

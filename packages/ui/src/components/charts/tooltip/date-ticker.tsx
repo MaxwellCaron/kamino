@@ -32,7 +32,6 @@ const DateTickerInner = memo(function DateTickerInner({
   currentIndex,
   labels,
 }: Omit<DateTickerProps, "visible">) {
-  // Parse labels into month and day parts
   const parsedLabels = useMemo(() => {
     return labels.map((label, index) => {
       const parts = label.split(" ");
@@ -60,7 +59,6 @@ const DateTickerInner = memo(function DateTickerInner({
     return segments;
   }, [parsedLabels]);
 
-  // Index into monthSegments for the current data point
   const currentMonthIndex = useMemo(() => {
     if (currentIndex < 0 || currentIndex >= parsedLabels.length) {
       return 0;
@@ -74,10 +72,8 @@ const DateTickerInner = memo(function DateTickerInner({
     return 0;
   }, [currentIndex, parsedLabels.length, monthSegments]);
 
-  // Track previous month index
   const prevMonthIndexRef = useRef(-1);
 
-  // Animated Y offsets
   const dayY = useSpring(0, { stiffness: 400, damping: 35 });
   const monthY = useSpring(0, { stiffness: 400, damping: 35 });
 
@@ -96,7 +92,6 @@ const DateTickerInner = memo(function DateTickerInner({
     <div className="overflow-hidden rounded-full bg-zinc-900 px-4 py-1 text-white shadow-lg dark:bg-zinc-100 dark:text-zinc-900">
       <div className="relative h-6 overflow-hidden">
         <div className="flex items-center justify-center gap-1">
-          {/* Month stack */}
           <div className="relative h-6 overflow-hidden">
             <m.div className="flex flex-col" style={{ y: monthY }}>
               {monthSegments.map((segment) => (
@@ -112,7 +107,6 @@ const DateTickerInner = memo(function DateTickerInner({
             </m.div>
           </div>
 
-          {/* Day stack */}
           <div className="relative h-6 overflow-hidden">
             <m.div className="flex flex-col" style={{ y: dayY }}>
               {parsedLabels.map((label) => (

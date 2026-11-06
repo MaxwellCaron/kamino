@@ -91,11 +91,13 @@ func TestClonedPodVMAlreadyInPowerState(t *testing.T) {
 		{"shutdown when running", "shutdown", "running", false},
 		{"shutdown when empty", "shutdown", "", false},
 		{"shutdown when paused", "shutdown", "paused", true},
+		{"reboot when running", "reboot", "running", false},
+		{"stop when stopped", "stop", "stopped", false},
 		{"unknown action", "restart", "running", false},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := clonedPodVMAlreadyInPowerState(tt.action, tt.status); got != tt.want {
+			if got := vmactions.PowerAction(tt.action).CanSkipForStatus(tt.status); got != tt.want {
 				t.Errorf("clonedPodVMAlreadyInPowerState(%q, %q) = %v, want %v", tt.action, tt.status, got, tt.want)
 			}
 		})

@@ -83,16 +83,13 @@ vi.mock("./vnc-screen-client", () => ({
         screenMountCount += 1
       }, [])
 
-      useImperativeHandle(
-        ref,
-        () => ({
-            disconnect: mockDisconnect,
-            focus: vi.fn(),
-            sendCtrlAltDel: vi.fn(),
-            sendKey: vi.fn(),
-            refreshViewport: mockRefreshViewport,
-          })
-      )
+      useImperativeHandle(ref, () => ({
+        disconnect: mockDisconnect,
+        focus: vi.fn(),
+        sendCtrlAltDel: vi.fn(),
+        sendKey: vi.fn(),
+        refreshViewport: mockRefreshViewport,
+      }))
 
       return <div data-testid="vnc-screen" />
     }
@@ -149,21 +146,25 @@ async function waitForVncScreen() {
 }
 
 function mockAnimationFrames() {
-  const rafQueue: Array<FrameRequestCallback> = []
+  const rafQueue = new Map<number, FrameRequestCallback>()
   let nextId = 1
 
   vi.spyOn(window, "requestAnimationFrame").mockImplementation((cb) => {
     const id = nextId++
-    rafQueue.push(cb)
+    rafQueue.set(id, cb)
     return id
   })
-  vi.spyOn(window, "cancelAnimationFrame").mockImplementation(() => {})
+  vi.spyOn(window, "cancelAnimationFrame").mockImplementation((id) => {
+    rafQueue.delete(id)
+  })
 
   return {
     flush() {
-      while (rafQueue.length > 0) {
+      while (rafQueue.size > 0) {
+        const callbacks = [...rafQueue.values()]
+        rafQueue.clear()
         act(() => {
-          rafQueue.shift()?.(0)
+          for (const callback of callbacks) callback(0)
         })
       }
     },
@@ -188,6 +189,7 @@ describe("VncConsole", () => {
   })
 
   afterEach(() => {
+    vi.useRealTimers()
     vi.restoreAllMocks()
   })
 
@@ -210,20 +212,6 @@ describe("VncConsole", () => {
       { method: "POST" }
     )
     expect(latestScreenProps?.url).toContain("sessionId=sess-1")
-    expect(latestScreenProps?.password).toBe("secret")
-  })
-
-  it("passes the session password to the local screen client", async () => {
-    mockApiFetch.mockResolvedValue({
-      ok: true,
-      json: () => Promise.resolve({ sessionId: "sess-1", password: "secret" }),
-    })
-
-    renderConsole()
-
-    fireEvent.click(screen.getByRole("button", { name: "Connect" }))
-    await waitForVncScreen()
-
     expect(latestScreenProps?.password).toBe("secret")
   })
 
@@ -474,32 +462,14 @@ describe("VncConsole", () => {
       latestScreenProps?.onConnect?.()
     })
 
-    const nowSpy = vi.spyOn(Date, "now").mockReturnValue(1_000)
-    const mockTimer = 77 as unknown as ReturnType<typeof window.setTimeout>
-    let idleCallback: TimerHandler | null = null
-    const timeoutSpy = vi
-      .spyOn(window, "setTimeout")
-      .mockImplementation((handler, timeout) => {
-        if (timeout === IDLE_TIMEOUT_MS) {
-          idleCallback = handler
-        }
-        return mockTimer
-      })
-
+    vi.useFakeTimers()
     rerenderConsole({ isViewed: false })
 
-    expect(timeoutSpy).toHaveBeenCalledWith(
-      expect.any(Function),
-      IDLE_TIMEOUT_MS
-    )
-    expect(idleCallback).not.toBeNull()
+    act(() => vi.advanceTimersByTime(IDLE_TIMEOUT_MS - 1))
+    expect(mockDisconnect).not.toHaveBeenCalled()
+    expect(screen.getByTestId("vnc-screen")).toBeInTheDocument()
 
-    nowSpy.mockReturnValue(1_000 + IDLE_TIMEOUT_MS)
-    act(() => {
-      if (typeof idleCallback === "function") {
-        idleCallback()
-      }
-    })
+    act(() => vi.advanceTimersByTime(1))
 
     expect(mockDisconnect).toHaveBeenCalledTimes(1)
     expect(onStatusChange).toHaveBeenCalledWith("expired")
@@ -640,14 +610,12 @@ describe("VncConsole", () => {
       latestScreenProps?.onConnect?.()
     })
 
-    const mockTimer = 88 as unknown as ReturnType<typeof window.setTimeout>
-    vi.spyOn(window, "setTimeout").mockReturnValue(mockTimer)
-    const clearTimeoutSpy = vi.spyOn(window, "clearTimeout")
-
+    vi.useFakeTimers()
     rerenderConsole({ isViewed: false })
+    act(() => vi.advanceTimersByTime(IDLE_TIMEOUT_MS / 2))
     rerenderConsole({ isViewed: true })
+    act(() => vi.advanceTimersByTime(IDLE_TIMEOUT_MS))
 
-    expect(clearTimeoutSpy).toHaveBeenCalledWith(mockTimer)
     expect(mockDisconnect).not.toHaveBeenCalled()
     expect(screen.getByTestId("vnc-screen")).toBeInTheDocument()
   })
@@ -666,12 +634,10 @@ describe("VncConsole", () => {
       latestScreenProps?.onConnect?.()
     })
 
-    const nowSpy = vi.spyOn(Date, "now").mockReturnValue(1_000)
-    const mockTimer = 99 as unknown as ReturnType<typeof window.setTimeout>
-    vi.spyOn(window, "setTimeout").mockReturnValue(mockTimer)
-
+    vi.useFakeTimers()
+    const hiddenAt = Date.now()
     rerenderConsole({ isViewed: false })
-    nowSpy.mockReturnValue(1_000 + IDLE_TIMEOUT_MS)
+    vi.setSystemTime(hiddenAt + IDLE_TIMEOUT_MS)
     rerenderConsole({ isViewed: true })
 
     expect(mockDisconnect).toHaveBeenCalledTimes(1)

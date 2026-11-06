@@ -1,7 +1,8 @@
 import type * as AuthApiModule from "@/features/auth/api/auth-api"
-import { ApiError, apiFetch } from "@/features/auth/api/auth-api"
 import { apiJson, apiVoid } from "./api-json"
 import { beforeEach, describe, expect, it, vi } from "vitest"
+import { ApiError } from "@/features/shared/api/api-error"
+import { apiFetch } from "@/features/auth/api/auth-api"
 
 vi.mock("@/features/auth/api/auth-api", async (importOriginal) => {
   const actual = await importOriginal<typeof AuthApiModule>()
@@ -36,26 +37,22 @@ describe("apiJson", () => {
   it("throws ApiError with the server message and status on 422", async () => {
     mockApiFetch.mockResolvedValue(jsonResponse({ error: "boom" }, 422))
 
-    await expect(
-      apiJson("/api/v1/example", "fetch example")
-    ).rejects.toMatchObject({ message: "boom", status: 422 })
-    await expect(
-      apiJson("/api/v1/example", "fetch example")
-    ).rejects.toBeInstanceOf(ApiError)
+    const result = apiJson("/api/v1/example", "fetch example")
+
+    await expect(result).rejects.toMatchObject({ message: "boom", status: 422 })
+    await expect(result).rejects.toBeInstanceOf(ApiError)
   })
 
   it("throws ApiError with a fallback message and status on 500 with non-JSON body", async () => {
     mockApiFetch.mockResolvedValue(new Response("not json", { status: 500 }))
 
-    await expect(
-      apiJson("/api/v1/example", "fetch example")
-    ).rejects.toMatchObject({
+    const result = apiJson("/api/v1/example", "fetch example")
+
+    await expect(result).rejects.toMatchObject({
       message: "Failed to fetch example: 500",
       status: 500,
     })
-    await expect(
-      apiJson("/api/v1/example", "fetch example")
-    ).rejects.toBeInstanceOf(ApiError)
+    await expect(result).rejects.toBeInstanceOf(ApiError)
   })
 })
 

@@ -93,7 +93,6 @@ export type ApiInventoryAcl = {
   inherited_entries: Array<ApiInheritedInventoryAclEntry>
 }
 
-// From permissions/types.ts
 
 export type InventoryPermissionsDialogProps = {
   itemId: string

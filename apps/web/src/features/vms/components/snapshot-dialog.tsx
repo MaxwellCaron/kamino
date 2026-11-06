@@ -25,6 +25,7 @@ import { Checkbox } from "@workspace/ui/components/checkbox"
 import { CountedTextareaField } from "@/components/forms/counted-textarea-field"
 import { DialogFooter } from "@workspace/ui/components/dialog"
 import { Input } from "@workspace/ui/components/input"
+import type { SnapshotDialogMode } from "@/features/vms/types/vm-types"
 import { formatVmReference } from "@/features/shared/utils/format"
 import { useForm } from "@tanstack/react-form"
 import { z } from "zod"
@@ -54,8 +55,6 @@ const directSnapshotSchema = z.object({
 const createSnapshotRequestSchema = z.object({
   snapname: snapshotNameSchema,
 })
-
-export type SnapshotDialogMode = "direct" | "request"
 
 type SnapshotDialogProps = {
   itemId: string

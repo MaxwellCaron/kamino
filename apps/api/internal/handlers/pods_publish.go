@@ -161,7 +161,7 @@ func (h *PodsHandler) SavePublished(c *gin.Context) {
 		return
 	}
 
-	progress := newPublishPodProgressReporter(c.Query("progress_id"))
+	progress := h.Progress.publishReporter(c.Query("progress_id"))
 	progress.set(publishProgressStepValidating, "Checking the selected Pod Folder and Pod VMs.")
 
 	pathID := uuid.Nil
@@ -413,7 +413,7 @@ func (h *PodsHandler) savePublishedPod(
 	principalID uuid.UUID,
 	pathID uuid.UUID,
 	req publishPodRequest,
-	progress *publishPodProgressReporter,
+	progress *podProgressReporter,
 ) (publishedPodResponse, *requestError) {
 	normalized, reqErr := h.normalizePublishPodRequest(ctx, principalID, pathID, req)
 	if reqErr != nil {

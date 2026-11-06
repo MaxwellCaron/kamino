@@ -16,11 +16,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@workspace/ui/components/card"
-import type {
-  CreatePodFormApi,
-  CreatePodFormValues,
-  PodNetworkingMode,
-} from "./create-pod-form"
+import type { CreatePodFormApi, CreatePodFormValues } from "./create-pod-form"
 import {
   Field,
   FieldContent,
@@ -43,6 +39,7 @@ import { createTemplateVm, toNumberInputValue } from "./create-pod-form"
 import { Button } from "@workspace/ui/components/button"
 import { HugeiconsIcon } from "@hugeicons/react"
 import type { PodNetworkSegment } from "@/features/pods/api/create-pod-api"
+import type { PodNetworkingMode } from "@/features/pods/utils/pod-networking-mode"
 import type { ReactNode } from "react"
 import { replaceWhitespaceWithHyphen } from "@/features/shared/utils/sanitize"
 

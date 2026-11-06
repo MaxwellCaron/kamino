@@ -5,13 +5,13 @@ import (
 	"errors"
 	"sync"
 	"testing"
+	"testing/synctest"
 	"time"
 
 	"github.com/MaxwellCaron/kamino/internal/authorization"
 	"github.com/google/uuid"
 )
 
-// fakeLiveSessionValidator is a minimal, configurable liveSessionValidator.
 type fakeLiveSessionValidator struct {
 	mu  sync.Mutex
 	err error
@@ -32,32 +32,35 @@ func (f *fakeLiveSessionValidator) setErr(err error) {
 var _ liveSessionValidator = (*fakeLiveSessionValidator)(nil)
 
 func TestWatchAuthorization_StaysAliveUntilCancellation(t *testing.T) {
-	h := &VNCHandler{Authz: &fakeVMAuthz{}, Sessions: &fakeLiveSessionValidator{}}
-	ctx, cancel := context.WithCancel(context.Background())
-	tick := make(chan time.Time)
-	done := make(chan error, 1)
-	go func() { done <- h.watchAuthorization(ctx, uuid.New(), uuid.New(), uuid.New(), tick) }()
+	synctest.Test(t, func(t *testing.T) {
+		h := &VNCHandler{Authz: &fakeVMAuthz{}, Sessions: &fakeLiveSessionValidator{}}
+		ctx, cancel := context.WithCancel(context.Background())
+		tick := make(chan time.Time)
+		done := make(chan error, 1)
+		go func() { done <- h.watchAuthorization(ctx, uuid.New(), uuid.New(), uuid.New(), tick) }()
 
-	for i := 0; i < 3; i++ {
-		tick <- time.Now()
-	}
-
-	select {
-	case err := <-done:
-		t.Fatalf("watchAuthorization returned early: %v", err)
-	case <-time.After(50 * time.Millisecond):
-	}
-
-	cancel()
-
-	select {
-	case err := <-done:
-		if err != nil {
-			t.Fatalf("expected nil error on cancellation, got %v", err)
+		for i := 0; i < 3; i++ {
+			tick <- time.Now()
 		}
-	case <-time.After(time.Second):
-		t.Fatal("watchAuthorization did not stop after cancellation")
-	}
+
+		synctest.Wait()
+		select {
+		case err := <-done:
+			t.Fatalf("watchAuthorization returned early: %v", err)
+		default:
+		}
+
+		cancel()
+
+		select {
+		case err := <-done:
+			if err != nil {
+				t.Fatalf("expected nil error on cancellation, got %v", err)
+			}
+		case <-time.After(time.Second):
+			t.Fatal("watchAuthorization did not stop after cancellation")
+		}
+	})
 }
 
 func TestWatchAuthorization_RevokedFamilyTriggersShutdown(t *testing.T) {
@@ -130,24 +133,23 @@ func TestWatchAuthorization_BackendErrorFailsClosed(t *testing.T) {
 }
 
 func TestWatchAuthorization_CancellationStopsPromptly(t *testing.T) {
-	h := &VNCHandler{Authz: &fakeVMAuthz{}, Sessions: &fakeLiveSessionValidator{}}
-	ctx, cancel := context.WithCancel(context.Background())
-	tick := make(chan time.Time) // never ticks
-	done := make(chan error, 1)
-	go func() { done <- h.watchAuthorization(ctx, uuid.New(), uuid.New(), uuid.New(), tick) }()
+	synctest.Test(t, func(t *testing.T) {
+		h := &VNCHandler{Authz: &fakeVMAuthz{}, Sessions: &fakeLiveSessionValidator{}}
+		ctx, cancel := context.WithCancel(context.Background())
+		tick := make(chan time.Time) // never ticks
+		done := make(chan error, 1)
+		go func() { done <- h.watchAuthorization(ctx, uuid.New(), uuid.New(), uuid.New(), tick) }()
 
-	start := time.Now()
-	cancel()
+		synctest.Wait()
+		cancel()
 
-	select {
-	case err := <-done:
-		if err != nil {
-			t.Fatalf("expected nil error on cancellation, got %v", err)
+		select {
+		case err := <-done:
+			if err != nil {
+				t.Fatalf("expected nil error on cancellation, got %v", err)
+			}
+		case <-time.After(time.Second):
+			t.Fatal("watchAuthorization did not stop after cancellation")
 		}
-		if elapsed := time.Since(start); elapsed > 200*time.Millisecond {
-			t.Fatalf("watchAuthorization took too long to stop after cancellation: %v", elapsed)
-		}
-	case <-time.After(time.Second):
-		t.Fatal("watchAuthorization did not stop after cancellation")
-	}
+	})
 }

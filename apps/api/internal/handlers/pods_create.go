@@ -27,7 +27,7 @@ func (h *PodsHandler) GetCreateProgress(c *gin.Context) {
 		return
 	}
 
-	snapshot, ok := createPodProgress.get(progressID)
+	snapshot, ok := h.Progress.create.get(progressID)
 	if !ok {
 		c.JSON(http.StatusNotFound, gin.H{"error": "progress not found"})
 		return

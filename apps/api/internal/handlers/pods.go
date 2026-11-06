@@ -30,6 +30,7 @@ type PodRouterCloneConfig struct {
 }
 
 type PodsHandler struct {
+	Progress                        PodProgress
 	PX                              *proxmox.Client
 	Importer                        *proxmox.InventoryImporter
 	Service                         *inventory.Service

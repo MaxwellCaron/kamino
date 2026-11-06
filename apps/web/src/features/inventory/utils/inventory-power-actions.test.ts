@@ -64,26 +64,6 @@ function folderNode(
   }
 }
 
-function collectFolderIds(tree: Array<ApiTreeNode>): Array<string> {
-  const folderIds: Array<string> = []
-
-  function visit(node: ApiTreeNode) {
-    if (node.kind === "folder") {
-      folderIds.push(node.id)
-    }
-
-    for (const child of node.children ?? []) {
-      visit(child)
-    }
-  }
-
-  for (const node of tree) {
-    visit(node)
-  }
-
-  return folderIds
-}
-
 function makeTarget(id: string): SelectedVmItem {
   return {
     id,
@@ -177,7 +157,7 @@ describe("collectFolderPowerTargets", () => {
     })
   })
 
-  it("builds a folder canPower map that matches collectFolderPowerTargets for every folder", () => {
+  it("summarizes permissions for nested, empty, mixed, template, and shared-VM folders", () => {
     const sharedVm = vmNode("vm-shared", "Shared VM", powerVmMask)
     const tree = [
       folderNode("folder-all", "All Powerable", [
@@ -206,22 +186,18 @@ describe("collectFolderPowerTargets", () => {
     ]
 
     const canPowerByFolderId = buildFolderCanPowerMap(tree)
-    const folderIds = collectFolderIds(tree)
-
-    expect([...canPowerByFolderId.keys()].sort()).toEqual(folderIds.sort())
-    expect(canPowerByFolderId.get("folder-all")).toBe(true)
-    expect(canPowerByFolderId.get("folder-mixed")).toBe(false)
-    expect(canPowerByFolderId.get("folder-empty")).toBe(false)
-    expect(canPowerByFolderId.get("folder-template")).toBe(false)
-    expect(canPowerByFolderId.get("folder-parent")).toBe(true)
-    expect(canPowerByFolderId.get("folder-parent-nested")).toBe(true)
-    expect(canPowerByFolderId.get("folder-duplicate")).toBe(true)
-
-    for (const folderId of folderIds) {
-      expect(canPowerByFolderId.get(folderId)).toBe(
-        collectFolderPowerTargets(tree, folderId).canPower
-      )
-    }
+    expect(Object.fromEntries(canPowerByFolderId)).toEqual({
+      "folder-all": true,
+      "folder-all-nested": true,
+      "folder-mixed": false,
+      "folder-empty": false,
+      "folder-template": false,
+      "folder-parent": true,
+      "folder-parent-nested": true,
+      "folder-duplicate": true,
+      "folder-duplicate-a": true,
+      "folder-duplicate-b": true,
+    })
   })
 })
 
@@ -275,6 +251,7 @@ describe("runInventoryPowerAction", () => {
         succeeded: [],
         failed: [{ id: "vm-2", error: "start failed" }],
       })
+      .mockResolvedValueOnce({ succeeded: ["vm-2"], failed: [] })
 
     runInventoryPowerAction({
       queryClient,
@@ -284,8 +261,6 @@ describe("runInventoryPowerAction", () => {
 
     const config = vi.mocked(showUnitMutationToast).mock.calls[0][0]
     expect(config.units).toHaveLength(2)
-    expect(config.units[0].items[0].retry).toBeTypeOf("function")
-    expect(config.units[1].items[0].retry).toBeTypeOf("function")
 
     const firstResult = await config.units[0].run(async () => {})
     expect(firstResult).toEqual({ failed: [] })
@@ -293,6 +268,13 @@ describe("runInventoryPowerAction", () => {
     const secondResult = await config.units[1].run(async () => {})
     expect(secondResult).toEqual({
       failed: [{ id: "vm-2", error: "start failed" }],
+    })
+
+    await config.units[1].items[0].retry!()
+    expect(vmPowerAction).toHaveBeenCalledTimes(3)
+    expect(vmPowerAction).toHaveBeenLastCalledWith({
+      action: "start",
+      itemIds: ["vm-2"],
     })
   })
 

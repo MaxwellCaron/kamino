@@ -1,7 +1,7 @@
 import type { ClonedPod, Pod } from "@/features/pods/types/pod-types"
 import { useCallback, useState } from "react"
 import { ClonePodDialog } from "./clone/clone-pod-dialog"
-import { InventoryDialogsProvider } from "@/features/inventory/components/inventory-dialogs-provider"
+import { InventoryDialogsProvider } from "@/components/inventory/inventory-dialogs-provider"
 import { PodCloneCard } from "./pod-clone-card"
 import { PodHeader } from "./pod-header"
 import { PodTasks } from "./pod-tasks"

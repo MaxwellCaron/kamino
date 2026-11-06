@@ -130,7 +130,7 @@ func (h *PodsHandler) BulkActionPublishedPodClones(c *gin.Context) {
 			powerResult, powerErr := h.powerPublishedPodCloneForManager(ctx, q, clone, req.Action, principalID)
 			if powerErr != nil {
 				outcome.reqErr = powerErr
-			} else if cloneFailedFromPowerResult(powerResult) {
+			} else if len(powerResult.Failed) > 0 {
 				outcome.reqErr = &requestError{
 					UserMessage: "pod power action did not fully complete",
 				}
@@ -243,7 +243,7 @@ func (h *PodsHandler) CreatePublishedPodCloneForPrincipal(c *gin.Context) {
 		return
 	}
 
-	progress := newBatchClonePodProgressReporter(req.ProgressID, req.ProgressBatchID)
+	progress := h.Progress.cloneReporter(req.ProgressID, req.ProgressBatchID)
 	progress.set(cloneProgressStepFetching, "Fetching virtual machines in pod.")
 
 	q := database.New(h.DB)

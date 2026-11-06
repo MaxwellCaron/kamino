@@ -19,7 +19,6 @@ func (c *Client) GetLXCNetworks(ctx context.Context, node string, vmid int) ([]V
 	return parseLXCNetworks(data)
 }
 
-// GetVMHardwareConfig returns editable VM hardware settings from Proxmox.
 func (c *Client) GetVMHardwareConfig(ctx context.Context, node string, vmid int) (*VMHardwareConfig, error) {
 	data, err := c.GetVMConfig(ctx, GuestQEMU, node, vmid)
 	if err != nil {
@@ -140,7 +139,6 @@ func (c *Client) WaitForVMStorageReady(ctx context.Context, node string, vmid in
 	}
 }
 
-// EnsureVMCloudInitDrive verifies the VM has a cloud-init disk configured.
 func (c *Client) EnsureVMCloudInitDrive(ctx context.Context, node string, vmid int) error {
 	if err := c.requireAllowedNode(node); err != nil {
 		return err
@@ -210,7 +208,6 @@ func (c *Client) SetVMNetworkBridge(ctx context.Context, node string, vmid int, 
 	})
 }
 
-// DeleteVMNetworkDevice removes one network interface from a QEMU VM.
 func (c *Client) DeleteVMNetworkDevice(ctx context.Context, node string, vmid int, device string) error {
 	if err := c.requireAllowedNode(node); err != nil {
 		return err
@@ -233,7 +230,6 @@ func (c *Client) DeleteVMNetworkDevice(ctx context.Context, node string, vmid in
 	return nil
 }
 
-// NetworkAttachment describes the desired Proxmox NIC state.
 type NetworkAttachment struct {
 	Bridge   string
 	VLANTag  *int

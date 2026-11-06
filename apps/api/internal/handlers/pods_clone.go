@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/MaxwellCaron/kamino/database"
@@ -26,6 +25,10 @@ const (
 
 	routerCloudInitNetworkPlaceholder = "{network}"
 )
+
+func (p *PodProgress) cloneReporter(id, batchID string) *podProgressReporter {
+	return p.clone.reporter(id, batchID, cloneProgressEventType, cloneProgressStepFetching, cloneProgressStepRouter)
+}
 
 var errPodCloneClaimsUnavailable = errors.New("pod clone claims unavailable")
 
@@ -109,16 +112,6 @@ func (h *PodsHandler) runClaimedPodCloneMutation(
 	}
 	defer h.releasePodCloneClaim(clone.PodID, clone.UserPrincipalID, ctx)
 	return fn()
-}
-
-var clonedPodProgress = newPublishPodProgressStore()
-
-type clonePodProgressReporter struct {
-	id      string
-	batchID string
-	store   *publishPodProgressStore
-	mu      sync.Mutex
-	step    int
 }
 
 type clonePublishedVMResult struct {
@@ -268,66 +261,8 @@ type publishedPodCloneBulkActionResponse struct {
 	Failed    []publishedPodCloneBulkActionFailure `json:"failed"`
 }
 
-func newClonePodProgressReporter(id string) *clonePodProgressReporter {
-	return newBatchClonePodProgressReporter(id, "")
-}
-
-func newBatchClonePodProgressReporter(id, batchID string) *clonePodProgressReporter {
-	id = strings.TrimSpace(id)
-	if id == "" {
-		return nil
-	}
-	return &clonePodProgressReporter{
-		id:      id,
-		batchID: strings.TrimSpace(batchID),
-		store:   clonedPodProgress,
-	}
-}
-
-func (r *clonePodProgressReporter) set(step int, message string) {
-	r.emit(step, publishProgressStateRunning, message)
-}
-
-func (r *clonePodProgressReporter) succeed(message string) {
-	r.emit(cloneProgressStepRouter, publishProgressStateSuccess, message)
-}
-
-func (r *clonePodProgressReporter) fail(message string) {
-	if r == nil {
-		return
-	}
-	r.mu.Lock()
-	step := r.step
-	r.mu.Unlock()
-	if step == 0 {
-		step = cloneProgressStepFetching
-	}
-	r.emit(step, publishProgressStateError, message)
-}
-
-func (r *clonePodProgressReporter) emit(step int, state, message string) {
-	if r == nil {
-		return
-	}
-	r.mu.Lock()
-	r.step = step
-	r.mu.Unlock()
-	r.store.set(publishPodProgressSnapshot{
-		Type:    cloneProgressEventType,
-		ID:      r.id,
-		BatchID: r.batchID,
-		State:   state,
-		StepID:  step,
-		Message: message,
-	})
-}
-
 func isPodRouterName(name string) bool {
 	return strings.EqualFold(strings.TrimSpace(name), "router")
-}
-
-func isPublishedPodRouterVM(publishedVM database.ListPublishedPodVMsForCloneRow) bool {
-	return publishedVM.IsRouter
 }
 
 func publishedPodVMTemplateItemID(publishedVM database.ListPublishedPodVMsForCloneRow, routerTemplateID uuid.UUID) (uuid.UUID, error) {

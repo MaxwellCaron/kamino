@@ -1,11 +1,7 @@
-import type {
-  CreatePodFormValues,
-  PodNetworkingMode,
-} from "@/features/pods/components/create/create-pod-form"
 import type { ApiInventoryItem } from "@/features/inventory/types/inventory-types"
 import type { PodCloneTarget } from "@/features/pods/api/clone-targets-api"
+import type { PodNetworkingMode } from "@/features/pods/utils/pod-networking-mode"
 import { apiJson } from "@/features/shared/api/api-json"
-import { isPodNetworkingWithRouter } from "@/features/pods/components/create/create-pod-form"
 
 export type PodTemplateOption = {
   id: string
@@ -37,6 +33,22 @@ export type CreatePodOptions = {
   network_profiles: Array<PodNetworkProfile>
   clone_targets: Array<PodCloneTarget>
   templates: Array<PodTemplateOption>
+}
+
+export type CreatePodInput = {
+  name: string
+  network_profile_key?: Exclude<PodNetworkingMode, "none">
+  clone_target_key?: string
+  templates: Array<{
+    template_item_id: string
+    vms: Array<{
+      name: string
+      cpu_count: number
+      memory_gb: number
+      storage_gb: number
+      segment_key?: "lan" | "dmz"
+    }>
+  }>
 }
 
 export type CreatePodResult = {
@@ -84,44 +96,20 @@ export async function validatePodNameAvailability(
   )
 }
 
-export function buildCreatePodRequestBody(values: CreatePodFormValues) {
-  const usesManagedNetworking = isPodNetworkingWithRouter(values.networkingMode)
-
-  return {
-    name: values.name,
-    ...(usesManagedNetworking
-      ? {
-          network_profile_key: values.networkingMode,
-          clone_target_key: values.cloneTargetKey,
-        }
-      : {}),
-    templates: values.templates.map((template) => ({
-      template_item_id: template.templateItemId,
-      vms: template.vms.map((vm) => ({
-        name: vm.name,
-        cpu_count: vm.cpuCount,
-        memory_gb: vm.memoryGb,
-        storage_gb: vm.storageGb,
-        ...(values.networkingMode === "lan-dmz-router-v1" && vm.segmentKey
-          ? { segment_key: vm.segmentKey }
-          : {}),
-      })),
-    })),
-  }
-}
-
-export async function createPod(
-  params: {
-    values: CreatePodFormValues
-    progressId: string
-  }
-): Promise<CreatePodResult> {
+export async function createPod(params: {
+  input: CreatePodInput
+  progressId: string
+}): Promise<CreatePodResult> {
   const query = new URLSearchParams({ progress_id: params.progressId })
-  return apiJson<CreatePodResult>(`/api/v1/pods?${query.toString()}`, "create pod", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(buildCreatePodRequestBody(params.values)),
-  })
+  return apiJson<CreatePodResult>(
+    `/api/v1/pods?${query.toString()}`,
+    "create pod",
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(params.input),
+    }
+  )
 }
 
 export function createPodProgressQueryOptions(

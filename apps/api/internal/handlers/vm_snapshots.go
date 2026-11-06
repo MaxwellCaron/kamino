@@ -7,6 +7,7 @@ import (
 	"github.com/MaxwellCaron/kamino/internal/audit"
 	"github.com/MaxwellCaron/kamino/internal/authorization"
 	"github.com/MaxwellCaron/kamino/internal/proxmox"
+	"github.com/MaxwellCaron/kamino/internal/vmactions"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 )
@@ -40,7 +41,7 @@ func (h *VMHandler) CreateSnapshot(c *gin.Context) {
 	h.runClaimedVMAction(c, target.ItemID, "create_snapshot", principalID, func() bool {
 		if err := h.Actions.CreateSnapshot(
 			c.Request.Context(),
-			vmActionTarget(target),
+			target,
 			req.Snapname,
 			req.Description,
 			req.VMState,
@@ -71,7 +72,7 @@ func (h *VMHandler) requireVerifiedVMSnapshotReadAccess(
 	c *gin.Context,
 	principalID uuid.UUID,
 	itemID uuid.UUID,
-) (verifiedVMTarget, bool) {
+) (vmactions.Target, bool) {
 	target, reqErr := resolveVerifiedVMItemPermission(
 		c.Request.Context(),
 		h.Authz,
@@ -83,7 +84,7 @@ func (h *VMHandler) requireVerifiedVMSnapshotReadAccess(
 	)
 	if reqErr != nil {
 		writeRequestError(c, reqErr)
-		return verifiedVMTarget{}, false
+		return vmactions.Target{}, false
 	}
 
 	return target, true
@@ -150,7 +151,7 @@ func (h *VMHandler) RollbackSnapshot(c *gin.Context) {
 	h.runClaimedVMAction(c, target.ItemID, "rollback_snapshot", principalID, func() bool {
 		if err := h.Actions.RollbackSnapshot(
 			c.Request.Context(),
-			vmActionTarget(target),
+			target,
 			req.Snapname,
 		); err != nil {
 			h.Audit.RecordFailure(c.Request.Context(), audit.EventParams{

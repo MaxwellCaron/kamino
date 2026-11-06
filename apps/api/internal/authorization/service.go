@@ -15,7 +15,6 @@ var (
 	ErrUnknownManagementPermission = errors.New("unknown management permission")
 )
 
-// dbtx is the seam Service uses to talk to the database
 type dbtx interface {
 	database.DBTX
 	Begin(ctx context.Context) (pgx.Tx, error)

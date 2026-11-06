@@ -43,7 +43,7 @@ import {
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { Badge } from "@workspace/ui/components/badge"
 import type { ClonedPodPowerAction } from "@/features/pods/api/clone-pod-api"
-import { ClonedPodStatusBadge } from "@/features/pods/components/cloned-pod-status-badge"
+import { ClonedPodStatusBadge } from "@/components/pods/cloned-pod-status-badge"
 import type { ConfirmConfig } from "@/components/dialogs/confirm-dialog"
 import { ConfirmDialog } from "@/components/dialogs/confirm-dialog"
 import { HugeiconsIcon } from "@hugeicons/react"

@@ -69,12 +69,16 @@ func TestBuildPodNetworkMetadata(t *testing.T) {
 	}
 }
 
-func TestIsPublishedPodRouterVM(t *testing.T) {
-	if !isPublishedPodRouterVM(database.ListPublishedPodVMsForCloneRow{IsRouter: true, Name: "workstation"}) {
-		t.Fatal("expected is_router=true to identify router")
+func TestPublishedPodRouterSelectionUsesFlag(t *testing.T) {
+	routerID := uuid.New()
+	workloadID := uuid.New()
+	got, err := publishedPodVMTemplateItemID(database.ListPublishedPodVMsForCloneRow{IsRouter: true, Name: "workstation", SourceInventoryItemID: workloadID}, routerID)
+	if err != nil || got != routerID {
+		t.Fatalf("router flag must select router template regardless of name: got %s, error %v", got, err)
 	}
-	if isPublishedPodRouterVM(database.ListPublishedPodVMsForCloneRow{Name: "router"}) {
-		t.Fatal("expected workload named router without is_router to remain a workload")
+	got, err = publishedPodVMTemplateItemID(database.ListPublishedPodVMsForCloneRow{Name: "router", SourceInventoryItemID: workloadID}, routerID)
+	if err != nil || got != workloadID {
+		t.Fatalf("workload named router must retain its source: got %s, error %v", got, err)
 	}
 }
 

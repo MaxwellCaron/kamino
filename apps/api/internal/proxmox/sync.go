@@ -112,7 +112,7 @@ func ensureRootFolder(ctx context.Context, q *database.Queries) (uuid.UUID, erro
 		return *rootID, nil
 	}
 
-	id, err := q.CreateRootFolder(ctx, proxmoxRootFolderName)
+	id, err := q.CreateRootFolder(ctx, RootFolderName)
 	if err != nil {
 		return uuid.Nil, err
 	}
@@ -260,15 +260,6 @@ func syncVMConfigSummary(
 	return applyImportedVMNotes(ctx, q, existing.InventoryItemID, summary.Notes)
 }
 
-func (s *InventoryImporter) ensureVMConfigSummary(
-	ctx context.Context,
-	gt GuestType,
-	node string,
-	vmid int,
-) (*VMConfigSummary, error) {
-	return s.client.GetEnsuredVMConfigSummary(ctx, gt, node, vmid)
-}
-
 func (s *InventoryImporter) waitForVMConfigSummary(
 	ctx context.Context,
 	gt GuestType,
@@ -276,7 +267,7 @@ func (s *InventoryImporter) waitForVMConfigSummary(
 	vmid int,
 ) (*VMConfigSummary, error) {
 	for {
-		summary, err := s.ensureVMConfigSummary(ctx, gt, node, vmid)
+		summary, err := s.client.GetEnsuredVMConfigSummary(ctx, gt, node, vmid)
 		if err == nil {
 			return summary, nil
 		}

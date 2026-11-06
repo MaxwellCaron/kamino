@@ -116,7 +116,6 @@ func (q *Queries) DeleteActionEventsOlderThanRetention(ctx context.Context) (int
 }
 
 const insertActionEvent = `-- name: InsertActionEvent :one
-
 INSERT INTO action_events (
     actor_principal_id,
     action_kind,
@@ -160,9 +159,6 @@ type InsertActionEventParams struct {
 	Metadata         []byte     `json:"metadata"`
 }
 
-// ----------------------------------------------------------------------------
-// Direct action audit ledger
-// ----------------------------------------------------------------------------
 func (q *Queries) InsertActionEvent(ctx context.Context, arg InsertActionEventParams) (ActionEvents, error) {
 	row := q.db.QueryRow(ctx, insertActionEvent,
 		arg.ActorPrincipalID,

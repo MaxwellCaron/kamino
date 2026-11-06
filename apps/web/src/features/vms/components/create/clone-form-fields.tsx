@@ -14,7 +14,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@workspace/ui/components/select"
-import { getFirstIssueMessage, optionalVmNameSchema } from "./create-vm-form"
 import type { ApiNode } from "@/features/vms/types/vm-types"
 import { Checkbox } from "@workspace/ui/components/checkbox"
 import type { ComponentType } from "react"
@@ -22,6 +21,8 @@ import { Input } from "@workspace/ui/components/input"
 import { InventoryFolderCombobox } from "@/components/forms/inventory-folder-combobox"
 import type { InventoryFolderOption } from "@/features/inventory/utils/inventory-tree"
 import { formatFieldError } from "./create-vm-step-utils"
+import { getFirstIssueMessage } from "@/components/forms/form-errors"
+import { optionalVmNameSchema } from "./create-vm-form"
 import { replaceWhitespaceWithHyphen } from "@/features/shared/utils/sanitize"
 
 type AppFieldComponent = ComponentType<any>

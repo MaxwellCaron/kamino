@@ -188,23 +188,6 @@ describe("VncScreenClient", () => {
     expect(writes).toEqual([false, true])
   })
 
-  it("does not recreate RFB when callback props change", () => {
-    const { rerender } = renderClient()
-    expect(rfbInstances).toHaveLength(1)
-
-    rerender(
-      <VncScreenClient
-        url="ws://localhost/vnc?sessionId=sess-1"
-        password="secret"
-        onConnect={vi.fn()}
-        onDisconnect={vi.fn()}
-        onSecurityFailure={vi.fn()}
-      />
-    )
-
-    expect(rfbInstances).toHaveLength(1)
-  })
-
   it("uses fresh callbacks without recreating RFB", () => {
     const onConnect = vi.fn()
     const { rerender } = renderClient({ onConnect })
@@ -225,6 +208,8 @@ describe("VncScreenClient", () => {
       rfb.emit("connect")
     })
 
+    expect(rfbInstances).toHaveLength(1)
+    expect(mockDisconnect).not.toHaveBeenCalled()
     expect(onConnect).not.toHaveBeenCalled()
     expect(nextOnConnect).toHaveBeenCalledTimes(1)
   })
@@ -250,13 +235,20 @@ describe("VncScreenClient", () => {
   })
 
   it("removes listeners and disconnects exactly once on unmount", () => {
-    const { onDisconnect, unmount } = renderClient()
+    const { onConnect, onDisconnect, onSecurityFailure, unmount } =
+      renderClient()
     const rfb = rfbInstances[0]
 
     unmount()
 
     expect(mockDisconnect).toHaveBeenCalledTimes(1)
+    act(() => {
+      rfb.emit("connect")
+      rfb.emit("disconnect")
+      rfb.emit("securityfailure")
+    })
+    expect(onConnect).not.toHaveBeenCalled()
     expect(onDisconnect).not.toHaveBeenCalled()
-    expect(rfb.listeners.get("disconnect")?.size ?? 0).toBe(0)
+    expect(onSecurityFailure).not.toHaveBeenCalled()
   })
 })

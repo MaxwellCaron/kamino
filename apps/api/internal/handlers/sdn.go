@@ -31,7 +31,6 @@ func validateVNetTag(tag int) error {
 	return nil
 }
 
-// SDNHandler handles SDN-related API endpoints.
 type SDNHandler struct {
 	PX    *proxmox.Client
 	Authz *authorization.Service

@@ -94,10 +94,7 @@ describe("Grainient", () => {
 
     vi.stubGlobal("requestAnimationFrame", requestAnimationFrameMock)
     vi.stubGlobal("cancelAnimationFrame", cancelAnimationFrameMock)
-    vi.stubGlobal(
-      "matchMedia",
-      () => motionQuery as unknown as MediaQueryList
-    )
+    vi.stubGlobal("matchMedia", () => motionQuery as unknown as MediaQueryList)
 
     Object.defineProperty(document, "visibilityState", {
       configurable: true,
@@ -110,10 +107,11 @@ describe("Grainient", () => {
     vi.restoreAllMocks()
   })
 
-  it("schedules no recurring RAF for static Kamino props", () => {
-    const { unmount } = render(
-      <Grainient timeSpeed={0} grainAnimated={false} grainAmount={0.1} />
-    )
+  it.each([
+    { grainAnimated: false, grainAmount: 0.1 },
+    { grainAnimated: true, grainAmount: 0 },
+  ])("renders once without recurring frames for static props %j", (props) => {
+    const { unmount } = render(<Grainient timeSpeed={0} {...props} />)
 
     expect(requestAnimationFrameMock).not.toHaveBeenCalled()
     expect(renderMock.mock.calls.length).toBeGreaterThan(0)
@@ -127,24 +125,34 @@ describe("Grainient", () => {
     expect(cancelAnimationFrameMock).not.toHaveBeenCalled()
   })
 
-  it("schedules one RAF chain for animated props", () => {
-    const { unmount } = render(
-      <Grainient timeSpeed={0.25} grainAnimated={false} grainAmount={0.1} />
-    )
+  it.each([
+    { timeSpeed: 0.25, grainAnimated: false },
+    { timeSpeed: 0, grainAnimated: true },
+  ])(
+    "keeps one frame loop for animated props %j and stops on unmount",
+    (props) => {
+      const { unmount } = render(<Grainient grainAmount={0.1} {...props} />)
 
-    expect(requestAnimationFrameMock).toHaveBeenCalledTimes(1)
+      expect(requestAnimationFrameMock).toHaveBeenCalledTimes(1)
 
-    act(() => {
-      flushRaf(16)
-    })
+      act(() => {
+        flushRaf(16)
+      })
 
-    expect(requestAnimationFrameMock).toHaveBeenCalledTimes(2)
-    unmount()
-    expect(cancelAnimationFrameMock).toHaveBeenCalled()
-  })
+      expect(requestAnimationFrameMock).toHaveBeenCalledTimes(2)
+      expect(rafCallbacks.size).toBe(1)
+      unmount()
+      expect(rafCallbacks.size).toBe(0)
+      const renderedFrames = renderMock.mock.calls.length
+      act(() => flushRaf(32))
+      expect(renderMock).toHaveBeenCalledTimes(renderedFrames)
+    }
+  )
 
   it("pauses RAF while hidden and resumes once when visible", () => {
-    render(<Grainient timeSpeed={0.25} grainAnimated={false} grainAmount={0.1} />)
+    render(
+      <Grainient timeSpeed={0.25} grainAnimated={false} grainAmount={0.1} />
+    )
 
     expect(requestAnimationFrameMock).toHaveBeenCalledTimes(1)
 
@@ -167,19 +175,12 @@ describe("Grainient", () => {
     expect(requestAnimationFrameMock).toHaveBeenCalledTimes(2)
   })
 
-  it("cancels RAF on unmount", () => {
-    const { unmount } = render(
-      <Grainient timeSpeed={0.25} grainAnimated={false} grainAmount={0.1} />
-    )
-
-    unmount()
-    expect(cancelAnimationFrameMock).toHaveBeenCalled()
-  })
-
   it("does not schedule RAF when reduced motion is preferred", () => {
     motionQuery.matches = true
 
-    render(<Grainient timeSpeed={0.25} grainAnimated={true} grainAmount={0.1} />)
+    render(
+      <Grainient timeSpeed={0.25} grainAnimated={true} grainAmount={0.1} />
+    )
 
     expect(requestAnimationFrameMock).not.toHaveBeenCalled()
     expect(renderMock.mock.calls.length).toBeGreaterThan(0)

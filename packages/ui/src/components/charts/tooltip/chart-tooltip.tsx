@@ -52,7 +52,6 @@ export interface ChartTooltipProps {
     point: Record<string, unknown>;
     index: number;
   }) => React.ReactNode;
-  /** Custom row renderer - return array of TooltipRow */
   rows?: (point: Record<string, unknown>) => Array<TooltipRow>;
   /**
    * Override tooltip dot fill. When omitted and `rows` is set, dot colors match row colors.
@@ -63,7 +62,6 @@ export interface ChartTooltipProps {
     | ((point: Record<string, unknown>, line: LineConfig) => string);
   /** Additional content to show below rows (e.g., markers) */
   children?: React.ReactNode;
-  /** Custom class name */
   className?: string;
   /** Per-chart override for the crosshair / dot / date-pill spring. */
   springConfig?: SpringConfig;
@@ -188,7 +186,6 @@ const ChartTooltipInner = memo(function ChartTooltipInner({
   const x = tooltipData?.x ?? 0;
   const xWithMargin = x + margin.left;
 
-  // For horizontal charts, get the y position from the first line's yPosition (center of bar)
   const firstLineDataKey = lines[0]?.dataKey;
   const firstLineY = firstLineDataKey
     ? (tooltipData?.yPositions[firstLineDataKey] ?? 0)
@@ -204,7 +201,6 @@ const ChartTooltipInner = memo(function ChartTooltipInner({
       return rowsRenderer(tooltipData.point);
     }
 
-    // Default: generate rows from registered lines
     return lines.map((line) => ({
       color: line.stroke,
       label: line.dataKey,
@@ -229,7 +225,6 @@ const ChartTooltipInner = memo(function ChartTooltipInner({
     };
   }, [dotColorProp, rowsRenderer, tooltipData, tooltipRows]);
 
-  // Resolve indicator color (static or from hovered point)
   const indicatorColor = useMemo(() => {
     if (indicatorColorProp == null) {
       return chartCssVars.crosshair;
@@ -242,22 +237,18 @@ const ChartTooltipInner = memo(function ChartTooltipInner({
     return indicatorColorProp;
   }, [indicatorColorProp, tooltipData]);
 
-  // Title from date or category
   const title = useMemo(() => {
     if (!tooltipData) {
       return undefined;
     }
-    // For bar charts (horizontal or vertical), use the category name
     if (barXAccessor) {
       return barXAccessor(tooltipData.point);
     }
-    // For line/area charts, use the date
     return weekdayDateFmt.format(xAccessor(tooltipData.point));
   }, [tooltipData, barXAccessor, xAccessor]);
 
   const tooltipContent = (
     <>
-      {/* Crosshair indicator - rendered as SVG overlay */}
       {showCrosshair && (
         <svg
           aria-hidden="true"
@@ -286,7 +277,6 @@ const ChartTooltipInner = memo(function ChartTooltipInner({
         </svg>
       )}
 
-      {/* Dots on bars/lines - show for vertical charts only */}
       {showDots && visible && !isHorizontal && (
         <svg
           aria-hidden="true"
@@ -316,7 +306,6 @@ const ChartTooltipInner = memo(function ChartTooltipInner({
         </svg>
       )}
 
-      {/* Tooltip Box */}
       <TooltipBox
         animate={boxMotion.animate}
         backgroundColor={backgroundColor}
@@ -343,7 +332,6 @@ const ChartTooltipInner = memo(function ChartTooltipInner({
             )}
       </TooltipBox>
 
-      {/* Date/Category Ticker - only show for vertical charts */}
       <DatePillTracker
         currentIndex={tooltipData?.index ?? 0}
         discreteInteraction={discreteInteraction}

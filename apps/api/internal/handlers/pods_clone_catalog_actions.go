@@ -24,7 +24,7 @@ func (h *PodsHandler) GetCloneProgress(c *gin.Context) {
 		return
 	}
 
-	snapshot, ok := clonedPodProgress.get(progressID)
+	snapshot, ok := h.Progress.clone.get(progressID)
 	if !ok {
 		c.JSON(http.StatusNotFound, gin.H{"error": "progress not found"})
 		return
@@ -34,8 +34,8 @@ func (h *PodsHandler) GetCloneProgress(c *gin.Context) {
 }
 
 type cloneProgressBatchResponse struct {
-	ID    string                       `json:"id"`
-	Items []publishPodProgressSnapshot `json:"items"`
+	ID    string                `json:"id"`
+	Items []podProgressSnapshot `json:"items"`
 }
 
 func (h *PodsHandler) GetCloneProgressBatch(c *gin.Context) {
@@ -50,7 +50,7 @@ func (h *PodsHandler) GetCloneProgressBatch(c *gin.Context) {
 		return
 	}
 
-	items := clonedPodProgress.getBatch(batchID)
+	items := h.Progress.clone.getBatch(batchID)
 	if len(items) == 0 {
 		c.JSON(http.StatusNotFound, gin.H{"error": "progress batch not found"})
 		return
@@ -210,7 +210,7 @@ func (h *PodsHandler) CloneCatalogPod(c *gin.Context) {
 		return
 	}
 
-	progress := newClonePodProgressReporter(c.Query("progress_id"))
+	progress := h.Progress.cloneReporter(c.Query("progress_id"), "")
 	progress.set(cloneProgressStepFetching, "Fetching virtual machines in pod.")
 
 	pod, reqErr := h.visibleCatalogPodBySlug(c.Request.Context(), principalID, c.Param("slug"))
@@ -285,7 +285,7 @@ func (h *PodsHandler) RecloneClonedPod(c *gin.Context) {
 		return
 	}
 
-	progress := newClonePodProgressReporter(c.Query("progress_id"))
+	progress := h.Progress.cloneReporter(c.Query("progress_id"), "")
 	progress.set(cloneProgressStepFetching, "Fetching virtual machines in pod.")
 
 	q := database.New(h.DB)

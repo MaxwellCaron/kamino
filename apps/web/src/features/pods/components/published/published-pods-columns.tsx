@@ -39,7 +39,7 @@ import { HugeiconsIcon } from "@hugeicons/react"
 import { Image } from "@unpic/react"
 import { Link } from "@tanstack/react-router"
 import type { PodCloneAction } from "@/features/pods/utils/pod-clone-actions"
-import { PodCreators } from "@/features/pods/components/pod-creators"
+import { PodCreators } from "@/components/pods/pod-creators"
 import { PublishedPodStatusBadge } from "./published-pod-status-badge"
 import { RelativeTimeCard } from "@workspace/ui/components/relative-time-card"
 

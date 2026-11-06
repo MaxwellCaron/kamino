@@ -4,7 +4,6 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
-	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -151,7 +150,7 @@ func TestWaitForTaskHonorsCallerCancellation(t *testing.T) {
 	}
 }
 
-func TestStartCloneVMReturnsTaskAlias(t *testing.T) {
+func TestStartCloneVMReturnsTaskHandle(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		writeAPIResponse(t, w, http.StatusOK, "UPID:node1:clone")
 	}))
@@ -162,55 +161,58 @@ func TestStartCloneVMReturnsTaskAlias(t *testing.T) {
 	if err != nil {
 		t.Fatalf("StartCloneVM() error = %v", err)
 	}
-	var cloneTask CloneTask = task
-	if cloneTask.UPID == "" {
-		t.Fatalf("expected clone task alias, got %+v", task)
+	if task.Node != "node1" || task.UPID != "UPID:node1:clone" {
+		t.Fatalf("unexpected clone task handle: %+v", task)
 	}
 }
 
-func TestConcurrentPowerTaskStartsRespectGlobalLimit(t *testing.T) {
-	var (
-		active  atomic.Int32
-		maxSeen atomic.Int32
-		mu      sync.Mutex
-	)
-
+func TestConcurrentPowerTasksCanPollTogether(t *testing.T) {
+	const workers = 6
+	started := make(chan struct{}, workers)
+	release := make(chan struct{})
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		switch {
-		case r.Method == http.MethodPost:
+		switch r.Method {
+		case http.MethodPost:
 			writeAPIResponse(t, w, http.StatusOK, "UPID:node1:task")
-		case r.Method == http.MethodGet:
-			mu.Lock()
-			current := active.Add(1)
-			for {
-				seen := maxSeen.Load()
-				if current <= seen || maxSeen.CompareAndSwap(seen, current) {
-					break
-				}
-			}
-			mu.Unlock()
-			time.Sleep(30 * time.Millisecond)
-			active.Add(-1)
+		case http.MethodGet:
+			started <- struct{}{}
+			<-release
 			writeAPIResponse(t, w, http.StatusOK, TaskStatus{Status: "stopped", ExitStatus: "OK"})
 		default:
-			t.Fatalf("unexpected request: %s %s", r.Method, r.URL.Path)
+			t.Errorf("unexpected request: %s %s", r.Method, r.URL.Path)
+			http.Error(w, "unexpected request", http.StatusBadRequest)
 		}
 	}))
 	defer server.Close()
+	defer func() {
+		select {
+		case <-release:
+		default:
+			close(release)
+		}
+	}()
 
-	// This test validates proxmox client behavior only; executor limit is tested separately.
 	client := NewHTTPTestClient(server)
-	const workers = 6
-	var wg sync.WaitGroup
-	wg.Add(workers)
-	for i := 0; i < workers; i++ {
-		go func() {
-			defer wg.Done()
-			_ = client.StartVM(context.Background(), GuestQEMU, "node1", 101)
-		}()
+	done := make(chan error, workers)
+	for range workers {
+		go func() { done <- client.StartVM(context.Background(), GuestQEMU, "node1", 101) }()
 	}
-	wg.Wait()
-	if maxSeen.Load() < 2 {
-		t.Fatalf("expected overlapping task polling, maxSeen=%d", maxSeen.Load())
+	for range workers {
+		select {
+		case <-started:
+		case <-time.After(2 * time.Second):
+			t.Fatal("concurrent tasks did not reach polling together")
+		}
+	}
+	close(release)
+	for range workers {
+		select {
+		case err := <-done:
+			if err != nil {
+				t.Fatalf("StartVM() = %v", err)
+			}
+		case <-time.After(2 * time.Second):
+			t.Fatal("power task did not finish")
+		}
 	}
 }

@@ -1,8 +1,15 @@
-import { ApiError, apiFetch } from "@/features/auth/api/auth-api"
+import { ApiError } from "@/features/shared/api/api-error"
+import { apiFetch } from "@/features/auth/api/auth-api"
 
-async function throwResponseError(res: Response, label: string): Promise<never> {
+export async function throwResponseError(
+  res: Response,
+  label: string
+): Promise<never> {
   const body = await res.json().catch(() => ({}))
-  throw new ApiError(body.error ?? `Failed to ${label}: ${res.status}`, res.status)
+  throw new ApiError(
+    body.error ?? `Failed to ${label}: ${res.status}`,
+    res.status
+  )
 }
 
 /** Fetch JSON from the API; on !ok throws the server's error message. */
@@ -16,7 +23,6 @@ export async function apiJson<T>(
   return res.json() as Promise<T>
 }
 
-/** Same, for endpoints with no response body. */
 export async function apiVoid(
   input: string,
   label: string,

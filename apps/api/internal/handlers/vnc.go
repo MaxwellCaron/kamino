@@ -27,7 +27,6 @@ const (
 	vncWebSocketBufferSize = 64 * 1024
 )
 
-// VNCHandler handles VNC proxy and WebSocket bridge requests.
 type VNCHandler struct {
 	PX       *proxmox.Client
 	Authz    vmAuthz
@@ -36,7 +35,6 @@ type VNCHandler struct {
 	upgrader websocket.Upgrader
 }
 
-// NewVNCHandler creates a VNCHandler with an initialized session store.
 func NewVNCHandler(px *proxmox.Client, frontendURL string) *VNCHandler {
 	allowedOrigin := middleware.NormalizeOrigin(frontendURL)
 	return &VNCHandler{
@@ -216,7 +214,6 @@ func (h *VNCHandler) WebSocket(c *gin.Context) {
 		return
 	}
 
-	// Build Proxmox WebSocket URL
 	pxURL, err := url.Parse(h.PX.BaseURL())
 	if err != nil {
 		log.Printf("bad proxmox base url: %v", err)
@@ -229,7 +226,6 @@ func (h *VNCHandler) WebSocket(c *gin.Context) {
 	wsURL := fmt.Sprintf("%s://%s/api2/json/nodes/%s/%s/%d/vncwebsocket?port=%s&vncticket=%s",
 		scheme, pxURL.Host, sess.node, sess.guestType, sess.vmid, sess.port, url.QueryEscape(sess.ticket))
 
-	// Dial Proxmox WebSocket
 	dialer := websocket.Dialer{
 		ReadBufferSize:  vncWebSocketBufferSize,
 		WriteBufferSize: vncWebSocketBufferSize,

@@ -100,21 +100,10 @@ func parsePodRouterCloneRequest(
 	}
 
 	profileKey := strings.TrimSpace(req.NetworkProfileKey)
-	switch profileKey {
-	case podnetwork.ProfileLANRouterV1, podnetwork.ProfileLANDMZRouterV1:
-	default:
+	if _, err := catalog.Profile(profileKey); err != nil {
 		return uuid.Nil, 0, "", 0, &requestError{
 			Status:      http.StatusUnprocessableEntity,
 			UserMessage: fmt.Sprintf("unsupported network profile %q", profileKey),
-		}
-	}
-
-	if catalog != nil {
-		if _, err := catalog.Profile(profileKey); err != nil {
-			return uuid.Nil, 0, "", 0, &requestError{
-				Status:      http.StatusUnprocessableEntity,
-				UserMessage: err.Error(),
-			}
 		}
 	}
 

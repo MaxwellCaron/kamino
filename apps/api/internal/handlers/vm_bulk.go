@@ -67,12 +67,12 @@ func (h *VMHandler) collectVerifiedVMTargets(
 	required authorization.Mask,
 	lock bool,
 	allowMissingUpstream bool,
-) ([]verifiedVMTarget, bulkVMActionResponse) {
+) ([]vmactions.Target, bulkVMActionResponse) {
 	response := bulkVMActionResponse{
 		Succeeded: make([]string, 0, len(itemIDs)),
 		Failed:    make([]bulkVMActionFailure, 0),
 	}
-	targets := make([]verifiedVMTarget, 0, len(itemIDs))
+	targets := make([]vmactions.Target, 0, len(itemIDs))
 
 	accessByItemID, err := h.Authz.ResolveVMItems(c.Request.Context(), principalID, itemIDs, required, lock)
 	if err != nil {
@@ -120,7 +120,7 @@ func (h *VMHandler) collectVerifiedVMTargets(
 		}
 	}
 
-	verifiedTargets := make([]verifiedVMTarget, len(pending))
+	verifiedTargets := make([]vmactions.Target, len(pending))
 	verifyErrors := make([]*requestError, len(pending))
 	group, groupCtx := errgroup.WithContext(c.Request.Context())
 	group.SetLimit(8)
@@ -166,7 +166,7 @@ func (h *VMHandler) collectVerifiedVMTargets(
 // runClaimedBulkVMAction claims target.ItemID for action and invokes fn,
 func (h *VMHandler) runClaimedBulkVMAction(
 	ctx context.Context,
-	target verifiedVMTarget,
+	target vmactions.Target,
 	action string,
 	principalID uuid.UUID,
 	fn func() error,
@@ -179,15 +179,6 @@ func (h *VMHandler) runClaimedBulkVMAction(
 	}()
 
 	return fn(), true
-}
-
-func vmActionTarget(target verifiedVMTarget) vmactions.Target {
-	return vmactions.Target{
-		ItemID:    target.ItemID,
-		Node:      target.Node,
-		VMID:      target.VMID,
-		GuestType: target.GuestType,
-	}
 }
 
 func writeContainerNotSupported(c *gin.Context) {

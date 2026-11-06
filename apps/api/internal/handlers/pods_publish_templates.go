@@ -21,7 +21,7 @@ func (h *PodsHandler) updatePublishedPodTemplates(
 	principalID uuid.UUID,
 	req normalizedPublishPodRequest,
 	existingVMs []database.ListPublishedPodVMsByPodIDsRow,
-	progress *publishPodProgressReporter,
+	progress *podProgressReporter,
 ) ([]normalizedPublishPodVM, []uuid.UUID, *requestError) {
 	if len(req.VirtualMachines) != len(existingVMs) {
 		return nil, nil, invalidPublishPod("published VMs must match the selected Pod Folder")
@@ -174,7 +174,7 @@ func (h *PodsHandler) preparePublishedPodTemplates(
 	ctx context.Context,
 	principalID uuid.UUID,
 	req normalizedPublishPodRequest,
-	progress *publishPodProgressReporter,
+	progress *podProgressReporter,
 ) ([]normalizedPublishPodVM, *requestError) {
 	if req.SourceFolderID == uuid.Nil {
 		return nil, invalidPublishPod("select a Pod Folder")
@@ -255,7 +255,7 @@ func (h *PodsHandler) clonePreparedVMsIntoTemplates(
 	placement inventory.FolderPlacement,
 	targetNode string,
 	vms []normalizedPublishPodVM,
-	progress *publishPodProgressReporter,
+	progress *podProgressReporter,
 ) ([]normalizedPublishPodVM, *requestError) {
 	prepared := make([]normalizedPublishPodVM, len(vms))
 	routerTemplateID := uuid.Nil

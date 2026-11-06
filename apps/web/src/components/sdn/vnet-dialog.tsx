@@ -1,0 +1,502 @@
+import {
+  Add01Icon,
+  Globe02Icon,
+  PencilEdit01Icon,
+  RegexIcon,
+} from "@hugeicons/core-free-icons"
+import type {
+  ApiSDNZone,
+  ApiVNet,
+  CreateVNetInput,
+} from "@/features/sdn/types/sdn-types"
+import {
+  AppDialog,
+  AppDialogHeaderTabs,
+  AppDialogPrimaryButton,
+  AppDialogScrollBody,
+} from "@/components/dialogs/app-dialog"
+import { Tabs, TabsContent, TabsTrigger } from "@workspace/ui/components/tabs"
+import type {
+  VNetCreateMode,
+  VNetFormValues,
+} from "@/components/sdn/vnet-dialog-utils"
+import {
+  applySDN,
+  createVNet,
+  createVNets,
+  createVNetsInChunks,
+  sdnZonesQueryOptions,
+  updateVNet,
+} from "@/features/sdn/api/sdn-api"
+import {
+  buildCreateVNets,
+  getDefaultVNetFormValues,
+  getTagRule,
+  isVlanAwareDisabled,
+} from "@/components/sdn/vnet-dialog-utils"
+import {
+  showSingleMutationToast,
+  showUnitMutationToast,
+} from "@/components/feedback/mutation-progress-toast"
+import { useMemo, useState } from "react"
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
+import { CreateVNetSingleForm } from "@/components/sdn/create-vnet-single-form"
+import { CreateVNetsPrefixForm } from "@/components/sdn/create-vnet-prefix-form"
+import { DialogFooter } from "@workspace/ui/components/dialog"
+import { EditVNetForm } from "@/components/sdn/edit-vnet-form"
+import { FieldError } from "@workspace/ui/components/field"
+import { HugeiconsIcon } from "@hugeicons/react"
+import { InlineErrorAlert } from "@/components/feedback/inline-error-alert"
+import type { MutationItemUpdate } from "@/components/feedback/mutation-progress-toast"
+import { PreloadOverlay } from "@/components/loading-overlay"
+import { useForm } from "@tanstack/react-form"
+
+const SDN_APPLY_ITEM_ID = "sdn-apply"
+
+function getErrorMessage(error: unknown) {
+  return error instanceof Error ? error.message : "Failed"
+}
+
+function getSDNApplyProgressItem() {
+  return {
+    id: SDN_APPLY_ITEM_ID,
+    name: "SDN Apply",
+    successDescription: "Applied",
+    retry: applySDN,
+  }
+}
+
+async function reportSDNApply(report: (update: MutationItemUpdate) => void) {
+  try {
+    await applySDN()
+    report({ id: SDN_APPLY_ITEM_ID, status: "done" })
+  } catch (error) {
+    report({
+      id: SDN_APPLY_ITEM_ID,
+      status: "error",
+      error: getErrorMessage(error),
+    })
+  }
+}
+
+function VNetCreateFields({
+  FieldComponent,
+  SubscribeComponent,
+  zones,
+  zonesByName,
+  zonesUnavailable,
+  onZoneChange,
+}: {
+  FieldComponent: any
+  SubscribeComponent: any
+  zones: Array<{ zone: string; type?: string }>
+  zonesByName: Map<string, { zone: string; type?: string }>
+  zonesUnavailable: boolean
+  onZoneChange: (nextZone: string) => void
+}) {
+  return (
+    <>
+      <TabsContent value="single">
+        <CreateVNetSingleForm
+          FieldComponent={FieldComponent}
+          SubscribeComponent={SubscribeComponent}
+          zones={zones}
+          zonesByName={zonesByName}
+          zonesUnavailable={zonesUnavailable}
+          onZoneChange={onZoneChange}
+        />
+      </TabsContent>
+
+      <TabsContent value="prefix">
+        <CreateVNetsPrefixForm
+          FieldComponent={FieldComponent}
+          SubscribeComponent={SubscribeComponent}
+          zones={zones}
+          zonesByName={zonesByName}
+          zonesUnavailable={zonesUnavailable}
+          onZoneChange={onZoneChange}
+        />
+      </TabsContent>
+    </>
+  )
+}
+
+function VNetDialogFooter({
+  SubscribeComponent,
+  isEdit,
+  mode,
+  zonesUnavailable,
+}: {
+  SubscribeComponent: any
+  isEdit: boolean
+  mode: VNetCreateMode
+  zonesUnavailable: boolean
+}) {
+  return (
+    <DialogFooter>
+      <SubscribeComponent selector={(state: any) => state.isSubmitting}>
+        {(isSubmitting: boolean) => (
+          <AppDialogPrimaryButton
+            pending={isSubmitting}
+            disabled={zonesUnavailable}
+          >
+            {isEdit ? "Save" : mode === "prefix" ? "Create VNets" : "Create"}
+          </AppDialogPrimaryButton>
+        )}
+      </SubscribeComponent>
+    </DialogFooter>
+  )
+}
+
+export function VNetDialog({
+  vnet,
+  open,
+  onOpenChange,
+}: {
+  vnet?: ApiVNet
+  open: boolean
+  onOpenChange: (open: boolean) => void
+}) {
+  const isEdit = !!vnet
+  const {
+    data: zonesData,
+    error: zonesError,
+    isLoading: isZonesLoading,
+  } = useQuery({ ...sdnZonesQueryOptions, enabled: open })
+
+  const zones = useMemo(
+    () => (zonesData ?? []).toSorted((a, b) => a.zone.localeCompare(b.zone)),
+    [zonesData]
+  )
+  const zonesByName = useMemo(
+    () => new Map(zones.map((zone) => [zone.zone, zone])),
+    [zones]
+  )
+  const zonesUnavailable = !isZonesLoading && !zonesError && zones.length === 0
+  const defaultZone = zones[0]?.zone ?? ""
+
+  const [mode, setMode] = useState<VNetCreateMode>("single")
+  const [sessionKey, setSessionKey] = useState(0)
+
+  const dialogProps = {
+    open,
+    onOpenChange,
+    onClosed: () => {
+      setMode("single")
+      setSessionKey((key) => key + 1)
+    },
+    icon: isEdit ? PencilEdit01Icon : Add01Icon,
+    title: isEdit ? "Edit VNet" : "Create VNets",
+    description: isEdit
+      ? `Update VNet configuration for ${vnet.vnet}.`
+      : "Create one or more VNets.",
+  }
+
+  const body = (
+    <div className="relative min-h-88">
+      <PreloadOverlay active={isZonesLoading} label="Loading SDN zones" />
+      {zonesError ? (
+        <InlineErrorAlert
+          error={zonesError}
+          fallback="Failed to load SDN zones."
+        />
+      ) : !isZonesLoading ? (
+        <VNetDialogForm
+          key={sessionKey}
+          vnet={vnet}
+          mode={mode}
+          onModeSettled={() => setMode("single")}
+          onOpenChange={onOpenChange}
+          zones={zones}
+          zonesByName={zonesByName}
+          zonesUnavailable={zonesUnavailable}
+          defaultZone={defaultZone}
+        />
+      ) : null}
+    </div>
+  )
+
+  if (isEdit) {
+    return <AppDialog {...dialogProps}>{body}</AppDialog>
+  }
+
+  return (
+    <Tabs
+      value={mode}
+      onValueChange={(value) => setMode(value as VNetCreateMode)}
+      className="gap-0"
+    >
+      <AppDialog
+        {...dialogProps}
+        headerAfter={
+          <AppDialogHeaderTabs>
+            <TabsTrigger value="single">
+              <HugeiconsIcon icon={Globe02Icon} />
+              Single
+            </TabsTrigger>
+            <TabsTrigger value="prefix">
+              <HugeiconsIcon icon={RegexIcon} />
+              Prefix
+            </TabsTrigger>
+          </AppDialogHeaderTabs>
+        }
+      >
+        {body}
+      </AppDialog>
+    </Tabs>
+  )
+}
+
+function VNetDialogForm({
+  vnet,
+  mode,
+  onModeSettled,
+  onOpenChange,
+  zones,
+  zonesByName,
+  zonesUnavailable,
+  defaultZone,
+}: {
+  vnet?: ApiVNet
+  mode: VNetCreateMode
+  onModeSettled: () => void
+  onOpenChange: (open: boolean) => void
+  zones: Array<ApiSDNZone>
+  zonesByName: Map<string, ApiSDNZone>
+  zonesUnavailable: boolean
+  defaultZone: string
+}) {
+  const isEdit = !!vnet
+  const queryClient = useQueryClient()
+
+  const mutation = useMutation({
+    mutationFn: async (values: VNetFormValues) => {
+      if (!isEdit) return
+
+      const tag = values.tag.trim() ? parseInt(values.tag, 10) : undefined
+      await updateVNet(vnet.vnet, {
+        zone: values.zone,
+        tag,
+        alias: values.alias || undefined,
+        vlanaware: values.vlanAware,
+        isolate_ports: values.isolatePorts,
+      })
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["sdn", "vnets"] })
+      form.reset()
+    },
+  })
+
+  const form = useForm({
+    defaultValues: getDefaultVNetFormValues(vnet, defaultZone || undefined),
+    onSubmit: ({ value }) => {
+      const zoneType = zonesByName.get(value.zone.trim())?.type
+
+      if (isEdit) {
+        onOpenChange(false)
+        showSingleMutationToast({
+          title: "Updating VNet",
+          name: value.vnet,
+          promise: () => mutation.mutateAsync(value),
+          successDescription: "Updated",
+        })
+        return
+      }
+
+      if (mode === "single") {
+        let payload: CreateVNetInput
+        try {
+          const [nextPayload] = buildCreateVNets("single", value, zoneType)
+          payload = nextPayload
+        } catch (error) {
+          showSingleMutationToast({
+            title: "Creating VNet",
+            name: value.vnet || "VNet",
+            promise: () =>
+              Promise.reject(
+                error instanceof Error ? error : new Error(String(error))
+              ),
+            successDescription: "Created",
+          })
+          return
+        }
+
+        onOpenChange(false)
+        showUnitMutationToast({
+          title: "Creating VNet",
+          progressItems: [getSDNApplyProgressItem()],
+          units: [
+            {
+              items: [
+                {
+                  id: payload.vnet,
+                  name: payload.vnet,
+                  successDescription: "Queued",
+                  retry: async () => {
+                    await createVNet(payload, { apply: false })
+                    await applySDN()
+                  },
+                },
+              ],
+              run: async (report) => {
+                try {
+                  await createVNet(payload, { apply: false })
+                  report({ id: payload.vnet, status: "done" })
+                } catch (error) {
+                  report({
+                    id: SDN_APPLY_ITEM_ID,
+                    status: "error",
+                    error: "Skipped because VNet creation failed",
+                  })
+                  throw error
+                }
+
+                await reportSDNApply(report)
+              },
+            },
+          ],
+          onSettled: () => {
+            queryClient.invalidateQueries({ queryKey: ["sdn", "vnets"] })
+            form.reset()
+          },
+        })
+        return
+      }
+
+      let payload
+      try {
+        payload = buildCreateVNets("prefix", value, zoneType)
+      } catch (error) {
+        showSingleMutationToast({
+          title: "Creating VNets",
+          name: "Prefix",
+          promise: () =>
+            Promise.reject(
+              error instanceof Error ? error : new Error(String(error))
+            ),
+          successDescription: "Created",
+        })
+        return
+      }
+
+      onOpenChange(false)
+      showUnitMutationToast({
+        title: "Creating VNets",
+        progressItems: [getSDNApplyProgressItem()],
+        units: [
+          {
+            items: payload.map((input) => ({
+              id: input.vnet,
+              name: input.vnet,
+              successDescription: "Queued",
+              retry: async () => {
+                const result = await createVNets([input], { apply: false })
+                const failure = result.failed.find(
+                  (item) => item.id === input.vnet
+                )
+                if (failure) throw new Error(failure.error)
+                await applySDN()
+              },
+            })),
+            run: async (report) => {
+              const result = await createVNetsInChunks(
+                payload,
+                { apply: false },
+                (chunk, chunkResult) => {
+                  const errorsById = new Map(
+                    chunkResult.failed.map((failure) => [
+                      failure.id,
+                      failure.error,
+                    ])
+                  )
+                  for (const input of chunk) {
+                    const error = errorsById.get(input.vnet)
+                    if (error) {
+                      report({ id: input.vnet, status: "error", error })
+                    } else {
+                      report({ id: input.vnet, status: "done" })
+                    }
+                  }
+                }
+              )
+
+              if (result.created.length === 0) {
+                report({
+                  id: SDN_APPLY_ITEM_ID,
+                  status: "error",
+                  error: "Skipped because no VNets were queued",
+                })
+                return { failed: result.failed }
+              }
+
+              await reportSDNApply(report)
+              return { failed: result.failed }
+            },
+          },
+        ],
+        onSettled: () => {
+          queryClient.invalidateQueries({ queryKey: ["sdn", "vnets"] })
+          form.reset()
+          onModeSettled()
+        },
+      })
+    },
+  })
+
+  const handleZoneChange = (nextZone: string) => {
+    const zoneType = zonesByName.get(nextZone)?.type
+    if (getTagRule(zoneType) === "disabled") {
+      form.setFieldValue("tag", "")
+      form.setFieldValue("baseTag", "")
+    }
+    if (isVlanAwareDisabled(zoneType)) {
+      form.setFieldValue("vlanAware", false)
+    }
+  }
+
+  return (
+    <form
+      action={() => {
+        void form.handleSubmit()
+      }}
+    >
+      <AppDialogScrollBody>
+        {isEdit ? (
+          <EditVNetForm
+            FieldComponent={form.Field}
+            SubscribeComponent={form.Subscribe}
+            zones={zones}
+            zonesByName={zonesByName}
+            zonesUnavailable={zonesUnavailable}
+            onZoneChange={handleZoneChange}
+          />
+        ) : (
+          <VNetCreateFields
+            FieldComponent={form.Field}
+            SubscribeComponent={form.Subscribe}
+            zones={zones}
+            zonesByName={zonesByName}
+            zonesUnavailable={zonesUnavailable}
+            onZoneChange={handleZoneChange}
+          />
+        )}
+      </AppDialogScrollBody>
+
+      <form.Subscribe selector={(state) => state.canSubmit}>
+        {(canSubmit) =>
+          canSubmit ? null : (
+            <FieldError>Correct the highlighted fields to continue.</FieldError>
+          )
+        }
+      </form.Subscribe>
+
+      <VNetDialogFooter
+        SubscribeComponent={form.Subscribe}
+        isEdit={isEdit}
+        mode={mode}
+        zonesUnavailable={zonesUnavailable}
+      />
+    </form>
+  )
+}

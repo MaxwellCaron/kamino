@@ -16,7 +16,6 @@ type ScopableNetworkInterface = {
   vlan_tag?: number
 }
 
-// An already-allowed bridge is preserved, anything else defaults to the scope's bridge; the VLAN tag is always set.
 export function applyScopedNetworkToInterfaces<T extends ScopableNetworkInterface>(
   scope: ApiScopedNetwork,
   interfaces: Array<T>

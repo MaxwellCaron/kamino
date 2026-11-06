@@ -47,9 +47,9 @@ func TestNormalizePodCloneTargetRequest(t *testing.T) {
 	req := validPodCloneTargetRequest()
 	req.IsDefault = true
 	req.IsPersonal = true
-	target, reqErr := normalizePodCloneTargetRequest(req, true)
+	target, reqErr := normalizePodCloneTargetRequest(testNetworkCatalog(t), req, true)
 	if reqErr != nil {
-		t.Fatalf("normalizePodCloneTargetRequest() error = %v", reqErr)
+		t.Fatalf("normalizePodCloneTargetRequest(testNetworkCatalog(t), ) error = %v", reqErr)
 	}
 
 	if target.WANSubnet != "172.30.0.0/16" {
@@ -89,21 +89,21 @@ func TestPodCloneTargetSupportsProfile(t *testing.T) {
 	lan := podCloneTarget{NetworkProfileKey: "lan-router-v1"}
 	lanDMZ := podCloneTarget{NetworkProfileKey: "lan-dmz-router-v1"}
 
-	if !lan.SupportsProfile("lan-router-v1") {
+	if !lan.SupportsProfile(testNetworkCatalog(t), "lan-router-v1") {
 		t.Fatal("LAN target should support the LAN profile")
 	}
-	if lan.SupportsProfile("lan-dmz-router-v1") {
+	if lan.SupportsProfile(testNetworkCatalog(t), "lan-dmz-router-v1") {
 		t.Fatal("LAN target should not support the LAN + DMZ profile")
 	}
-	if !lanDMZ.SupportsProfile("lan-router-v1") || !lanDMZ.SupportsProfile("lan-dmz-router-v1") {
+	if !lanDMZ.SupportsProfile(testNetworkCatalog(t), "lan-router-v1") || !lanDMZ.SupportsProfile(testNetworkCatalog(t), "lan-dmz-router-v1") {
 		t.Fatal("LAN + DMZ target should support both profiles")
 	}
 }
 
 func TestPodCloneTargetIdentityChanged(t *testing.T) {
-	current, reqErr := normalizePodCloneTargetRequest(validPodCloneTargetRequest(), true)
+	current, reqErr := normalizePodCloneTargetRequest(testNetworkCatalog(t), validPodCloneTargetRequest(), true)
 	if reqErr != nil {
-		t.Fatalf("normalizePodCloneTargetRequest() error = %v", reqErr)
+		t.Fatalf("normalizePodCloneTargetRequest(testNetworkCatalog(t), ) error = %v", reqErr)
 	}
 
 	mutableUpdate := current
@@ -161,7 +161,7 @@ func TestNormalizePodCloneTargetRequestRejectsInvalidInput(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			req := validPodCloneTargetRequest()
 			tt.mutate(&req)
-			if _, reqErr := normalizePodCloneTargetRequest(req, tt.wantKey); reqErr == nil {
+			if _, reqErr := normalizePodCloneTargetRequest(testNetworkCatalog(t), req, tt.wantKey); reqErr == nil {
 				t.Fatalf("expected validation error for %s", tt.name)
 			}
 		})
@@ -172,8 +172,8 @@ func TestNormalizePodCloneTargetRequestRejectsInvalidInput(t *testing.T) {
 func TestNormalizePodCloneTargetRequestAllowsMissingKeyOnUpdate(t *testing.T) {
 	req := validPodCloneTargetRequest()
 	req.Key = ""
-	if _, reqErr := normalizePodCloneTargetRequest(req, false); reqErr != nil {
-		t.Fatalf("normalizePodCloneTargetRequest() error = %v", reqErr)
+	if _, reqErr := normalizePodCloneTargetRequest(testNetworkCatalog(t), req, false); reqErr != nil {
+		t.Fatalf("normalizePodCloneTargetRequest(testNetworkCatalog(t), ) error = %v", reqErr)
 	}
 }
 

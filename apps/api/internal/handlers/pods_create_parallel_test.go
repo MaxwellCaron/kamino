@@ -6,6 +6,7 @@ import (
 	"sync"
 	"sync/atomic"
 	"testing"
+	"testing/synctest"
 )
 
 func TestRunCreatePodClonesBoundedOverlapAndOrder(t *testing.T) {
@@ -75,38 +76,31 @@ func TestRunCreatePodClonesReturnsRequestErrorUnchanged(t *testing.T) {
 	}
 }
 
-func TestRunCreatePodClonesWrapsUnexpectedError(t *testing.T) {
-	_, reqErr := runCreatePodClones(context.Background(), 2, []podCloneSpec{{Name: "vm-a"}}, func(ctx context.Context, index int, spec podCloneSpec) (createPodVMResult, *requestError) {
-		return createPodVMResult{}, &requestError{Status: http.StatusBadGateway, UserMessage: "bad gateway"}
-	})
-	if reqErr == nil {
-		t.Fatal("expected request error")
-	}
-	if reqErr.UserMessage != "bad gateway" {
-		t.Fatalf("reqErr.UserMessage = %q, want bad gateway", reqErr.UserMessage)
-	}
-}
-
 func TestRunCreatePodClonesOutOfOrderCompletionPreservesOrder(t *testing.T) {
-	specs := []podCloneSpec{{Name: "slow"}, {Name: "fast"}}
-	var gate sync.WaitGroup
-	gate.Add(1)
-
-	results, reqErr := runCreatePodClones(context.Background(), 2, specs, func(ctx context.Context, index int, spec podCloneSpec) (createPodVMResult, *requestError) {
-		if index == 0 {
-			gate.Wait()
-		} else {
-			gate.Done()
+	synctest.Test(t, func(t *testing.T) {
+		specs := []podCloneSpec{{Name: "slow"}, {Name: "fast"}}
+		hold := make(chan struct{})
+		done := make(chan []createPodVMResult, 1)
+		go func() {
+			results, reqErr := runCreatePodClones(context.Background(), 2, specs, func(ctx context.Context, index int, spec podCloneSpec) (createPodVMResult, *requestError) {
+				if index == 0 {
+					<-hold
+				}
+				return createPodVMResult{
+					response: createPodVMResponse{VMID: 2000 + index},
+					target:   podNetworkVMTarget{name: spec.Name},
+				}, nil
+			})
+			if reqErr != nil {
+				t.Errorf("runCreatePodClones() reqErr = %v", reqErr)
+			}
+			done <- results
+		}()
+		synctest.Wait()
+		close(hold)
+		results := <-done
+		if len(results) != 2 || results[0].target.name != "slow" || results[1].target.name != "fast" {
+			t.Fatalf("results = %+v, want [slow fast]", results)
 		}
-		return createPodVMResult{
-			response: createPodVMResponse{VMID: 2000 + index},
-			target:   podNetworkVMTarget{name: spec.Name},
-		}, nil
 	})
-	if reqErr != nil {
-		t.Fatalf("runCreatePodClones() reqErr = %v", reqErr)
-	}
-	if results[0].target.name != "slow" || results[1].target.name != "fast" {
-		t.Fatalf("results order = [%q, %q], want [slow fast]", results[0].target.name, results[1].target.name)
-	}
 }

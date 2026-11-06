@@ -2,17 +2,12 @@ import { useEffect, useRef } from "react"
 import type { ApiTreeNode } from "../../types/inventory-types"
 import type { TreeInstance } from "@headless-tree/core"
 
-/** Maximum width/height of an edge zone, in pixels. */
 const EDGE_ZONE_MAX_PX = 64
 /** Edge zones shrink to this fraction of a short viewport so they never overlap. */
 const SHORT_VIEWPORT_ZONE_FRACTION = 1 / 3
-/** Maximum autoscroll speed under normal motion preferences, in px/s. */
 const NORMAL_MAX_SPEED_PX_PER_SEC = 600
-/** Maximum autoscroll speed when the user prefers reduced motion, in px/s. */
 const REDUCED_MOTION_MAX_SPEED_PX_PER_SEC = 300
-/** Assumed elapsed time for the first animation frame of a scroll loop. */
 const FIRST_FRAME_ELAPSED_MS = 16
-/** Upper bound on elapsed time credited to any single frame. */
 const MAX_FRAME_ELAPSED_MS = 32
 
 /** Pointer-driven autoscroll velocity (px/s); negative near the top edge, positive near the bottom, 0 elsewhere. */
@@ -131,7 +126,6 @@ export function useInventoryTreeDragAutoscroll(
       )
 
       if (nextScrollTop === element.scrollTop) {
-        // Reached a scroll boundary; nothing more to do until the pointer moves.
         frameIdRef.current = null
         lastTimestampRef.current = null
         return

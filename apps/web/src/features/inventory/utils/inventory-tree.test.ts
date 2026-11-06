@@ -4,11 +4,7 @@ import {
 } from "./inventory-permissions"
 import { describe, expect, it } from "vitest"
 import type { ApiTreeNode } from "../types/inventory-types"
-import type {InventoryFolderOption} from "./inventory-tree";
-import {
-
-  getInventoryFolderOptions
-} from "./inventory-tree"
+import { getInventoryFolderOptions } from "./inventory-tree"
 
 function folderNode(
   id: string,
@@ -35,8 +31,8 @@ const viewOnlyMask = InventoryPermissionBits.view
 
 const tree: Array<ApiTreeNode> = [
   folderNode("root", "Inventory", 0, [
-    folderNode("folder-a", "Alpha", viewAndCreateMask),
     folderNode("folder-b", "Bravo", viewOnlyMask),
+    folderNode("folder-a", "Alpha", viewAndCreateMask),
     folderNode("nested-root", "Nested", viewAndCreateMask, [
       folderNode("folder-c", "Charlie", viewAndCreateMask),
     ]),
@@ -44,14 +40,11 @@ const tree: Array<ApiTreeNode> = [
 ]
 
 describe("getInventoryFolderOptions", () => {
-  it("includes visible folders by default", () => {
+  it("returns visible folders sorted by full path, excluding the inventory root", () => {
     const options = getInventoryFolderOptions(tree)
     const labels = options.map((option) => option.label)
 
-    expect(labels).toContain("Alpha")
-    expect(labels).toContain("Bravo")
-    expect(labels).toContain("Nested / Charlie")
-    expect(labels).not.toContain("Inventory")
+    expect(labels).toEqual(["Alpha", "Bravo", "Nested", "Nested / Charlie"])
   })
 
   it("filters to Create VM folders when requested", () => {
@@ -63,17 +56,5 @@ describe("getInventoryFolderOptions", () => {
 
     expect(labels).toEqual(["Alpha", "Nested", "Nested / Charlie"])
     expect(labels).not.toContain("Bravo")
-  })
-
-  it("excludes the inventory root folder", () => {
-    const options = getInventoryFolderOptions(tree)
-    expect(options.some((option) => option.name === "Inventory")).toBe(false)
-  })
-
-  it("sorts folders by full path label", () => {
-    const options = getInventoryFolderOptions(tree)
-    const labels = options.map((option: InventoryFolderOption) => option.label)
-
-    expect(labels).toEqual(["Alpha", "Bravo", "Nested", "Nested / Charlie"])
   })
 })

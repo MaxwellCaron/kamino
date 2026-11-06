@@ -7,6 +7,7 @@ import {
   migrateVMs,
   renameVM,
   rollbackSnapshot,
+  snapshotsQueryOptions,
   submitInventoryPowerRequest,
   submitInventorySnapshotCreateRequest,
   submitInventorySnapshotRollbackRequest,
@@ -23,8 +24,6 @@ import {
 } from "@/features/inventory/api/inventory-api"
 import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { useNavigate } from "@tanstack/react-router"
-
-const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
 
 export function useVmPowerAction() {
   const queryClient = useQueryClient()
@@ -98,11 +97,9 @@ export function useCreateSnapshot(itemId: string) {
 
   return useMutation({
     mutationFn: createSnapshot,
-    onSuccess: async () => {
-      // Wait 7 second to let the backend settle
-      await delay(7000)
+    onSuccess: () => {
       queryClient.invalidateQueries({
-        queryKey: ["inventory", "item", itemId, "vm", "snapshots"],
+        queryKey: snapshotsQueryOptions(itemId).queryKey,
       })
     },
   })
@@ -191,13 +188,11 @@ export function useConvertToTemplate() {
 
   return useMutation({
     mutationFn: convertToTemplate,
-    onSuccess: async (result) => {
+    onSuccess: (result) => {
       if (result.succeeded.length === 0) {
         return
       }
 
-      // Wait 7 second to let the backend settle
-      await delay(7000)
       queryClient.invalidateQueries({
         queryKey: inventoryTreeQueryOptions.queryKey,
       })
@@ -211,11 +206,9 @@ export function useRollbackSnapshot(itemId: string) {
 
   return useMutation({
     mutationFn: rollbackSnapshot,
-    onSuccess: async () => {
-      // Wait 7 second to let the backend settle
-      await delay(7000)
+    onSuccess: () => {
       queryClient.invalidateQueries({
-        queryKey: ["inventory", "item", itemId, "vm", "snapshots"],
+        queryKey: snapshotsQueryOptions(itemId).queryKey,
       })
     },
   })
@@ -237,11 +230,9 @@ export function useDeleteSnapshot(itemId: string) {
 
   return useMutation({
     mutationFn: deleteSnapshot,
-    onSuccess: async () => {
-      // Wait 7 second to let the backend settle
-      await delay(7000)
+    onSuccess: () => {
       queryClient.invalidateQueries({
-        queryKey: ["inventory", "item", itemId, "vm", "snapshots"],
+        queryKey: snapshotsQueryOptions(itemId).queryKey,
       })
     },
   })

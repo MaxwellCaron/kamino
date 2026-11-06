@@ -16,19 +16,18 @@ import (
 	"github.com/google/uuid"
 )
 
-// eventsAuthz is the narrow authorization seam EventsHandler depends on.
 type eventsAuthz interface {
 	IsManager(ctx context.Context, principalID uuid.UUID) (bool, error)
 	FilterVisibleStatuses(ctx context.Context, principalID uuid.UUID, statuses map[int]string) (map[int]string, error)
 }
 
-// eventsRequestService is the narrow request-queue seam EventsHandler depends on.
 type eventsRequestService interface {
 	EnsureQueueAccess(ctx context.Context, principalID uuid.UUID) error
 	Subscribe() (<-chan requestqueue.Event, func())
 }
 
 type EventsHandler struct {
+	PodProgress       *PodProgress
 	InventoryNotifier *inventory.Notifier
 	VMNotifier        *vmstatus.Notifier
 	Requests          eventsRequestService
@@ -54,7 +53,7 @@ func (h *EventsHandler) Stream(c *gin.Context) {
 		return
 	}
 
-	if h.InventoryNotifier == nil && h.VMNotifier == nil && h.Requests == nil && publishedPodProgress == nil {
+	if h.InventoryNotifier == nil && h.VMNotifier == nil && h.Requests == nil && h.PodProgress == nil {
 		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "events unavailable"})
 		return
 	}
@@ -108,9 +107,9 @@ func (h *EventsHandler) Stream(c *gin.Context) {
 		requestEvents = events
 	}
 
-	var publishProgressEvents <-chan publishPodProgressSnapshot
-	if h.Authz != nil {
-		events, unsubscribe := publishedPodProgress.subscribe()
+	var publishProgressEvents <-chan podProgressSnapshot
+	if h.Authz != nil && h.PodProgress != nil {
+		events, unsubscribe := h.PodProgress.publish.events.Subscribe()
 		defer unsubscribe()
 		publishProgressEvents = events
 	}
@@ -134,7 +133,6 @@ func (h *EventsHandler) Stream(c *gin.Context) {
 	h.streamLoop(c, principalID, sessionID, flusher, inventoryEvents, vmEvents, requestEvents, publishProgressEvents, heartbeat.C)
 }
 
-// streamLoop is Stream's event pump, extracted so tests can inject fake channels.
 func (h *EventsHandler) streamLoop(
 	c *gin.Context,
 	principalID uuid.UUID,
@@ -143,7 +141,7 @@ func (h *EventsHandler) streamLoop(
 	inventoryEvents <-chan inventory.Event,
 	vmEvents <-chan vmstatus.Event,
 	requestEvents <-chan requestqueue.Event,
-	publishProgressEvents <-chan publishPodProgressSnapshot,
+	publishProgressEvents <-chan podProgressSnapshot,
 	heartbeatTick <-chan time.Time,
 ) {
 	for {

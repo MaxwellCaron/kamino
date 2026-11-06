@@ -25,7 +25,21 @@ describe("ChangePasswordDialog", () => {
   it("invalidates the cached session after changing the password", async () => {
     vi.mocked(changeOwnPassword).mockResolvedValue()
     const queryClient = createTestQueryClient()
-    queryClient.invalidateQueries = vi.fn().mockResolvedValue(undefined)
+    queryClient.setQueryDefaults(authSessionQueryOptions.queryKey, {
+      gcTime: Infinity,
+    })
+    queryClient.setQueryData(authSessionQueryOptions.queryKey, {
+      user: {
+        id: "user-1",
+        username: "tester",
+        group_count: 0,
+        management_permissions: { grants: [] },
+      },
+      access_token_expires_at: "2026-11-06T12:00:00Z",
+    })
+    expect(
+      queryClient.getQueryState(authSessionQueryOptions.queryKey)?.isInvalidated
+    ).toBe(false)
 
     renderWithQueryClient(
       <ChangePasswordDialog open onOpenChange={vi.fn()} />,
@@ -49,9 +63,12 @@ describe("ChangePasswordDialog", () => {
     const promise = vi.mocked(showSingleMutationToast).mock.calls[0][0].promise
     await promise
 
-    expect(queryClient.invalidateQueries).toHaveBeenCalledWith({
-      queryKey: authSessionQueryOptions.queryKey,
-      exact: true,
+    expect(
+      queryClient.getQueryState(authSessionQueryOptions.queryKey)?.isInvalidated
+    ).toBe(true)
+    expect(vi.mocked(changeOwnPassword).mock.calls[0][0]).toEqual({
+      current_password: "old-password",
+      new_password: "new-password",
     })
   })
 })

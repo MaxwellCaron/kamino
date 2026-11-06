@@ -7,7 +7,6 @@ import {
   hasManagementPermission,
 } from "@/features/auth/utils/management-permissions"
 import type { OnChangeFn, PaginationState } from "@tanstack/react-table"
-
 import {
   approveRequest,
   denyRequest,
@@ -22,13 +21,12 @@ import {
   useQueryClient,
 } from "@tanstack/react-query"
 import { useCallback, useMemo, useReducer } from "react"
-
 import type { ConfirmConfig } from "@/components/dialogs/confirm-dialog"
 import { RequestsPageDialogs } from "./requests-page-dialogs"
 import { RequestsPageOverviewCard } from "./requests-page-overview-card"
 import { RequestsPageQueueCard } from "./requests-page-queue-card"
 import { formatRequestStatus } from "@/features/requests/utils/request-presenters"
-import { getRequestColumns } from "@/features/requests/components/requests-columns"
+import { getRequestColumns } from "@/components/requests/requests-columns"
 import { getRouteApi } from "@tanstack/react-router"
 import { inventoryTreeQueryOptions } from "@/features/inventory/api/inventory-api"
 import { showSingleMutationToast } from "@/components/feedback/mutation-progress-toast"
@@ -341,59 +339,59 @@ export function RequestsPage() {
       {!isRequestsLoading && (
         <>
           <div className="flex flex-col gap-4 px-4 py-4 md:gap-6 md:py-6 lg:px-6">
-        <RequestsPageOverviewCard
-          statusCounts={statusCounts}
-          chartData={chartData}
-        />
+            <RequestsPageOverviewCard
+              statusCounts={statusCounts}
+              chartData={chartData}
+            />
 
-        <RequestsPageQueueCard
-          scope={scope}
-          onScopeChange={handleScopeChange}
-          pendingCount={pendingCount}
-          completedCount={completedCount}
-          columns={columns}
-          activeRequests={activeRequests}
-          isActiveLoading={isActiveLoading}
-          activeError={activeError}
-          canReview={canReview}
-          approveMutation={approveMutation}
-          denyMutation={denyMutation}
-          onOpenConfirm={handleOpenConfirm}
-          serverPagination={
-            scope === "pending"
-              ? {
-                  mode: "server",
-                  pagination: pendingTableState.pagination,
-                  onPaginationChange: setPendingPagination,
-                  rowCount: pendingPage?.total ?? 0,
-                  search: pendingTableState.search,
-                  onSearchChange: setPendingSearch,
-                }
-              : {
-                  mode: "server",
-                  pagination: completedTableState.pagination,
-                  onPaginationChange: setCompletedPagination,
-                  rowCount: completedPage?.total ?? 0,
-                  search: completedTableState.search,
-                  onSearchChange: setCompletedSearch,
-                }
-          }
-        />
-      </div>
+            <RequestsPageQueueCard
+              scope={scope}
+              onScopeChange={handleScopeChange}
+              pendingCount={pendingCount}
+              completedCount={completedCount}
+              columns={columns}
+              activeRequests={activeRequests}
+              isActiveLoading={isActiveLoading}
+              activeError={activeError}
+              canReview={canReview}
+              approveMutation={approveMutation}
+              denyMutation={denyMutation}
+              onOpenConfirm={handleOpenConfirm}
+              serverPagination={
+                scope === "pending"
+                  ? {
+                      mode: "server",
+                      pagination: pendingTableState.pagination,
+                      onPaginationChange: setPendingPagination,
+                      rowCount: pendingPage?.total ?? 0,
+                      search: pendingTableState.search,
+                      onSearchChange: setPendingSearch,
+                    }
+                  : {
+                      mode: "server",
+                      pagination: completedTableState.pagination,
+                      onPaginationChange: setCompletedPagination,
+                      rowCount: completedPage?.total ?? 0,
+                      search: completedTableState.search,
+                      onSearchChange: setCompletedSearch,
+                    }
+              }
+            />
+          </div>
 
-      <RequestsPageDialogs
-        selectedRequestId={selectedRequestId}
-        canReview={canReview}
-        requestDetailError={requestDetailError}
-        isRequestDetailLoading={isRequestDetailLoading}
-        onApprove={handleApproveRequest}
-        onDeny={handleDenyRequest}
-        onRequestDetailOpenChange={handleRequestDetailOpenChange}
-        requestDetail={requestDetail}
-        tree={tree}
-        confirm={confirm}
-        onConfirmClose={handleConfirmClose}
-      />
+          <RequestsPageDialogs
+            selectedRequestId={selectedRequestId}
+            canReview={canReview}
+            requestDetailError={requestDetailError}
+            isRequestDetailLoading={isRequestDetailLoading}
+            onApprove={handleApproveRequest}
+            onDeny={handleDenyRequest}
+            onRequestDetailOpenChange={handleRequestDetailOpenChange}
+            requestDetail={requestDetail}
+            tree={tree}
+            confirm={confirm}
+            onConfirmClose={handleConfirmClose}
+          />
         </>
       )}
     </div>

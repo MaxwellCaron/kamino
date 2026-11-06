@@ -81,7 +81,6 @@ export function requestSummariesQueryOptions(
   }
 }
 
-/** Authoritative total for a manager request scope summary query. */
 export function requestSummaryCountQueryOptions(
   scope: ApiRequestScope,
   rows = 50
@@ -148,7 +147,6 @@ export function requesterRequestSummariesQueryOptions(
   }
 }
 
-/** Authoritative total for a requester scope summary query. */
 export function requesterRequestSummaryCountQueryOptions(
   scope: ApiRequesterRequestScope,
   rows = 50

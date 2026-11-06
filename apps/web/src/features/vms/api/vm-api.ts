@@ -30,12 +30,14 @@ async function fetchVmResources(itemId: string): Promise<VmResources> {
   )
 }
 
+export const VM_RESOURCE_POLL_INTERVAL_MS = 10_000
+
 export function vmResourcesQueryOptions(itemId: string) {
   return {
     queryKey: ["inventory", "item", itemId, "vm", "resources"] as const,
     queryFn: () => fetchVmResources(itemId),
-    refetchInterval: 10_000,
-    staleTime: 10_000,
+    refetchInterval: VM_RESOURCE_POLL_INTERVAL_MS,
+    staleTime: VM_RESOURCE_POLL_INTERVAL_MS,
     enabled: !!itemId,
   }
 }

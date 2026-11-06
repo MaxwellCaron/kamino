@@ -24,22 +24,24 @@ vi.mock("@/features/pods/api/clone-pod-api", () => ({
   }),
 }))
 
-vi.mock("./browse-pods-card", () => ({
-  BrowsePodsCard: ({
-    pod,
-    hasClonedInstance,
+vi.mock("@tanstack/react-router", () => ({
+  Link: ({
+    children,
+    to: _to,
+    params,
+    ...props
   }: {
-    pod: PodCatalogSummary
-    hasClonedInstance: boolean
+    children?: React.ReactNode
+    to?: string
+    params?: Record<string, string>
   }) => (
-    <div
-      data-testid={`browse-pod-card-${pod.id}`}
-      data-has-cloned={String(hasClonedInstance)}
-    />
+    <a href={`/pods/${params?.slug ?? ""}`} {...props}>
+      {children}
+    </a>
   ),
 }))
 
-vi.mock("./browse-pods-skeleton", () => ({
+vi.mock("@/components/pods/browse-pods-skeleton", () => ({
   BrowsePodsGridSkeleton: () => <div aria-label="Loading pods" />,
   browsePodsGridClassName: "",
 }))
@@ -99,7 +101,7 @@ describe("BrowsePodsPage", () => {
     expect(screen.queryByText("No Pods")).not.toBeInTheDocument()
   })
 
-  it("passes hasClonedInstance from clone summaries regardless of power state", async () => {
+  it("labels cloned pods regardless of power state and leaves uncloned pods unmarked", async () => {
     const pods = [
       makePod("pod-running", "Running Pod"),
       makePod("pod-stopped", "Stopped Pod"),
@@ -115,22 +117,19 @@ describe("BrowsePodsPage", () => {
 
     renderWithQueryClient(<BrowsePodsPage />)
 
-    expect(await screen.findByTestId("browse-pod-card-pod-running")).toHaveAttribute(
-      "data-has-cloned",
-      "true"
-    )
-    expect(screen.getByTestId("browse-pod-card-pod-stopped")).toHaveAttribute(
-      "data-has-cloned",
-      "true"
-    )
-    expect(screen.getByTestId("browse-pod-card-pod-partial")).toHaveAttribute(
-      "data-has-cloned",
-      "true"
-    )
-    expect(screen.getByTestId("browse-pod-card-pod-uncloned")).toHaveAttribute(
-      "data-has-cloned",
-      "false"
-    )
+    expect(
+      await screen.findByRole("link", { name: "Open Running Pod, cloned" })
+    ).toBeInTheDocument()
+    expect(
+      screen.getByRole("link", { name: "Open Stopped Pod, cloned" })
+    ).toBeInTheDocument()
+    expect(
+      screen.getByRole("link", { name: "Open Partial Pod, cloned" })
+    ).toBeInTheDocument()
+    expect(
+      screen.getByRole("link", { name: "Open Uncloned Pod" })
+    ).toBeInTheDocument()
+    expect(screen.getAllByText("Cloned")).toHaveLength(3)
   })
 
   it("shows the loading skeleton while clone summaries are initially loading", async () => {
@@ -140,7 +139,9 @@ describe("BrowsePodsPage", () => {
     renderWithQueryClient(<BrowsePodsPage />)
 
     expect(await screen.findByLabelText("Loading pods")).toBeInTheDocument()
-    expect(screen.queryByTestId("browse-pod-card-pod-1")).not.toBeInTheDocument()
+    expect(
+      screen.queryByRole("link", { name: "Open Pod One" })
+    ).not.toBeInTheDocument()
   })
 
   it("renders clone-summary errors instead of published cards or the empty state", async () => {
@@ -154,7 +155,9 @@ describe("BrowsePodsPage", () => {
     expect(
       await screen.findByText(/Clone summary unavailable/)
     ).toBeInTheDocument()
-    expect(screen.queryByTestId("browse-pod-card-pod-1")).not.toBeInTheDocument()
+    expect(
+      screen.queryByRole("link", { name: "Open Pod One" })
+    ).not.toBeInTheDocument()
     expect(screen.queryByText("No Pods")).not.toBeInTheDocument()
   })
 })

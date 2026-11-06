@@ -4,10 +4,11 @@ import (
 	"context"
 
 	"github.com/MaxwellCaron/kamino/internal/proxmox"
+	"github.com/MaxwellCaron/kamino/internal/vmactions"
 )
 
 type boundedVMTemplateOutcome struct {
-	target              verifiedVMTarget
+	target              vmactions.Target
 	unsupported         bool
 	admitted            bool
 	claimed             bool
@@ -18,16 +19,16 @@ type boundedVMTemplateOutcome struct {
 func runBoundedVMTemplateConversions(
 	ctx context.Context,
 	limit int,
-	targets []verifiedVMTarget,
+	targets []vmactions.Target,
 	acquireFn func(context.Context) (func(), error),
-	convertFn func(context.Context, verifiedVMTarget) (claimed bool, inventorySyncFailed bool, err error),
+	convertFn func(context.Context, vmactions.Target) (claimed bool, inventorySyncFailed bool, err error),
 ) []boundedVMTemplateOutcome {
 	outcomes := make([]boundedVMTemplateOutcome, len(targets))
 	if len(targets) == 0 {
 		return outcomes
 	}
 
-	_ = runBoundedActions(ctx, limit, targets, func(ctx context.Context, index int, target verifiedVMTarget) error {
+	_ = runBoundedActions(ctx, limit, targets, func(ctx context.Context, index int, target vmactions.Target) error {
 		outcomes[index].target = target
 		if target.GuestType == proxmox.GuestLXC {
 			outcomes[index].unsupported = true

@@ -88,6 +88,11 @@ export interface PublishedPodCatalogEntry {
   virtual_machines: Array<PublishedPodVirtualMachine>
 }
 
+export type PublishPodInput = Omit<PublishedPodCatalogEntry, "tasks"> & {
+  tasks: Array<PublishedPodTask>
+  update_virtual_machines: Array<UUID>
+}
+
 export interface PodVM {
   id: UUID
   name: string

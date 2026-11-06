@@ -54,7 +54,12 @@ func (h *PodsHandler) buildCloneSpecs(req createPodRequest) ([]podCloneSpec, err
 	}
 
 	defaultSegment := ""
+	var profile podnetwork.Profile
 	if automatedNetworking {
+		profile, err = h.NetworkCatalog.Profile(profileKey)
+		if err != nil {
+			return nil, err
+		}
 		defaultSegment, err = h.NetworkCatalog.DefaultWorkloadSegment(profileKey)
 		if err != nil {
 			return nil, err
@@ -89,8 +94,8 @@ func (h *PodsHandler) buildCloneSpecs(req createPodRequest) ([]podCloneSpec, err
 			if !automatedNetworking && segmentKey != "" {
 				return nil, fmt.Errorf("segment_key requires network_profile_key")
 			}
-			if automatedNetworking && profileKey == podnetwork.ProfileLANDMZRouterV1 && segmentKey == "" {
-				return nil, fmt.Errorf("segment_key is required for every workload in the LAN + DMZ Router profile")
+			if automatedNetworking && profile.RequiresExplicitSegments() && segmentKey == "" {
+				return nil, fmt.Errorf("segment_key is required for every workload in the %s profile", profile.Label)
 			}
 
 			specs = append(specs, podCloneSpec{

@@ -15,7 +15,7 @@ import {
 import type { ApiTreeNode } from "@/features/inventory/types/inventory-types"
 import { HugeiconsIcon } from "@hugeicons/react"
 import { InlineErrorAlert } from "@/components/feedback/inline-error-alert"
-import { InventoryFolderItem } from "@/features/inventory/components/folder/inventory-folder-item"
+import { InventoryFolderItem } from "@/components/inventory/inventory-folder-item"
 import { ItemGroup } from "@workspace/ui/components/item"
 import { Skeleton } from "@workspace/ui/components/skeleton"
 import { StarIcon } from "@hugeicons/core-free-icons"

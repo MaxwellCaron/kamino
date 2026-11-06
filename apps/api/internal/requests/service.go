@@ -76,14 +76,6 @@ type Service struct {
 	vmClaims     vmActionClaimer
 }
 
-type vmTarget struct {
-	ItemID       uuid.UUID
-	Node         string
-	VMID         int
-	UpstreamUUID uuid.UUID
-	GuestType    proxmox.GuestType
-}
-
 func NewService(
 	db *pgxpool.Pool,
 	authz *authorization.Service,

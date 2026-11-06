@@ -24,7 +24,7 @@ import {
 import { useQueries, useQuery } from "@tanstack/react-query"
 import type { ApiNode } from "@/features/vms/types/vm-types"
 import { getPrincipalColumns } from "../components/admin-principal-columns"
-import { getRequestColumns } from "@/features/requests/components/requests-columns"
+import { getRequestColumns } from "@/components/requests/requests-columns"
 import { inventoryTreeQueryOptions } from "@/features/inventory/api/inventory-api"
 import { useMemo } from "react"
 
@@ -66,9 +66,7 @@ function getAdminDashboardState({
   storageSummary: DashboardStorageSummary | null
 }) {
   const nodes = nodesData ?? []
-  const primaryStatsError =
-    inventoryError ??
-    completedRequestsTotalError
+  const primaryStatsError = inventoryError ?? completedRequestsTotalError
   const isLoading =
     isUsersLoading ||
     isGroupsLoading ||

@@ -16,14 +16,12 @@ import {
   VmHardwareCpuBlock,
   VmHardwareMemoryBlock,
 } from "@/features/vms/components/hardware/hardware-sections"
-import {
-  getFirstIssueMessage,
-  parseNumberInput,
-} from "@/features/vms/components/create/create-vm-form"
 import { Input } from "@workspace/ui/components/input"
 import { cpuTypes } from "@/features/vms/components/hardware/hardware-options"
 import { formatFieldError } from "@/features/vms/components/create/create-vm-step-utils"
+import { getFirstIssueMessage } from "@/components/forms/form-errors"
 import { getSelectOptionLabel } from "@/features/vms/components/hardware/hardware-section-utils"
+import { parseNumberInput } from "@/components/forms/form-values"
 import { vmHardwareFormSchema } from "@/features/vms/components/hardware/hardware-dialog-schema"
 
 export function VmHardwareComputeFields({ form }: { form: HardwareFormLike }) {

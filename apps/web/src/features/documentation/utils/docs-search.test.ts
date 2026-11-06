@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest"
 import { searchDocs } from "./docs-search"
-import { slugify } from "@workspace/ui/lib/utils"
 
 const noAccess = { canManage: false, canAdminister: false }
 const managerAccess = { canManage: true, canAdminister: false }
@@ -43,54 +42,47 @@ describe("searchDocs", () => {
     const adminPhraseResults = searchDocs("protected bootstrap", noAccess)
     expect(adminPhraseResults).toEqual([])
 
-    const allResults = [...managerPhraseResults, ...adminPhraseResults]
-    for (const match of allResults) {
-      expect(match.docKey).not.toBe("manager")
-      expect(match.docKey).not.toBe("admin")
-    }
+    expect(searchDocs("bulk clone", managerAccess).length).toBeGreaterThan(0)
+    expect(
+      searchDocs("protected bootstrap", adminAccess).length
+    ).toBeGreaterThan(0)
   })
 
   it("never leaks admin content to a manager without admin access", () => {
     const adminPhraseResults = searchDocs("protected bootstrap", managerAccess)
     expect(adminPhraseResults).toEqual([])
-    for (const match of adminPhraseResults) {
-      expect(match.docKey).not.toBe("admin")
-      expect(match.heading).not.toContain("Management roles")
-      expect(match.anchor).not.toBe("management-roles")
-      expect(match.route).not.toBe("/admin/docs")
-      expect(match.preview).not.toContain("protected bootstrap")
-    }
+    expect(
+      searchDocs("protected bootstrap", adminAccess).length
+    ).toBeGreaterThan(0)
   })
 
   it("applies union semantics: manager sees user + manager content", () => {
-    // "publish" is manager-unique; confirm manager guide results appear.
     const managerResults = searchDocs("publish", managerAccess)
     expect(managerResults.some((m) => m.docKey === "manager")).toBe(true)
 
-    // A token present in both user and manager guides should return both
-    // when the caller has manager access (union, not "lowest role only").
     const podResults = searchDocs("pod", managerAccess)
     expect(podResults.some((m) => m.docKey === "user")).toBe(true)
   })
 
   it("caps preview length at 5 lines", () => {
     const matches = searchDocs("pod", adminAccess)
+    expect(matches.length).toBeGreaterThan(0)
     for (const match of matches) {
       const lineCount = match.preview.split("\n").filter(Boolean).length
       expect(lineCount).toBeLessThanOrEqual(5)
     }
   })
 
-  it("produces anchors consistent with slugify", () => {
+  it("links matching sections to their heading anchors", () => {
     const matches = searchDocs("Finding things", noAccess)
     const match = matches.find((m) => m.heading === "Finding things")
     expect(match).toBeDefined()
     expect(match?.anchor).toBe("finding-things")
-    expect(match?.anchor).toBe(slugify("Finding things"))
+    expect(match?.route).toBe("/docs")
   })
 
   it("caps total results at 8", () => {
     const matches = searchDocs("a", adminAccess)
-    expect(matches.length).toBeLessThanOrEqual(8)
+    expect(matches).toHaveLength(8)
   })
 })

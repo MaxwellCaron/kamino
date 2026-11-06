@@ -176,7 +176,7 @@ func (h *PodsHandler) normalizePublishPodRequest(
 	if reqErr != nil {
 		return normalizedPublishPodRequest{}, reqErr
 	}
-	if !cloneTarget.SupportsProfile(networkProfileKey) {
+	if !cloneTarget.SupportsProfile(h.NetworkCatalog, networkProfileKey) {
 		return normalizedPublishPodRequest{}, invalidPublishPod(fmt.Sprintf(
 			"clone target %s does not support the %s network profile",
 			cloneTarget.Label, networkProfileKey,

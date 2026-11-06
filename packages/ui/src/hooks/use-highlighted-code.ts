@@ -3,7 +3,6 @@ import * as React from "react"
 import { loadHighlighter } from "@workspace/ui/lib/highlighter"
 
 export function useHighlightedCode(value: string, language: string) {
-  // A trailing newline would render as an extra empty line.
   const code = value.endsWith("\n") ? value.slice(0, -1) : value
   const [loaded, setLoaded] = React.useState<{
     language: string
@@ -62,7 +61,6 @@ export function useHighlightedCode(value: string, language: string) {
     setDone(next)
   }
 
-  // The last line is still being written, so it is tokenized on every render.
   const tail = code.slice(end)
 
   return React.useMemo(() => {

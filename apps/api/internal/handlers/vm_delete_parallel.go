@@ -2,10 +2,12 @@ package handlers
 
 import (
 	"context"
+
+	"github.com/MaxwellCaron/kamino/internal/vmactions"
 )
 
 type boundedVMDeleteOutcome struct {
-	target   verifiedVMTarget
+	target   vmactions.Target
 	admitted bool
 	claimed  bool
 	err      error
@@ -14,16 +16,16 @@ type boundedVMDeleteOutcome struct {
 func runBoundedVMDeletes(
 	ctx context.Context,
 	limit int,
-	targets []verifiedVMTarget,
+	targets []vmactions.Target,
 	acquireFn func(context.Context) (func(), error),
-	deleteFn func(context.Context, verifiedVMTarget) (claimed bool, err error),
+	deleteFn func(context.Context, vmactions.Target) (claimed bool, err error),
 ) []boundedVMDeleteOutcome {
 	outcomes := make([]boundedVMDeleteOutcome, len(targets))
 	if len(targets) == 0 {
 		return outcomes
 	}
 
-	_ = runBoundedActions(ctx, limit, targets, func(ctx context.Context, index int, target verifiedVMTarget) error {
+	_ = runBoundedActions(ctx, limit, targets, func(ctx context.Context, index int, target vmactions.Target) error {
 		outcomes[index].target = target
 
 		release, err := acquireFn(ctx)

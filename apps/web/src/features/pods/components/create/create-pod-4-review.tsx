@@ -22,14 +22,14 @@ import {
 import {
   getPodNetworkingModeLabel,
   getPodSegmentLabel,
-  getReviewVms,
-} from "./create-pod-form"
+} from "@/features/pods/utils/pod-networking-mode"
 import type { CreatePodFormApi } from "./create-pod-form"
 import { FolderIcon } from "@/components/status/folder-icon"
 import { HugeiconsIcon } from "@hugeicons/react"
 import type { PodCloneTarget } from "@/features/pods/api/clone-targets-api"
 import { VmIcon } from "@/components/status/vm-icon"
 import { cn } from "@workspace/ui/lib/utils"
+import { getReviewVms } from "./create-pod-form"
 
 const treePreviewRowClass =
   "bg-transparent flex min-h-8 items-center gap-1 rounded-3xl bg-sidebar px-2 py-1.5 text-sm transition-colors [&_svg]:pointer-events-none [&_svg]:shrink-0"

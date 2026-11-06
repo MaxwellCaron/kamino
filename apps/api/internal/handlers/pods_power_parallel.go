@@ -11,10 +11,8 @@ import (
 type podPowerTargetOutcome struct {
 	Target      vmactions.Target
 	Submitted   bool
-	Expected    string
 	AlreadyDone bool
 	Err         error
-	Claimed     bool
 }
 
 type podPowerExecutionResult struct {
@@ -60,14 +58,13 @@ func (h *PodsHandler) runClaimedPodVMPowerActions(
 		return result
 	}
 
-	expectedStatus := podPowerExpectedStatus(action)
+	expectedStatus := action.ExpectedStatus()
 	outcomes := make([]podPowerTargetOutcome, len(targets))
 	for index, target := range targets {
 		outcome := podPowerTargetOutcome{
-			Target:   target,
-			Expected: expectedStatus,
+			Target: target,
 		}
-		if clonedPodVMAlreadyInPowerState(string(action), initialStatuses[target.VMID]) {
+		if action.CanSkipForStatus(initialStatuses[target.VMID]) {
 			outcome.AlreadyDone = true
 			outcomes[index] = outcome
 			continue
@@ -75,7 +72,7 @@ func (h *PodsHandler) runClaimedPodVMPowerActions(
 		outcomes[index] = outcome
 	}
 
-	powerResults := runBoundedActions(ctx, h.Actions.PowerConcurrency(), targets, func(ctx context.Context, index int, target vmactions.Target) error {
+	runBoundedActions(ctx, h.Actions.PowerConcurrency(), targets, func(ctx context.Context, index int, target vmactions.Target) error {
 		outcome := &outcomes[index]
 		if outcome.AlreadyDone {
 			return nil
@@ -92,7 +89,6 @@ func (h *PodsHandler) runClaimedPodVMPowerActions(
 			outcome.Err = err
 			return nil
 		}
-		outcome.Claimed = true
 		defer func() {
 			_ = h.VMActionClaims.Release(context.WithoutCancel(ctx), target.ItemID)
 		}()
@@ -111,7 +107,6 @@ func (h *PodsHandler) runClaimedPodVMPowerActions(
 		if outcome.AlreadyDone || outcome.Submitted {
 			expected[outcome.Target.VMID] = expectedStatus
 		}
-		_ = powerResults[index]
 	}
 
 	if len(expected) > 0 {
@@ -155,15 +150,6 @@ func (h *PodsHandler) runClaimedPodVMPowerActions(
 	return result
 }
 
-func podPowerExpectedStatus(action vmactions.PowerAction) string {
-	switch action {
-	case vmactions.PowerActionStart, vmactions.PowerActionReboot:
-		return "running"
-	default:
-		return "stopped"
-	}
-}
-
 func sanitizePodPowerError(action string, err error) string {
 	if err == nil {
 		return fmt.Sprintf("%s failed", action)
@@ -176,8 +162,4 @@ func sanitizePodPowerError(action string, err error) string {
 		return message
 	}
 	return fmt.Sprintf("%s failed", action)
-}
-
-func cloneFailedFromPowerResult(result podPowerExecutionResult) bool {
-	return len(result.Failed) > 0
 }

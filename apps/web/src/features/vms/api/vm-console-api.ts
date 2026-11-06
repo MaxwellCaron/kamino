@@ -1,4 +1,5 @@
-import { ApiError, apiFetch } from "@/features/auth/api/auth-api"
+import { apiFetch } from "@/features/auth/api/auth-api"
+import { throwResponseError } from "@/features/shared/api/api-json"
 
 export async function downloadSpiceConfig(itemId: string): Promise<void> {
   const res = await apiFetch(
@@ -7,11 +8,7 @@ export async function downloadSpiceConfig(itemId: string): Promise<void> {
   )
 
   if (!res.ok) {
-    const body = (await res.json().catch(() => ({}))) as { error?: string }
-    throw new ApiError(
-      body.error ?? `Failed to download SPICE config: ${res.status}`,
-      res.status
-    )
+    await throwResponseError(res, "download SPICE config")
   }
 
   const blob = await res.blob()

@@ -7,7 +7,6 @@ import (
 	"time"
 )
 
-// Task is a handle to a started Proxmox background task.
 type Task struct {
 	Node string
 	UPID string
@@ -22,7 +21,6 @@ func isTaskWarningStatus(exitStatus string) bool {
 	return strings.HasPrefix(exitStatus, "WARNINGS: ")
 }
 
-// GetTaskStatus fetches the current status of a Proxmox task identified by its UPID.
 func (c *Client) GetTaskStatus(ctx context.Context, node, upid string) (*TaskStatus, error) {
 	if err := c.requireAllowedNode(node); err != nil {
 		return nil, err

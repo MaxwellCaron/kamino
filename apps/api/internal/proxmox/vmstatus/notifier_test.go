@@ -9,79 +9,101 @@ import (
 	"strings"
 	"sync/atomic"
 	"testing"
+	"testing/synctest"
 	"time"
 
 	"github.com/MaxwellCaron/kamino/internal/proxmox"
 )
 
-func TestRefreshNowCoalescesOverlappingCalls(t *testing.T) {
-	var calls atomic.Int32
-	block := make(chan struct{})
+type notifierTestTransport http.HandlerFunc
 
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if !strings.Contains(r.URL.Path, "/cluster/resources") {
-			t.Fatalf("unexpected path: %s", r.URL.Path)
-		}
-		calls.Add(1)
-		<-block
-		writeNotifierAPIResponse(t, w, []proxmox.VM{{VMID: 101, Node: "node1", Status: "running"}})
-	}))
+func (transport notifierTestTransport) RoundTrip(request *http.Request) (*http.Response, error) {
+	response := httptest.NewRecorder()
+	transport(response, request)
+	if err := request.Context().Err(); err != nil {
+		return nil, err
+	}
+	return response.Result(), nil
+}
+
+func TestRefreshNowCoalescesOverlappingCalls(t *testing.T) {
+	server := httptest.NewServer(nil)
 	defer server.Close()
 
-	notifier := NewNotifier(proxmox.NewHTTPTestClient(server))
-
-	const callers = 5
-	errs := make(chan error, callers)
-	for i := 0; i < callers; i++ {
-		go func() {
-			errs <- notifier.RefreshNow(context.Background())
-		}()
-	}
-
-	time.Sleep(30 * time.Millisecond)
-	close(block)
-
-	for i := 0; i < callers; i++ {
-		if err := <-errs; err != nil {
-			t.Fatalf("RefreshNow() error = %v", err)
+	synctest.Test(t, func(t *testing.T) {
+		var calls atomic.Int32
+		block := make(chan struct{})
+		server.Client().Transport = notifierTestTransport(func(w http.ResponseWriter, r *http.Request) {
+			if !strings.Contains(r.URL.Path, "/cluster/resources") {
+				t.Errorf("unexpected path: %s", r.URL.Path)
+			}
+			calls.Add(1)
+			<-block
+			writeNotifierAPIResponse(t, w, []proxmox.VM{{VMID: 101, Node: "node1", Status: "running"}})
+		})
+		notifier := NewNotifier(proxmox.NewHTTPTestClient(server))
+		const callers = 5
+		errs := make(chan error, callers)
+		for range callers {
+			go func() { errs <- notifier.RefreshNow(context.Background()) }()
 		}
-	}
-	if got := calls.Load(); got != 1 {
-		t.Fatalf("GetVMs calls = %d, want 1", got)
-	}
+
+		synctest.Wait()
+		if got := calls.Load(); got != 1 {
+			t.Errorf("GetVMs calls while refresh is blocked = %d, want 1", got)
+		}
+		close(block)
+		for range callers {
+			if err := <-errs; err != nil {
+				t.Fatalf("RefreshNow() error = %v", err)
+			}
+		}
+		if got := notifier.Current()[101]; got != "running" {
+			t.Fatalf("refreshed status = %q, want running", got)
+		}
+		if got := calls.Load(); got != 1 {
+			t.Fatalf("GetVMs calls = %d, want 1", got)
+		}
+	})
 }
 
 func TestRefreshNowCancelledWaiterDoesNotPoisonOthers(t *testing.T) {
-	var calls atomic.Int32
-	block := make(chan struct{})
-
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		calls.Add(1)
-		<-block
-		writeNotifierAPIResponse(t, w, []proxmox.VM{{VMID: 101, Node: "node1", Status: "running"}})
-	}))
+	server := httptest.NewServer(nil)
 	defer server.Close()
 
-	notifier := NewNotifier(proxmox.NewHTTPTestClient(server))
+	synctest.Test(t, func(t *testing.T) {
+		var calls atomic.Int32
+		block := make(chan struct{})
+		server.Client().Transport = notifierTestTransport(func(w http.ResponseWriter, r *http.Request) {
+			calls.Add(1)
+			<-block
+			writeNotifierAPIResponse(t, w, []proxmox.VM{{VMID: 101, Node: "node1", Status: "running"}})
+		})
+		notifier := NewNotifier(proxmox.NewHTTPTestClient(server))
+		ctx, cancel := context.WithCancel(context.Background())
+		defer cancel()
+		cancelled := make(chan error, 1)
+		go func() { cancelled <- notifier.RefreshNow(ctx) }()
+		synctest.Wait()
+		done := make(chan error, 1)
+		go func() { done <- notifier.RefreshNow(context.Background()) }()
 
-	ctx, cancel := context.WithCancel(context.Background())
-	cancel()
-	if err := notifier.RefreshNow(ctx); !errors.Is(err, context.Canceled) {
-		t.Fatalf("cancelled waiter error = %v, want context.Canceled", err)
-	}
-
-	done := make(chan error, 1)
-	go func() {
-		done <- notifier.RefreshNow(context.Background())
-	}()
-	time.Sleep(30 * time.Millisecond)
-	close(block)
-	if err := <-done; err != nil {
-		t.Fatalf("second RefreshNow() error = %v", err)
-	}
-	if got := calls.Load(); got != 1 {
-		t.Fatalf("GetVMs calls = %d, want 1", got)
-	}
+		synctest.Wait()
+		cancel()
+		if err := <-cancelled; !errors.Is(err, context.Canceled) {
+			t.Errorf("cancelled waiter error = %v, want context.Canceled", err)
+		}
+		close(block)
+		if err := <-done; err != nil {
+			t.Fatalf("second RefreshNow() error = %v", err)
+		}
+		if got := calls.Load(); got != 1 {
+			t.Fatalf("GetVMs calls = %d, want 1", got)
+		}
+		if got := notifier.Current()[101]; got != "running" {
+			t.Fatalf("remaining waiter did not refresh status: %q", got)
+		}
+	})
 }
 
 func TestRefreshUntilStatusesMatchesAllTargets(t *testing.T) {

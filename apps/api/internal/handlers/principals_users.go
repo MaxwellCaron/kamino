@@ -465,7 +465,5 @@ func (h *PrincipalsHandler) DeleteUsers(c *gin.Context) {
 	})
 }
 
-// ---------- Groups ----------
-
 // ListGroups returns all group principals.
 // GET /api/v1/principals/groups

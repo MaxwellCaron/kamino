@@ -12,7 +12,6 @@ export interface TooltipRow {
 export interface TooltipContentProps {
   title?: string
   rows: Array<TooltipRow>
-  /** Optional additional content (e.g., markers) */
   children?: ReactNode
 }
 

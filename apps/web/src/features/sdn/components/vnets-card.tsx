@@ -29,7 +29,7 @@ import type { ConfirmConfig } from "@/components/dialogs/confirm-dialog"
 import { DataTable } from "@/components/data-table/data-table"
 import { HugeiconsIcon } from "@hugeicons/react"
 import type { MutationItemUpdate } from "@/components/feedback/mutation-progress-toast"
-import { VNetDialog } from "@/features/sdn/components/vnet-dialog"
+import { VNetDialog } from "@/components/sdn/vnet-dialog"
 import { getVNetColumns } from "@/features/sdn/components/vnets-columns"
 import { useItemDialogState } from "@/features/shared/hooks/use-item-dialog-state"
 

@@ -112,8 +112,8 @@ func prepareFolderDeletionPlan(
 
 	var verifyErrs []error
 	for _, result := range results {
-		if result.Err != nil {
-			verifyErrs = append(verifyErrs, result.Err)
+		if result != nil {
+			verifyErrs = append(verifyErrs, result)
 		}
 	}
 	if len(verifyErrs) > 0 {
@@ -163,7 +163,7 @@ func deleteFolderDeletionPlanVMs(
 
 	var errs []error
 	for i, result := range results {
-		if result.Err == nil {
+		if result == nil {
 			continue
 		}
 		vm := vms[i]
@@ -171,7 +171,7 @@ func deleteFolderDeletionPlanVMs(
 		if vm.IsTemplate {
 			kind = "template"
 		}
-		errs = append(errs, fmt.Errorf("delete %s %q (node=%s vmid=%d): %w", kind, vm.Name, vm.Node, vm.VMID, result.Err))
+		errs = append(errs, fmt.Errorf("delete %s %q (node=%s vmid=%d): %w", kind, vm.Name, vm.Node, vm.VMID, result))
 	}
 	if len(errs) == 0 {
 		return nil

@@ -24,7 +24,7 @@ import {
 } from "@workspace/ui/components/item"
 import { animateContainer, animateTableRow } from "@/components/animate"
 import type { ClonedPodEntry } from "../utils/dashboard-types"
-import { ClonedPodStatusBadge } from "@/features/pods/components/cloned-pod-status-badge"
+import { ClonedPodStatusBadge } from "@/components/pods/cloned-pod-status-badge"
 import { HugeiconsIcon } from "@hugeicons/react"
 import { Image } from "@unpic/react"
 import { Link } from "@tanstack/react-router"

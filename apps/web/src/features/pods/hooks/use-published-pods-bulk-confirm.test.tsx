@@ -1,7 +1,18 @@
 import type * as MutationProgressToastModule from "@/components/feedback/mutation-progress-toast"
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
+import type {
+  PodPowerResult,
+  PublishedPodCloneSummary,
+} from "@/features/pods/types/pod-types"
+import {
+  QueryClient,
+  QueryClientProvider,
+  useMutation,
+} from "@tanstack/react-query"
 import { beforeEach, describe, expect, it, vi } from "vitest"
-import { powerPublishedPodClone, reclonePublishedPodClone } from "@/features/pods/api/publish-pod-api"
+import {
+  powerPublishedPodClone,
+  reclonePublishedPodClone,
+} from "@/features/pods/api/publish-pod-api"
 import { renderHook, waitFor } from "@testing-library/react"
 import {
   runMutationUnits,
@@ -10,19 +21,24 @@ import {
 import { toast } from "sonner"
 import { usePublishedPodsBulkConfirm } from "./use-published-pods-bulk-confirm"
 
-vi.mock("@/components/feedback/mutation-progress-toast", async (importOriginal) => {
-  const actual = await importOriginal<typeof MutationProgressToastModule>()
-  return {
-    ...actual,
-    showUnitMutationToast: vi.fn(),
+vi.mock(
+  "@/components/feedback/mutation-progress-toast",
+  async (importOriginal) => {
+    const actual = await importOriginal<typeof MutationProgressToastModule>()
+    return {
+      ...actual,
+      showUnitMutationToast: vi.fn(),
+    }
   }
-})
+)
+
+const { fetchClones } = vi.hoisted(() => ({ fetchClones: vi.fn() }))
 
 vi.mock("@/features/pods/api/publish-pod-api", () => ({
   podCatalogQueryOptions: { queryKey: ["pods", "catalog"] },
   publishedPodClonesQueryOptions: (podId?: string) => ({
     queryKey: ["pods", "published", podId, "clones"],
-    queryFn: vi.fn(),
+    queryFn: fetchClones,
     enabled: !!podId,
   }),
   publishedPodsQueryOptions: { queryKey: ["pods", "published"] },
@@ -54,7 +70,11 @@ const pod = {
   virtual_machines: [],
 }
 
-function makeClone(id: string, label: string, powerStatus?: string): never {
+function makeClone(
+  id: string,
+  label: string,
+  powerStatus?: PodPowerResult["status"]
+): PublishedPodCloneSummary {
   return {
     id,
     pod_id: "pod-1",
@@ -75,7 +95,7 @@ function makeClone(id: string, label: string, powerStatus?: string): never {
       powerStatus === undefined
         ? undefined
         : { action: "start", status: powerStatus },
-  } as never
+  }
 }
 
 function createDeferred<T>() {
@@ -90,23 +110,33 @@ function createDeferred<T>() {
 
 function renderBulkConfirm(
   action: "start" | "shutdown" | "reclone" | "delete",
-  clones: Array<never>,
-  deleteMutateAsync: ReturnType<typeof vi.fn> = vi.fn()
+  clones: Array<PublishedPodCloneSummary>,
+  deleteMutateAsync: (params: {
+    podId: string
+    clonedPodId: string
+  }) => Promise<void> = vi.fn()
 ) {
-  const queryClient = new QueryClient()
-  queryClient.fetchQuery = vi.fn().mockResolvedValue(clones) as never
-  queryClient.setQueryData = vi.fn() as never
-  queryClient.invalidateQueries = vi.fn() as never
+  const queryClient = new QueryClient({
+    defaultOptions: { queries: { retry: false, gcTime: Infinity } },
+  })
+  fetchClones.mockResolvedValue(clones)
 
   const { result } = renderHook(
     () =>
       usePublishedPodsBulkConfirm({
         pendingCloneBulkAction: { pod, action },
-        deleteCloneMutation: { mutateAsync: deleteMutateAsync } as never,
+        deleteCloneMutation: useMutation({
+          mutationFn: (params: {
+            podId: string
+            clonedPodId: string
+          }): Promise<void> => deleteMutateAsync(params),
+        }),
       }),
     {
       wrapper: ({ children }) => (
-        <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+        <QueryClientProvider client={queryClient}>
+          {children}
+        </QueryClientProvider>
       ),
     }
   )
@@ -170,13 +200,15 @@ describe("usePublishedPodsBulkConfirm", () => {
       expect(config.units[0].items[0].successDescription).toBe("Shut down")
       expect(config.units[1].items[0].name).toBe("Bob")
 
-      return config.units[0].run(() => {}).then(() => {
-        expect(powerPublishedPodClone).toHaveBeenCalledWith({
-          podId: "pod-1",
-          clonedPodId: "clone-1",
-          action: "shutdown",
+      return config.units[0]
+        .run(() => {})
+        .then(() => {
+          expect(powerPublishedPodClone).toHaveBeenCalledWith({
+            podId: "pod-1",
+            clonedPodId: "clone-1",
+            action: "shutdown",
+          })
         })
-      })
     })
   })
 
@@ -229,13 +261,17 @@ describe("usePublishedPodsBulkConfirm", () => {
   })
 
   it("delete: shared manager concurrency with backpressure and clone-specific retry", async () => {
-    const cloneIds = Array.from({ length: 6 }, (_, index) => `clone-${index + 1}`)
+    const cloneIds = Array.from(
+      { length: 6 },
+      (_, index) => `clone-${index + 1}`
+    )
     const clones = cloneIds.map((cloneId, index) =>
       makeClone(cloneId, `User ${index + 1}`)
     )
-    const deferredByClone = new Map<string, ReturnType<typeof createDeferred<void>>>(
-      cloneIds.map((cloneId) => [cloneId, createDeferred<void>()])
-    )
+    const deferredByClone = new Map<
+      string,
+      ReturnType<typeof createDeferred<void>>
+    >(cloneIds.map((cloneId) => [cloneId, createDeferred<void>()]))
     let activeRequests = 0
     let maxActiveRequests = 0
     const deleteMutateAsync = vi.fn(
@@ -266,7 +302,11 @@ describe("usePublishedPodsBulkConfirm", () => {
       expect(unit.items[0].successDescription).toBe("Deleted")
     })
 
-    const runPromise = runMutationUnits(config.units, () => {}, config.concurrency!)
+    const runPromise = runMutationUnits(
+      config.units,
+      () => {},
+      config.concurrency!
+    )
 
     await waitFor(() => {
       expect(deleteMutateAsync).toHaveBeenCalledTimes(5)

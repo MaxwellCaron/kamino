@@ -1,21 +1,13 @@
 import {
   ComputerIcon,
   Copy02Icon,
-  DashboardSquare01Icon,
   FolderClosedIcon,
   GitPullRequestIcon,
   Globe02Icon,
-  Home03Icon,
   Logout01Icon,
   Moon02Icon,
   NotebookIcon,
-  PackageAddIcon,
-  PackageCheck,
   PackageIcon,
-  PackageMovingIcon,
-  ReloadIcon,
-  Shield01Icon,
-  SparklesIcon,
   Sun01Icon,
   UserGroupIcon,
   UserIcon,
@@ -33,9 +25,11 @@ import type { ApiPrincipal } from "@/features/principals/types/principals-types"
 import type { ApiRequestSummary } from "@/features/requests/types/request-types"
 import type { ApiTreeNode } from "@/features/inventory/types/inventory-types"
 import type { ApiVNet } from "@/features/sdn/types/sdn-types"
+import type { ApplicationPagePath } from "./application-pages"
 import type { IconSvgElement } from "@hugeicons/react"
 import { formatPrincipalReference } from "@/components/principals/principal-label"
 import { searchDocs } from "@/features/documentation/utils/docs-search"
+import { visibleApplicationPages } from "./application-pages"
 
 export type CommandGroupKey =
   | "account"
@@ -62,34 +56,6 @@ export type SiteCommandResult = {
   variant?: "default" | "destructive"
 }
 
-type StaticCommandConfig = {
-  group: CommandGroupKey
-  icon: IconSvgElement
-  id: string
-  keywords: Array<string>
-  label: string
-  shortcut?: string
-  subtitle: string
-  to:
-    | "/"
-    | "/admin"
-    | "/admin/audit"
-    | "/admin/docs"
-    | "/admin/proxmox-sync"
-    | "/admin/principals/groups"
-    | "/admin/principals/users"
-    | "/admin/sdn"
-    | "/changelog"
-    | "/docs"
-    | "/manager/docs"
-    | "/manager/requests"
-    | "/pods"
-    | "/pods/create"
-    | "/pods/publish"
-    | "/pods/published"
-  visibility: "all" | "admin" | "manager"
-}
-
 export type BuildSiteCommandsActions = {
   close: () => void
   logout: () => void
@@ -98,7 +64,7 @@ export type BuildSiteCommandsActions = {
     hash: string
   ) => void
   navigateToInventoryItem: (itemId: string) => void
-  navigateToPage: (to: StaticCommandConfig["to"]) => void
+  navigateToPage: (to: ApplicationPagePath) => void
   navigateToPod: (podSlug: string) => void
   navigateToPublishedPod: (podId: string) => void
   navigateToRequests: () => void
@@ -121,177 +87,6 @@ export type BuildSiteCommandsParams = {
   vnets?: Array<ApiVNet>
   pendingRequests?: Array<ApiRequestSummary>
 }
-
-const staticCommands: Array<StaticCommandConfig> = [
-  {
-    id: "home",
-    group: "pages",
-    label: "Home",
-    subtitle: "Dashboard overview",
-    icon: Home03Icon,
-    to: "/",
-    visibility: "all",
-    keywords: ["dashboard", "overview", "activity"],
-  },
-  {
-    id: "pods-browse",
-    group: "pages",
-    label: "Pods",
-    subtitle: "Browse published pods",
-    icon: PackageIcon,
-    to: "/pods",
-    visibility: "all",
-    keywords: ["catalog", "launch", "clone"],
-  },
-  {
-    id: "changelog",
-    group: "pages",
-    label: "Changelog",
-    subtitle: "Latest updates and releases",
-    icon: SparklesIcon,
-    to: "/changelog",
-    visibility: "all",
-    keywords: ["changelog", "updates", "releases", "new", "what's new"],
-  },
-  {
-    id: "docs-user",
-    group: "pages",
-    label: "User Guide",
-    subtitle: "Learn how to clone and operate pods",
-    icon: NotebookIcon,
-    to: "/docs",
-    visibility: "all",
-    keywords: ["guide", "docs", "help", "pods"],
-  },
-  {
-    id: "pods-create",
-    group: "pages",
-    label: "Create Pod",
-    subtitle: "Build a pod from templates",
-    icon: PackageAddIcon,
-    to: "/pods/create",
-    visibility: "manager",
-    keywords: ["manager", "new pod", "templates"],
-  },
-  {
-    id: "pods-publish",
-    group: "pages",
-    label: "Publish Pod",
-    subtitle: "Configure catalog access and tasks",
-    icon: PackageCheck,
-    to: "/pods/publish",
-    visibility: "manager",
-    keywords: ["manager", "catalog", "tasks"],
-  },
-  {
-    id: "pods-published",
-    group: "pages",
-    label: "Published Pods",
-    subtitle: "Manage catalog entries",
-    icon: PackageMovingIcon,
-    to: "/pods/published",
-    visibility: "manager",
-    keywords: ["manager", "catalog", "visibility"],
-  },
-  {
-    id: "requests",
-    group: "pages",
-    label: "Requests",
-    subtitle: "Review request queue",
-    icon: GitPullRequestIcon,
-    to: "/manager/requests",
-    visibility: "manager",
-    keywords: ["approval", "pending", "manager"],
-  },
-  {
-    id: "docs-manager",
-    group: "pages",
-    label: "Manager Guide",
-    subtitle: "Learn how to publish pods and review requests",
-    icon: NotebookIcon,
-    to: "/manager/docs",
-    visibility: "manager",
-    keywords: ["guide", "docs", "help", "pods", "requests"],
-  },
-  {
-    id: "admin",
-    group: "pages",
-    label: "Admin",
-    subtitle: "Cluster and platform overview",
-    icon: DashboardSquare01Icon,
-    to: "/admin",
-    visibility: "admin",
-    keywords: ["administrator", "metrics", "cluster"],
-  },
-  {
-    id: "sdn",
-    group: "pages",
-    label: "SDN",
-    subtitle: "Software-defined networking",
-    icon: Globe02Icon,
-    to: "/admin/sdn",
-    visibility: "admin",
-    keywords: ["administrator", "network", "vnet"],
-  },
-  {
-    id: "users",
-    group: "pages",
-    label: "Users",
-    subtitle: "Manage user principals",
-    icon: UserIcon,
-    to: "/admin/principals/users",
-    visibility: "admin",
-    keywords: ["administrator", "principals", "accounts"],
-  },
-  {
-    id: "groups",
-    group: "pages",
-    label: "Groups",
-    subtitle: "Manage group principals",
-    icon: UserGroupIcon,
-    to: "/admin/principals/groups",
-    visibility: "admin",
-    keywords: ["administrator", "principals", "roles"],
-  },
-  {
-    id: "proxmox-sync",
-    group: "pages",
-    label: "Proxmox Sync",
-    subtitle: "Reconcile inventory drift against Proxmox",
-    icon: ReloadIcon,
-    to: "/admin/proxmox-sync",
-    visibility: "admin",
-    keywords: ["administrator", "reconcile", "drift", "sync"],
-  },
-  {
-    id: "audit",
-    group: "pages",
-    label: "Audit Logs",
-    subtitle: "Review direct VM and pod action history",
-    icon: Shield01Icon,
-    to: "/admin/audit",
-    visibility: "admin",
-    keywords: ["administrator", "audit", "history", "events"],
-  },
-  {
-    id: "docs-admin",
-    group: "pages",
-    label: "Admin Guide",
-    subtitle: "Learn how to manage permissions, sync, and audit",
-    icon: NotebookIcon,
-    to: "/admin/docs",
-    visibility: "admin",
-    keywords: [
-      "administrator",
-      "guide",
-      "docs",
-      "help",
-      "permissions",
-      "sync",
-      "audit",
-    ],
-  },
-]
 
 export const groupLabels = {
   account: "Account",
@@ -340,10 +135,6 @@ export function buildSiteCommandRows(
   }
 
   return rows
-}
-
-function principalLabel(principal: ApiPrincipal) {
-  return formatPrincipalReference(principal)
 }
 
 function formatRequestLabel(request: ApiRequestSummary) {
@@ -406,19 +197,15 @@ function buildPageCommands({
 }: Pick<BuildSiteCommandsParams, "actions" | "canAdminister" | "canManage">) {
   const commands: Array<SiteCommandResult> = []
 
-  for (const command of staticCommands) {
-    if (command.visibility === "admin" && !canAdminister) continue
-    if (command.visibility === "manager" && !canManage) continue
-
+  for (const command of visibleApplicationPages(canAdminister, canManage)) {
     commands.push({
       id: `page:${command.id}`,
-      group: command.group,
+      group: "pages",
       icon: command.icon,
-      label: command.label,
+      label: command.title,
       subtitle: command.subtitle,
-      shortcut: command.shortcut,
-      keywords: command.keywords,
-      onSelect: runCommand(actions, () => actions.navigateToPage(command.to)),
+      keywords: [...command.keywords],
+      onSelect: runCommand(actions, () => actions.navigateToPage(command.url)),
     })
   }
 
@@ -569,7 +356,7 @@ function buildAdminCommands({
   const results: Array<SiteCommandResult> = []
   if (!canAdminister) return results
   ;(users ?? []).forEach((principal) => {
-    const label = principalLabel(principal)
+    const label = formatPrincipalReference(principal)
     results.push({
       id: `user:${principal.id}`,
       group: "principals",
@@ -586,7 +373,7 @@ function buildAdminCommands({
     })
   })
   ;(groups ?? []).forEach((principal) => {
-    const label = principalLabel(principal)
+    const label = formatPrincipalReference(principal)
     results.push({
       id: `group:${principal.id}`,
       group: "principals",

@@ -27,7 +27,7 @@ import { formatFieldError } from "@/features/vms/components/create/create-vm-ste
 import { getSelectOptionLabel } from "@/features/vms/components/hardware/hardware-section-utils"
 import { isScopedNetworkBridgeLocked } from "@/features/vms/utils/vm-network-scope"
 import { nicModels } from "@/features/vms/components/hardware/hardware-options"
-import { parseOptionalNumberInput } from "@/features/vms/components/create/create-vm-form"
+import { parseOptionalNumberInput } from "@/components/forms/form-values"
 import { uuid } from "@/features/shared/utils/uuid"
 
 type NetworkInterfaceValue = {

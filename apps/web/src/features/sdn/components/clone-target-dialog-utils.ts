@@ -78,7 +78,6 @@ export const cloneTargetWANSubnetSchema = z
     { message: "Each octet must be 255 or lower" }
   )
 
-// Renders the /24 a pod with the given network number would receive.
 export function formatPodWANSubnet(
   wanSubnet: string,
   networkNumber: number | "x"

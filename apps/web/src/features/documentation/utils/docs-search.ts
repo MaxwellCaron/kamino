@@ -85,7 +85,6 @@ function parseGuide(
     }
 
     if (/^#\s+/.test(line)) {
-      // Additional h1 lines are ignored from bodies.
       continue
     }
 

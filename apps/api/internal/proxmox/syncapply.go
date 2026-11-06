@@ -12,14 +12,12 @@ import (
 	"github.com/google/uuid"
 )
 
-// SyncSelection carries the IDs the admin chose to apply.
 type SyncSelection struct {
 	AddIDs    []string `json:"add_ids"`
 	RemoveIDs []string `json:"remove_ids"`
 	UpdateIDs []string `json:"update_ids"`
 }
 
-// SyncApplyResult is the per-item outcome of an ApplySync call.
 type SyncApplyResult struct {
 	ID     string `json:"id"`
 	Kind   string `json:"kind"`
@@ -38,7 +36,6 @@ func firstBlockerMessage(blockers []string) string {
 	return "blocked: " + blockers[0]
 }
 
-// syncApplyDecision is whether a selected change ID should be skipped before ever reaching Proxmox, and why.
 type syncApplyDecision struct {
 	Skip   bool
 	Reason string
@@ -147,7 +144,6 @@ func (s *InventoryImporter) applySyncDiff(
 	sel SyncSelection,
 ) []SyncApplyResult {
 
-	// Index the live diff by ID and kind so we can look up the DB item IDs.
 	addsByID := indexChanges(diff.Adds)
 	removesByID := indexChanges(diff.Removes)
 	updatesByID := indexChanges(diff.Updates)
@@ -156,7 +152,6 @@ func (s *InventoryImporter) applySyncDiff(
 
 	var results []SyncApplyResult
 
-	// --- Adds ---
 	for _, id := range sel.AddIDs {
 		change, decision := decideSyncApply(addsByID, id)
 		if decision.Skip {
@@ -166,7 +161,6 @@ func (s *InventoryImporter) applySyncDiff(
 		results = append(results, s.applyAdd(ctx, q, change))
 	}
 
-	// --- Updates ---
 	for _, id := range sel.UpdateIDs {
 		change, decision := decideSyncApply(updatesByID, id)
 		if decision.Skip {
@@ -184,7 +178,6 @@ func (s *InventoryImporter) applySyncDiff(
 		}
 	}
 
-	// --- Removes ---
 	for _, id := range sel.RemoveIDs {
 		if importFailed {
 			results = append(results, skippedSyncResult(id, SyncChangeRemove, "import failures require reconciliation first"))

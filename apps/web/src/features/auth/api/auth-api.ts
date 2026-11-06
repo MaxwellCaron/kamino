@@ -1,13 +1,11 @@
 import type { AuthSession } from "../types/auth-types"
+import { apiUrl } from "@/features/shared/api/api-url"
 import { queryOptions } from "@tanstack/react-query"
 import { z } from "zod"
 
 const AUTH_REFRESH_BUFFER_MS = 60_000
 const AUTH_BOOTSTRAP_RETRY_BUFFER_MS = 5_000
 const REFRESH_COLLISION_RETRY_DELAY_MS = 300
-const API_BASE_URL = import.meta.env.DEV
-  ? ""
-  : (import.meta.env.VITE_API_BASE_URL?.trim().replace(/\/$/, "") ?? "")
 
 const loginRequestSchema = z.object({
   username: z.string().trim(),
@@ -23,31 +21,6 @@ let authGeneration = 0
 let logoutPromise: Promise<void> | null = null
 
 export class AuthenticationError extends Error {}
-
-export class ApiError extends Error {
-  constructor(
-    message: string,
-    public status: number
-  ) {
-    super(message)
-  }
-}
-
-export function isApiErrorStatus(error: unknown, status: number) {
-  return error instanceof ApiError && error.status === status
-}
-
-export function shouldRetryApiQuery(failureCount: number, error: unknown) {
-  if (error instanceof ApiError && error.status >= 400 && error.status < 500) {
-    return false
-  }
-
-  return failureCount < 3
-}
-
-export function apiUrl(path: string) {
-  return `${API_BASE_URL}${path}`
-}
 
 function clearRefreshTimer() {
   if (refreshTimer) {

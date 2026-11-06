@@ -54,16 +54,16 @@ func (h *VMHandler) PowerAction(c *gin.Context) {
 	}
 
 	type vmPowerOutcome struct {
-		target  verifiedVMTarget
+		target  vmactions.Target
 		claimed bool
 		err     error
 	}
 	outcomes := make([]vmPowerOutcome, len(targets))
-	_ = runBoundedActions(ctx, limit, targets, func(ctx context.Context, index int, target verifiedVMTarget) error {
+	_ = runBoundedActions(ctx, limit, targets, func(ctx context.Context, index int, target vmactions.Target) error {
 		actionErr, claimed := h.runClaimedBulkVMAction(ctx, target, "power_action", principalID, func() error {
 			return h.Actions.PowerAction(
 				ctx,
-				vmActionTarget(target),
+				target,
 				vmactions.PowerAction(req.Action),
 			)
 		})
@@ -154,9 +154,9 @@ func (h *VMHandler) DeleteVM(c *gin.Context) {
 		operationLimit,
 		targets,
 		acquireOp,
-		func(ctx context.Context, target verifiedVMTarget) (bool, error) {
+		func(ctx context.Context, target vmactions.Target) (bool, error) {
 			actionErr, claimed := h.runClaimedBulkVMAction(ctx, target, "delete_vm", principalID, func() error {
-				return h.Actions.DeleteVM(ctx, vmActionTarget(target))
+				return h.Actions.DeleteVM(ctx, target)
 			})
 			return claimed, actionErr
 		},

@@ -43,11 +43,11 @@ func runBoundedClonedPodVMDeletes(
 
 	var errs []error
 	for i, result := range results {
-		if result.Err == nil {
+		if result == nil {
 			continue
 		}
 		target := targets[i]
-		errs = append(errs, fmt.Errorf("delete Proxmox VM %d on %s: %w", target.VMID, target.Node, result.Err))
+		errs = append(errs, fmt.Errorf("delete Proxmox VM %d on %s: %w", target.VMID, target.Node, result))
 	}
 	if len(errs) == 0 {
 		return nil

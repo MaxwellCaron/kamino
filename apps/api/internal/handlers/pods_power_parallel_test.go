@@ -9,13 +9,13 @@ import (
 	"github.com/google/uuid"
 )
 
-func TestCloneFailedFromPowerResult(t *testing.T) {
-	if cloneFailedFromPowerResult(podPowerExecutionResult{}) {
+func TestEmptyAndFailedPodPowerResults(t *testing.T) {
+	if (podPowerExecutionResult{}).toPublicResponse().Status != podPowerStatusSucceeded {
 		t.Fatal("expected no failures to be success")
 	}
-	if !cloneFailedFromPowerResult(podPowerExecutionResult{
+	if (podPowerExecutionResult{
 		Failed: []bulkVMActionFailure{{ID: uuid.New().String(), Error: "start failed"}},
-	}) {
+	}).toPublicResponse().Status != podPowerStatusFailed {
 		t.Fatal("expected failures to mark clone failed")
 	}
 }
@@ -122,10 +122,10 @@ func TestPodPowerResultPublicJSONPrivacy(t *testing.T) {
 }
 
 func TestPodPowerExpectedStatus(t *testing.T) {
-	if got := podPowerExpectedStatus(vmactions.PowerActionStart); got != "running" {
+	if got := vmactions.PowerActionStart.ExpectedStatus(); got != "running" {
 		t.Fatalf("start = %q", got)
 	}
-	if got := podPowerExpectedStatus(vmactions.PowerActionShutdown); got != "stopped" {
+	if got := vmactions.PowerActionShutdown.ExpectedStatus(); got != "stopped" {
 		t.Fatalf("shutdown = %q", got)
 	}
 }

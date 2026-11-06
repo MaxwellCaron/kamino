@@ -28,7 +28,6 @@ func buildInventoryIndex(rows []database.GetAllInventoryItemsRow) (*uuid.UUID, m
 	return FindManagedRootFolderID(rows), itemsByID, childrenByParent
 }
 
-// desiredPoolState maps inventory folders to Proxmox pool paths.
 type desiredPoolState struct {
 	poolFolderID map[string]uuid.UUID
 	poolComment  map[string]*string
@@ -94,7 +93,6 @@ func buildDesiredPoolState(rows []database.GetAllInventoryItemsRow) (desiredPool
 	return state, nil
 }
 
-// DesiredPoolForFolder returns the desired Proxmox pool ID and comment for a single inventory folder.
 func DesiredPoolForFolder(rows []database.GetAllInventoryItemsRow, folderID uuid.UUID) (poolID string, comment *string, err error) {
 	state, err := buildDesiredPoolState(rows)
 	if err != nil {

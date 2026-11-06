@@ -5,9 +5,9 @@ import {
   SidebarTrigger,
 } from "@workspace/ui/components/sidebar"
 import { AppSidebarIconRailContent } from "@/components/app-shell/app-sidebar"
+import { ApplicationEvents } from "@/components/app-shell/application-events"
 import type { CSSProperties } from "react"
-import { DashboardEvents } from "@/features/dashboard/components/dashboard-events"
-import { InventoryDialogsProvider } from "@/features/inventory/components/inventory-dialogs-provider"
+import { InventoryDialogsProvider } from "@/components/inventory/inventory-dialogs-provider"
 import { Separator } from "@workspace/ui/components/separator"
 import { SiteCommandTrigger } from "@/components/app-shell/site-command"
 import { SiteHeader } from "@/components/app-shell/site-header"
@@ -36,7 +36,7 @@ export function PodsLayout() {
         } as CSSProperties
       }
     >
-      <DashboardEvents />
+      <ApplicationEvents />
       <InventoryDialogsProvider>
         <Sidebar
           collapsible="icon"

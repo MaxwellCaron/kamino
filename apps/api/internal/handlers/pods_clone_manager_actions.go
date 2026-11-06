@@ -193,7 +193,7 @@ func (h *PodsHandler) clonedPodManagerActionTargets(
 			}
 		}
 
-		identity, err := h.PX.GetVMIdentity(ctx, proxmox.GuestType(record.GuestType), record.Node, int(record.Vmid))
+		_, err = proxmox.VerifyVMIdentity(ctx, h.PX, proxmox.GuestType(record.GuestType), record.Node, int(record.Vmid), record.UpstreamUUID)
 		switch {
 		case err == nil:
 		case errors.Is(err, proxmox.ErrVMIdentityNotConfigured), errors.Is(err, proxmox.ErrVMIdentityInvalid):
@@ -201,19 +201,14 @@ func (h *PodsHandler) clonedPodManagerActionTargets(
 				Status:      http.StatusConflict,
 				UserMessage: "cloned pod VM identity is not initialized in Proxmox",
 			}
+		case errors.Is(err, proxmox.ErrVMIdentityMismatch):
+			return nil, &requestError{Status: http.StatusConflict, UserMessage: "cloned pod VM has drifted from inventory"}
 		default:
 			return nil, &requestError{
 				Status:      http.StatusBadGateway,
 				UserMessage: "failed to verify cloned pod VM",
 				Operation:   "verify cloned pod VM identity for manager action",
 				Err:         err,
-			}
-		}
-
-		if identity.UpstreamUUID != record.UpstreamUUID {
-			return nil, &requestError{
-				Status:      http.StatusConflict,
-				UserMessage: "cloned pod VM has drifted from inventory",
 			}
 		}
 

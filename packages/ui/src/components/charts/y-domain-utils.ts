@@ -6,7 +6,6 @@ import { scaleLinear } from "@visx/scale";
 
 export type YDomain = [number, number];
 
-/** Apply visx `nice()` to raw domain endpoints for stable grid ticks. */
 export function niceYDomain(domain: YDomain): YDomain {
   const scale = scaleLinear({ domain, range: [0, 1], nice: true });
   const niceDomain = scale.domain();
@@ -31,19 +30,16 @@ export function shouldTweenYDomain(from: YDomain, to: YDomain): boolean {
   );
 }
 
-/** Phases where the chart shows loading chrome (shimmer, pulse, label). */
 export function isLoadingChromePhase(phase: ChartPhase): boolean {
   return phase === "loading" || phase === "revealingLoading";
 }
 
-/** Phases where grid lines use loading stroke styling (muted / dashed chrome). */
 export function isLoadingGridChromePhase(phase: ChartPhase): boolean {
   return (
     phase === "loading" || phase === "exiting" || phase === "gridTweenLoading"
   );
 }
 
-/** Phases where Y-domain tween runs after the series has exited. */
 export function isYDomainTweenPhase(phase: ChartPhase): boolean {
   return phase === "gridTweenLoading" || phase === "gridTweenReady";
 }

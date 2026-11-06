@@ -193,9 +193,9 @@ func (h *InventoryHandler) reflectMovedItemsToProxmox(itemIDs []uuid.UUID) {
 			return h.PX.SyncVMPoolMembership(ctx, p.Node, p.VMID, p.DesiredPool, nil)
 		})
 		for i, result := range results {
-			if result.Err != nil {
+			if result != nil {
 				p := placements[i]
-				log.Printf("inventory move: failed to move VM %d on %s to pool %q: %v", p.VMID, p.Node, p.DesiredPool, result.Err)
+				log.Printf("inventory move: failed to move VM %d on %s to pool %q: %v", p.VMID, p.Node, p.DesiredPool, result)
 			}
 		}
 	}()

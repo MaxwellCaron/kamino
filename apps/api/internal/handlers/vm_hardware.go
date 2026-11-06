@@ -257,7 +257,6 @@ func (h *VMHandler) UpdateHardware(c *gin.Context) {
 	})
 }
 
-// vmHardwareNetworksByDevice indexes current Proxmox hardware networks by device name.
 func vmHardwareNetworksByDevice(networks []proxmox.VMHardwareNetwork) map[string]proxmox.VMHardwareNetwork {
 	byDevice := make(map[string]proxmox.VMHardwareNetwork, len(networks))
 	for _, network := range networks {

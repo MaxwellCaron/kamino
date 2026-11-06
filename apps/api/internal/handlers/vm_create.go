@@ -44,7 +44,6 @@ type vmCreateAuthz interface {
 	RequireManagement(ctx context.Context, principalID uuid.UUID, required authorization.ManagementPermission) error
 }
 
-// VMCreateHandler handles VM creation and related metadata endpoints.
 type VMCreateHandler struct {
 	PX                    vmCreateProxmox
 	Importer              *proxmox.InventoryImporter

@@ -26,7 +26,6 @@ export interface IndicatorFadeGradientStop {
   opacity: number;
 }
 
-/** Opacity stops for the crosshair vertical gradient. */
 export function indicatorFadeGradientStops(
   sides: VerticalFadeSides,
   fadeLengthPercent = 10

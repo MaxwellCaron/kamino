@@ -24,8 +24,6 @@ type InventoryHandler struct {
 	NetworkCatalog     *podnetwork.Catalog
 }
 
-// JSON response types
-
 type TreeNode struct {
 	ID               uuid.UUID          `json:"id"`
 	Name             string             `json:"name"`

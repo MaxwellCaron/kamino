@@ -6,82 +6,87 @@ import (
 	"sync"
 	"sync/atomic"
 	"testing"
+	"testing/synctest"
 	"time"
 
 	"github.com/MaxwellCaron/kamino/internal/proxmox"
+	"github.com/MaxwellCaron/kamino/internal/vmactions"
 	"github.com/google/uuid"
 )
 
 func TestRunBoundedVMDeletesRespectsOperationLimit(t *testing.T) {
-	var active atomic.Int32
-	var maxSeen atomic.Int32
-	started := make(chan struct{}, 4)
-	release := make(chan struct{})
+	synctest.Test(t, func(t *testing.T) {
+		var active atomic.Int32
+		var maxSeen atomic.Int32
+		started := make(chan struct{}, 4)
+		release := make(chan struct{})
 
-	targets := make([]verifiedVMTarget, 4)
-	for i := range targets {
-		targets[i] = verifiedVMTarget{ItemID: uuid.New(), GuestType: proxmox.GuestQEMU}
-	}
+		targets := make([]vmactions.Target, 4)
+		for i := range targets {
+			targets[i] = vmactions.Target{ItemID: uuid.New(), GuestType: proxmox.GuestQEMU}
+		}
 
-	acquireFn := func(ctx context.Context) (func(), error) {
-		current := active.Add(1)
-		for {
-			seen := maxSeen.Load()
-			if current <= seen || maxSeen.CompareAndSwap(seen, current) {
-				break
+		acquireFn := func(ctx context.Context) (func(), error) {
+			current := active.Add(1)
+			for {
+				seen := maxSeen.Load()
+				if current <= seen || maxSeen.CompareAndSwap(seen, current) {
+					break
+				}
+			}
+			started <- struct{}{}
+			<-release
+			active.Add(-1)
+			return func() {}, nil
+		}
+
+		done := make(chan []boundedVMDeleteOutcome, 1)
+		go func() {
+			done <- runBoundedVMDeletes(context.Background(), 2, targets, acquireFn, func(ctx context.Context, target vmactions.Target) (bool, error) {
+				return true, nil
+			})
+		}()
+
+		waitStarted := func(count int) {
+			t.Helper()
+			for i := 0; i < count; i++ {
+				select {
+				case <-started:
+				case <-time.After(2 * time.Second):
+					t.Fatalf("timed out waiting for %d started workers", count)
+				}
 			}
 		}
-		started <- struct{}{}
-		<-release
-		active.Add(-1)
-		return func() {}, nil
-	}
 
-	done := make(chan []boundedVMDeleteOutcome, 1)
-	go func() {
-		done <- runBoundedVMDeletes(context.Background(), 2, targets, acquireFn, func(ctx context.Context, target verifiedVMTarget) (bool, error) {
-			return true, nil
-		})
-	}()
+		waitStarted(2)
+		synctest.Wait()
+		if maxSeen.Load() != 2 {
+			t.Fatalf("max overlap = %d, want 2", maxSeen.Load())
+		}
 
-	waitStarted := func(count int) {
-		t.Helper()
-		for i := 0; i < count; i++ {
-			select {
-			case <-started:
-			case <-time.After(2 * time.Second):
-				t.Fatalf("timed out waiting for %d started workers", count)
+		select {
+		case <-started:
+			t.Fatal("third worker started before release")
+		default:
+		}
+
+		close(release)
+		waitStarted(2)
+		select {
+		case outcomes := <-done:
+			if len(outcomes) != len(targets) {
+				t.Fatalf("outcomes len = %d, want %d", len(outcomes), len(targets))
 			}
+		case <-time.After(2 * time.Second):
+			t.Fatal("timed out waiting for runner completion")
 		}
-	}
-
-	waitStarted(2)
-	if maxSeen.Load() != 2 {
-		t.Fatalf("max overlap = %d, want 2", maxSeen.Load())
-	}
-
-	select {
-	case <-started:
-		t.Fatal("third worker started before release")
-	case <-time.After(100 * time.Millisecond):
-	}
-
-	close(release)
-	waitStarted(2)
-	select {
-	case outcomes := <-done:
-		if len(outcomes) != len(targets) {
-			t.Fatalf("outcomes len = %d, want %d", len(outcomes), len(targets))
-		}
-	case <-time.After(2 * time.Second):
-		t.Fatal("timed out waiting for runner completion")
-	}
+	})
 }
 
 func TestRunBoundedVMDeletesAttemptsAllTargetsAfterFailure(t *testing.T) {
 	var attempted sync.Map
 	errBoom := errors.New("boom")
-	targets := []verifiedVMTarget{
+	targets := []vmactions.Target{
 		{ItemID: uuid.New(), GuestType: proxmox.GuestQEMU},
 		{ItemID: uuid.New(), GuestType: proxmox.GuestQEMU},
 		{ItemID: uuid.New(), GuestType: proxmox.GuestQEMU},
@@ -89,7 +94,7 @@ func TestRunBoundedVMDeletesAttemptsAllTargetsAfterFailure(t *testing.T) {
 
 	outcomes := runBoundedVMDeletes(context.Background(), 2, targets, func(ctx context.Context) (func(), error) {
 		return func() {}, nil
-	}, func(ctx context.Context, target verifiedVMTarget) (bool, error) {
+	}, func(ctx context.Context, target vmactions.Target) (bool, error) {
 		attempted.Store(target.ItemID, true)
 		if target.ItemID == targets[1].ItemID {
 			return true, errBoom
@@ -109,7 +114,7 @@ func TestRunBoundedVMDeletesAttemptsAllTargetsAfterFailure(t *testing.T) {
 
 func TestRunBoundedVMDeletesPreservesInputOrder(t *testing.T) {
 	id1, id2, id3 := uuid.New(), uuid.New(), uuid.New()
-	targets := []verifiedVMTarget{
+	targets := []vmactions.Target{
 		{ItemID: id1, GuestType: proxmox.GuestQEMU},
 		{ItemID: id2, GuestType: proxmox.GuestQEMU},
 		{ItemID: id3, GuestType: proxmox.GuestQEMU},
@@ -117,7 +122,7 @@ func TestRunBoundedVMDeletesPreservesInputOrder(t *testing.T) {
 
 	outcomes := runBoundedVMDeletes(context.Background(), 3, targets, func(ctx context.Context) (func(), error) {
 		return func() {}, nil
-	}, func(ctx context.Context, target verifiedVMTarget) (bool, error) {
+	}, func(ctx context.Context, target vmactions.Target) (bool, error) {
 		return true, nil
 	})
 
@@ -131,7 +136,7 @@ func TestRunBoundedVMDeletesDoesNotClaimBeforeAdmission(t *testing.T) {
 	releaseHold := make(chan struct{})
 	var deleteStarted atomic.Bool
 
-	targets := []verifiedVMTarget{{ItemID: uuid.New(), GuestType: proxmox.GuestQEMU}}
+	targets := []vmactions.Target{{ItemID: uuid.New(), GuestType: proxmox.GuestQEMU}}
 
 	acquireFn := func(ctx context.Context) (func(), error) {
 		select {
@@ -145,7 +150,7 @@ func TestRunBoundedVMDeletesDoesNotClaimBeforeAdmission(t *testing.T) {
 
 	done := make(chan []boundedVMDeleteOutcome, 1)
 	go func() {
-		done <- runBoundedVMDeletes(context.Background(), 1, targets, acquireFn, func(ctx context.Context, target verifiedVMTarget) (bool, error) {
+		done <- runBoundedVMDeletes(context.Background(), 1, targets, acquireFn, func(ctx context.Context, target vmactions.Target) (bool, error) {
 			deleteStarted.Store(true)
 			return true, nil
 		})
@@ -169,7 +174,7 @@ func TestRunBoundedVMDeletesDoesNotClaimBeforeAdmission(t *testing.T) {
 
 func TestRunBoundedVMDeletesReleasesAfterDeleteError(t *testing.T) {
 	var active atomic.Int32
-	targets := []verifiedVMTarget{{ItemID: uuid.New(), GuestType: proxmox.GuestQEMU}}
+	targets := []vmactions.Target{{ItemID: uuid.New(), GuestType: proxmox.GuestQEMU}}
 
 	acquireFn := func(ctx context.Context) (func(), error) {
 		if active.Add(1) > 1 {
@@ -178,7 +183,7 @@ func TestRunBoundedVMDeletesReleasesAfterDeleteError(t *testing.T) {
 		return func() { active.Add(-1) }, nil
 	}
 
-	outcomes := runBoundedVMDeletes(context.Background(), 1, targets, acquireFn, func(ctx context.Context, target verifiedVMTarget) (bool, error) {
+	outcomes := runBoundedVMDeletes(context.Background(), 1, targets, acquireFn, func(ctx context.Context, target vmactions.Target) (bool, error) {
 		return true, errors.New("delete failed")
 	})
 	if outcomes[0].err == nil {

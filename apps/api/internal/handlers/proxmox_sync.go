@@ -10,7 +10,6 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// ProxmoxSyncHandler serves the admin Proxmox drift sync endpoints.
 type ProxmoxSyncHandler struct {
 	Importer *proxmox.InventoryImporter
 	Service  *inventory.Service

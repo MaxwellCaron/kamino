@@ -14,7 +14,6 @@ export interface TooltipBoxProps {
   x: number
   /** Y position in pixels (relative to container) */
   y: number
-  /** Whether the tooltip is visible */
   visible: boolean
   /** Container ref for portal rendering */
   containerRef: RefObject<HTMLDivElement | null>
@@ -24,9 +23,7 @@ export interface TooltipBoxProps {
   containerHeight: number
   /** Offset from the target position */
   offset?: number
-  /** Custom class name */
   className?: string
-  /** Tooltip content */
   children: React.ReactNode
   /** Override left position (bypasses internal calculation) */
   left?: number | ReturnType<typeof useSpring>

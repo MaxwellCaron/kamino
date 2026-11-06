@@ -15,7 +15,6 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-// Sync handles syncing AD users and groups into the principals tables.
 type syncDirectoryReader interface {
 	FetchGroups(ctx context.Context) ([]Group, error)
 	FetchUsers(ctx context.Context) ([]User, error)
@@ -59,13 +58,11 @@ func (s *Sync) Run(ctx context.Context) error {
 
 	q := database.New(tx)
 
-	// Ensure the AD provider row exists
 	providerID, err := ensureProvider(ctx, q)
 	if err != nil {
 		return fmt.Errorf("ensuring provider: %w", err)
 	}
 
-	// Upsert groups and build DN → principal ID map
 	dnToID := make(map[string]uuid.UUID, len(groups)+len(users))
 	groupIDs := make(map[uuid.UUID]bool, len(groups))
 	keptSIDs := make([]string, 0, len(groups)+len(users))
@@ -86,7 +83,6 @@ func (s *Sync) Run(ctx context.Context) error {
 		keptSIDs = append(keptSIDs, g.SID)
 	}
 
-	// Upsert users
 	for _, u := range users {
 		normalizedFullName, err := principals.NormalizeFullName(u.FullName)
 		if err != nil {
@@ -136,7 +132,6 @@ func (s *Sync) Run(ctx context.Context) error {
 		keptSIDs = append(keptSIDs, u.SID)
 	}
 
-	// Delete principals no longer present in AD
 	removed, err := q.DeleteStalePrincipals(ctx, database.DeleteStalePrincipalsParams{
 		ProviderID:      providerID,
 		KeptExternalIds: keptSIDs,
@@ -148,7 +143,6 @@ func (s *Sync) Run(ctx context.Context) error {
 		log.Printf("Removed %d stale principals", removed)
 	}
 
-	// Replace all group memberships: clear then re-insert
 	if err := q.DeleteGroupMembershipsByProvider(ctx, providerID); err != nil {
 		return fmt.Errorf("clearing group memberships: %w", err)
 	}

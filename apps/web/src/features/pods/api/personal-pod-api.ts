@@ -1,5 +1,5 @@
 import { apiJson } from "@/features/shared/api/api-json"
-import { shouldRetryApiQuery } from "@/features/auth/api/auth-api"
+import { shouldRetryApiQuery } from "@/features/shared/api/api-error"
 
 export type PersonalPodStatus = {
   configured: boolean

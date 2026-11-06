@@ -601,7 +601,6 @@ const XAxisInner = memo(function XAxisInnerView({
       });
     }
 
-    // No brush: evenly spaced ticks across the full domain (data + projection).
     if (projectionExtendsScale && xDomain == null) {
       return buildDomainTicks({
         marginLeft: margin.left,
@@ -621,7 +620,6 @@ const XAxisInner = memo(function XAxisInnerView({
       formatLabel,
     });
 
-    // Brush: keep data-aligned ticks, add labels only in the projection tail.
     if (projectionExtendsScale && xDomain != null) {
       return appendProjectionTailTicks(
         dataTicks,

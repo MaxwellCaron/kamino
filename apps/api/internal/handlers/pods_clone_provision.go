@@ -19,7 +19,7 @@ func (h *PodsHandler) clonePublishedPod(
 	principalID uuid.UUID,
 	folderName string,
 	pod publishedPodBase,
-	progress *clonePodProgressReporter,
+	progress *podProgressReporter,
 	networkBatch *podNetworkAllocationBatch,
 ) (database.ClonedPods, *requestError) {
 	progress.set(cloneProgressStepFetching, "Fetching virtual machines in pod.")
@@ -85,7 +85,7 @@ func (h *PodsHandler) clonePublishedPod(
 	provisioned := false
 	defer func() {
 		if !provisioned {
-			h.cleanupFailedUserClone(targetFolderID, created)
+			h.cleanupFailedPodProvision(targetFolderID, created)
 		}
 		batch.Release()
 	}()
@@ -129,7 +129,7 @@ func (h *PodsHandler) clonePublishedPod(
 		return database.ClonedPods{}, reqErr
 	}
 
-	if !cloneTarget.SupportsProfile(pod.NetworkProfileKey) {
+	if !cloneTarget.SupportsProfile(h.NetworkCatalog, pod.NetworkProfileKey) {
 		return database.ClonedPods{}, &requestError{
 			Status: http.StatusUnprocessableEntity,
 			UserMessage: fmt.Sprintf(
@@ -165,7 +165,7 @@ func (h *PodsHandler) reclonePublishedPod(
 	ctx context.Context,
 	principalID uuid.UUID,
 	clone database.ClonedPods,
-	progress *clonePodProgressReporter,
+	progress *podProgressReporter,
 ) (database.ClonedPods, *requestError) {
 	progress.set(cloneProgressStepFetching, "Fetching virtual machines in pod.")
 
@@ -216,7 +216,7 @@ func (h *PodsHandler) reclonePublishedPod(
 	provisioned := false
 	defer func() {
 		if !provisioned {
-			h.cleanupFailedUserClone(uuid.Nil, created)
+			h.cleanupFailedPodProvision(uuid.Nil, created)
 		}
 		batch.Release()
 	}()
@@ -276,7 +276,7 @@ func (h *PodsHandler) provisionClonedPodVMs(
 	publishedVMs []database.ListPublishedPodVMsForCloneRow,
 	clone database.ClonedPods,
 	batch *vmidalloc.Batch,
-	progress *clonePodProgressReporter,
+	progress *podProgressReporter,
 ) ([]clonePublishedVMResult, map[int]clonedVM, *requestError) {
 	progress.set(cloneProgressStepCloning, "Cloning virtual machines.")
 	results, created, reqErr := h.clonePublishedPodVMs(ctx, principalID, placement, targetNode, publishedVMs, batch, progress)

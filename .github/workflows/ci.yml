@@ -19,27 +19,19 @@ jobs:
           go-version-file: apps/api/go.mod
 
       - name: gofmt
-        working-directory: apps/api
-        run: test -z "$(gofmt -l .)"
+        run: bash scripts/ci.sh api gofmt
 
       - name: build
-        working-directory: apps/api
-        run: go build ./cmd/api
+        run: bash scripts/ci.sh api build
 
       - name: test
-        working-directory: apps/api
-        run: go test -race ./...
+        run: bash scripts/ci.sh api test
 
       - name: sqlc-drift-check
-        working-directory: apps/api
-        run: |
-          go install github.com/sqlc-dev/sqlc/cmd/sqlc@v1.30.0
-          sqlc generate
-          git diff --exit-code -- database/
+        run: bash scripts/ci.sh api sqlc
 
       - name: govulncheck
-        working-directory: apps/api
-        run: go run golang.org/x/vuln/cmd/govulncheck@latest ./...
+        run: bash scripts/ci.sh api vuln
 
   web:
     name: Web
@@ -67,17 +59,17 @@ jobs:
         run: bun install --frozen-lockfile
 
       - name: typecheck
-        run: bun run typecheck
+        run: bash scripts/ci.sh web typecheck
 
       - name: typecheck (secondary compiler, non-blocking)
         run: bun run typecheck:stable
         continue-on-error: true
 
       - name: lint
-        run: bun run lint
+        run: bash scripts/ci.sh web lint
 
       - name: test
-        run: bun --filter web test
+        run: bash scripts/ci.sh web test
 
       - name: react-doctor
         uses: millionco/react-doctor@v2

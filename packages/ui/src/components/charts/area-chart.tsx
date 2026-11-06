@@ -33,7 +33,6 @@ export interface AreaChartProps {
   data: Array<Record<string, unknown>>;
   /** Key in data for the x-axis (date). Default: "date" */
   xDataKey?: string;
-  /** Chart margins */
   margin?: Partial<Margin>;
   /** Animation duration in milliseconds. Default: 1100 */
   animationDuration?: number;
@@ -45,7 +44,6 @@ export interface AreaChartProps {
   revealSignature?: string;
   /** Aspect ratio as "width / height". Default: "2 / 1" */
   aspectRatio?: string;
-  /** Additional class name for the container */
   className?: string;
   /** Loading vs ready — drives chart phase and loading chrome. Default: `"ready"`. */
   status?: ChartStatus;
@@ -65,7 +63,6 @@ export interface AreaChartProps {
   style?: CSSProperties;
   /** Fires when the internal chart phase changes (e.g. OG capture readiness). */
   onPhaseChange?: (phase: ChartPhase) => void;
-  /** Child components (Area, Grid, ChartTooltip, etc.) */
   children: ReactNode;
 }
 

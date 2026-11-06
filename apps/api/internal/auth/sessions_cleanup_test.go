@@ -3,6 +3,7 @@ package auth
 import (
 	"context"
 	"testing"
+	"testing/synctest"
 	"time"
 
 	"github.com/google/uuid"
@@ -147,40 +148,36 @@ func TestDeleteExpiredSessionsZeroRowsOK(t *testing.T) {
 }
 
 func TestStartCleanupRunsImmediatelyAndStopsOnCancel(t *testing.T) {
-	store := newFakeSessionStore()
-	mgr := newTestSessionManager(store)
+	synctest.Test(t, func(t *testing.T) {
+		store := newFakeSessionStore()
+		mgr := newTestSessionManager(store)
 
-	sessionID := uuid.New()
-	store.putSession(fakeSessionRow{
-		id:          sessionID,
-		principalID: uuid.New(),
-		tokenHash:   hashOpaqueToken("cleanup-ticker-token"),
-		familyID:    uuid.New(),
-		expiresAt:   pgtype.Timestamptz{Time: time.Now().UTC().Add(-48 * time.Hour), Valid: true},
-	})
+		sessionID := uuid.New()
+		store.putSession(fakeSessionRow{
+			id:          sessionID,
+			principalID: uuid.New(),
+			tokenHash:   hashOpaqueToken("cleanup-ticker-token"),
+			familyID:    uuid.New(),
+			expiresAt:   pgtype.Timestamptz{Time: time.Now().UTC().Add(-48 * time.Hour), Valid: true},
+		})
 
-	ctx, cancel := context.WithCancel(context.Background())
-	done := make(chan struct{})
-	go func() {
-		mgr.startCleanup(ctx, time.Hour, time.Hour)
-		close(done)
-	}()
+		ctx, cancel := context.WithCancel(context.Background())
+		done := make(chan struct{})
+		go func() {
+			mgr.startCleanup(ctx, time.Hour, time.Hour)
+			close(done)
+		}()
 
-	deadline := time.Now().Add(time.Second)
-	for {
-		if _, ok := store.getByID(sessionID); !ok {
-			break
-		}
-		if time.Now().After(deadline) {
+		synctest.Wait()
+		if _, ok := store.getByID(sessionID); ok {
 			t.Fatal("startCleanup: expected immediate sweep to delete the expired row")
 		}
-		time.Sleep(time.Millisecond)
-	}
 
-	cancel()
-	select {
-	case <-done:
-	case <-time.After(time.Second):
-		t.Fatal("startCleanup: expected goroutine to stop after context cancellation")
-	}
+		cancel()
+		select {
+		case <-done:
+		case <-time.After(time.Second):
+			t.Fatal("startCleanup: expected goroutine to stop after context cancellation")
+		}
+	})
 }

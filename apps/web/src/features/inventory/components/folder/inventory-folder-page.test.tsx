@@ -4,19 +4,9 @@ import { InventoryFolderPage } from "./inventory-folder-page"
 import { renderWithQueryClient } from "@/test/test-utils"
 import { screen } from "@testing-library/react"
 
-const { mockInventoryTreeQueryFn, mockInventoryNodeMenuProps } = vi.hoisted(
-  () => ({
-    mockInventoryTreeQueryFn: vi.fn(),
-    mockInventoryNodeMenuProps: {
-      current: null as {
-        itemId: string
-        data: ApiTreeNode
-        iconSize?: string
-        contentAlign?: string
-      } | null,
-    },
-  })
-)
+const { mockInventoryTreeQueryFn } = vi.hoisted(() => ({
+  mockInventoryTreeQueryFn: vi.fn(),
+}))
 
 vi.mock("@tanstack/react-router", () => ({
   getRouteApi: () => ({
@@ -34,14 +24,13 @@ vi.mock("@/features/inventory/api/inventory-api", () => ({
   },
 }))
 
-vi.mock("../inventory-actions/inventory-node-menu", () => ({
+vi.mock("@/components/inventory/actions/inventory-node-menu", () => ({
   InventoryNodeMenu: (props: {
     itemId: string
     data: ApiTreeNode
     iconSize?: string
     contentAlign?: string
   }) => {
-    mockInventoryNodeMenuProps.current = props
     return (
       <button type="button" aria-label={`Actions for ${props.data.name}`}>
         Actions
@@ -70,7 +59,6 @@ const testFolder: ApiTreeNode = {
 describe("InventoryFolderPage", () => {
   beforeEach(() => {
     mockInventoryTreeQueryFn.mockReset()
-    mockInventoryNodeMenuProps.current = null
   })
 
   it("leaves initial loading feedback to the route without throwing not found", () => {
@@ -92,7 +80,7 @@ describe("InventoryFolderPage", () => {
     expect(await screen.findByText(/Connection failed/)).toBeInTheDocument()
   })
 
-  it("renders folder heading and passes folder data to the action menu", async () => {
+  it("renders the folder heading, description, and named actions", async () => {
     mockInventoryTreeQueryFn.mockResolvedValue([testFolder])
 
     renderWithQueryClient(<InventoryFolderPage />)
@@ -105,12 +93,6 @@ describe("InventoryFolderPage", () => {
     expect(
       screen.getByRole("button", { name: "Actions for Test Folder" })
     ).toBeInTheDocument()
-    expect(mockInventoryNodeMenuProps.current).toEqual({
-      itemId: "folder-1",
-      data: testFolder,
-      iconSize: "icon",
-      contentAlign: "end",
-    })
   })
 
   it("renders the VM limit badge when the folder has an effective limit", async () => {

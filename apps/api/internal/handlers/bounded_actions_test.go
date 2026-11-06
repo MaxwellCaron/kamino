@@ -3,73 +3,78 @@ package handlers
 import (
 	"context"
 	"errors"
+	"fmt"
 	"sync"
 	"sync/atomic"
 	"testing"
+	"testing/synctest"
 	"time"
 )
 
 func TestRunBoundedActionsRespectsLimit(t *testing.T) {
-	var active atomic.Int32
-	var maxSeen atomic.Int32
-	started := make(chan int, 6)
-	release := make(chan struct{})
+	synctest.Test(t, func(t *testing.T) {
+		var active atomic.Int32
+		var maxSeen atomic.Int32
+		started := make(chan int, 6)
+		release := make(chan struct{})
 
-	done := make(chan []boundedActionResult, 1)
+		done := make(chan []error, 1)
 
-	targets := make([]int, 6)
-	go func() {
-		done <- runBoundedActions(context.Background(), 2, targets, func(ctx context.Context, index int, target int) error {
-			current := active.Add(1)
-			for {
-				seen := maxSeen.Load()
-				if current <= seen || maxSeen.CompareAndSwap(seen, current) {
-					break
+		targets := make([]int, 6)
+		go func() {
+			done <- runBoundedActions(context.Background(), 2, targets, func(ctx context.Context, index int, target int) error {
+				current := active.Add(1)
+				for {
+					seen := maxSeen.Load()
+					if current <= seen || maxSeen.CompareAndSwap(seen, current) {
+						break
+					}
+				}
+				started <- index
+				<-release
+				active.Add(-1)
+				return nil
+			})
+		}()
+
+		waitForStarted := func(count int) {
+			t.Helper()
+			seen := make(map[int]struct{}, count)
+			deadline := time.After(2 * time.Second)
+			for len(seen) < count {
+				select {
+				case index := <-started:
+					seen[index] = struct{}{}
+				case <-deadline:
+					t.Fatalf("timed out waiting for %d started callbacks, got %d", count, len(seen))
 				}
 			}
-			started <- index
-			<-release
-			active.Add(-1)
-			return nil
-		})
-	}()
+		}
 
-	waitForStarted := func(count int) {
-		t.Helper()
-		seen := make(map[int]struct{}, count)
-		deadline := time.After(2 * time.Second)
-		for len(seen) < count {
-			select {
-			case index := <-started:
-				seen[index] = struct{}{}
-			case <-deadline:
-				t.Fatalf("timed out waiting for %d started callbacks, got %d", count, len(seen))
+		waitForStarted(2)
+		synctest.Wait()
+		if maxSeen.Load() != 2 {
+			t.Fatalf("max overlap = %d, want 2", maxSeen.Load())
+		}
+
+		select {
+		case index := <-started:
+			t.Fatalf("third callback started before release: index %d", index)
+		default:
+		}
+
+		close(release)
+		waitForStarted(4)
+
+		select {
+		case results := <-done:
+			if len(results) != len(targets) {
+				t.Fatalf("results len = %d, want %d", len(results), len(targets))
 			}
+		case <-time.After(2 * time.Second):
+			t.Fatal("timed out waiting for runner completion")
 		}
-	}
-
-	waitForStarted(2)
-	if maxSeen.Load() != 2 {
-		t.Fatalf("max overlap = %d, want 2", maxSeen.Load())
-	}
-
-	select {
-	case index := <-started:
-		t.Fatalf("third callback started before release: index %d", index)
-	case <-time.After(100 * time.Millisecond):
-	}
-
-	close(release)
-	waitForStarted(4)
-
-	select {
-	case results := <-done:
-		if len(results) != len(targets) {
-			t.Fatalf("results len = %d, want %d", len(results), len(targets))
-		}
-	case <-time.After(2 * time.Second):
-		t.Fatal("timed out waiting for runner completion")
-	}
+	})
 }
 
 func TestRunBoundedActionsAttemptsAllTargetsAfterError(t *testing.T) {
@@ -87,10 +92,10 @@ func TestRunBoundedActionsAttemptsAllTargetsAfterError(t *testing.T) {
 			t.Fatalf("target %d was not attempted", i)
 		}
 	}
-	if results[1].Err == nil {
+	if results[1] == nil {
 		t.Fatal("expected error for index 1")
 	}
-	if results[0].Err != nil || results[2].Err != nil || results[3].Err != nil {
+	if results[0] != nil || results[2] != nil || results[3] != nil {
 		t.Fatalf("unexpected errors: %+v", results)
 	}
 }
@@ -113,6 +118,7 @@ func TestRunBoundedActionsPreservesInputOrder(t *testing.T) {
 	}
 	finishOrder := make([]int, 0, 3)
 	var mu sync.Mutex
+	done := make(chan []error, 1)
 
 	go func() {
 		results := runBoundedActions(context.Background(), 3, targets, func(ctx context.Context, index int, target item) error {
@@ -122,13 +128,9 @@ func TestRunBoundedActionsPreservesInputOrder(t *testing.T) {
 			finishOrder = append(finishOrder, index)
 			mu.Unlock()
 			close(finished[index])
-			return nil
+			return fmt.Errorf("target %d", target.ID)
 		})
-		for i, result := range results {
-			if result.Index != i {
-				t.Errorf("result[%d].Index = %d", i, result.Index)
-			}
-		}
+		done <- results
 	}()
 
 	waitForAllStarted := func() {
@@ -165,6 +167,17 @@ func TestRunBoundedActionsPreservesInputOrder(t *testing.T) {
 		t.Fatal("timed out waiting for index 0 to finish")
 	}
 
+	select {
+	case results := <-done:
+		for index, target := range targets {
+			if results[index] == nil || results[index].Error() != fmt.Sprintf("target %d", target.ID) {
+				t.Fatalf("result[%d] = %v, want target %d", index, results[index], target.ID)
+			}
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("timed out waiting for ordered results")
+	}
+
 	if len(finishOrder) != 3 {
 		t.Fatalf("finish order = %v", finishOrder)
 	}
@@ -182,8 +195,8 @@ func TestRunBoundedActionsHonorsContextCancellation(t *testing.T) {
 	})
 
 	for _, result := range results {
-		if !errors.Is(result.Err, context.Canceled) {
-			t.Fatalf("result error = %v, want context.Canceled", result.Err)
+		if !errors.Is(result, context.Canceled) {
+			t.Fatalf("result error = %v, want context.Canceled", result)
 		}
 	}
 }

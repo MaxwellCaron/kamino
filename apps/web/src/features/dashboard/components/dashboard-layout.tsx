@@ -4,8 +4,8 @@ import {
 } from "@/features/inventory/hooks/use-inventory-sidebar-resize"
 import { Outlet, getRouteApi } from "@tanstack/react-router"
 import { AppSidebar } from "@/components/app-shell/app-sidebar"
-import { DashboardEvents } from "@/features/dashboard/components/dashboard-events"
-import { InventoryDialogsProvider } from "@/features/inventory/components/inventory-dialogs-provider"
+import { ApplicationEvents } from "@/components/app-shell/application-events"
+import { InventoryDialogsProvider } from "@/components/inventory/inventory-dialogs-provider"
 import { InventorySidebarResizeHandle } from "@/features/inventory/components/tree/inventory-sidebar-resize-handle"
 import { InventoryTreeProvider } from "@/features/inventory/components/tree/inventory-tree-provider"
 import { SidebarProvider } from "@workspace/ui/components/sidebar"
@@ -37,7 +37,7 @@ export function DashboardLayout() {
         } as React.CSSProperties
       }
     >
-      <DashboardEvents />
+      <ApplicationEvents />
       <InventoryDialogsProvider>
         <InventoryTreeProvider>
           <SkipToContentLink targetId="main-content" />

@@ -15,7 +15,6 @@ import { createPortal } from "react-dom";
 import { useHeatmap } from "./heatmap-context";
 
 export interface HeatmapYAxisProps {
-  /** Additional class name for labels */
   className?: string;
   /** Which row ticks to display. Default: `"odd"` (Mon / Wed / Fri). */
   tickFilter?: HeatmapYAxisTickFilter;

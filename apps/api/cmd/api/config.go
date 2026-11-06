@@ -7,8 +7,6 @@ import (
 	"github.com/google/uuid"
 )
 
-// Config holds all application configuration
-
 type Config struct {
 	// --- Core (required) ---
 	Port              string   `envconfig:"PORT" default:":8080"`

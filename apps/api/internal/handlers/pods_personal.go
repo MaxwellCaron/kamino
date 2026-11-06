@@ -123,7 +123,6 @@ func (h *PodsHandler) GetPersonalPod(c *gin.Context) {
 	})
 }
 
-// personalPodCreateResult maps a provisioning outcome to a gin-independent, table-testable response.
 func personalPodCreateResult(folderID uuid.UUID, err error) (*requestError, personalPodCreateResponse) {
 	if err != nil {
 		var appErr *personalpods.Error

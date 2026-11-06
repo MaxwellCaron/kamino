@@ -50,7 +50,6 @@ func sortStorages(storages []Storage) {
 	})
 }
 
-// GetStorages returns all storages for a node.
 func (c *Client) GetStorages(ctx context.Context, node string) ([]Storage, error) {
 	if err := c.requireAllowedNode(node); err != nil {
 		return nil, err
@@ -88,7 +87,6 @@ func (c *Client) GetCreateStorages(
 	return diskStorages, isoStorages, nil
 }
 
-// GetISOs returns ISO files available on a storage.
 func (c *Client) GetISOs(ctx context.Context, node, storage string) ([]ISOContent, error) {
 	if err := c.requireAllowedNode(node); err != nil {
 		return nil, err
@@ -117,7 +115,6 @@ func (c *Client) GetCreateISOs(
 	return isos, nil
 }
 
-// GetBridges returns all network bridges for a node.
 func (c *Client) GetBridges(ctx context.Context, node string) ([]NetworkBridge, error) {
 	if err := c.requireAllowedNode(node); err != nil {
 		return nil, err
@@ -184,7 +181,6 @@ func (c *Client) UsedVMIDs(ctx context.Context) (map[int]struct{}, error) {
 	return used, nil
 }
 
-// GetNextVMID returns the next available VMID from the cluster.
 func (c *Client) GetNextVMID(ctx context.Context) (int, error) {
 	var resp apiResponse[json.Number]
 	if err := c.get(ctx, "/api2/json/cluster/nextid", &resp); err != nil {

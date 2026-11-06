@@ -140,21 +140,22 @@ func (h *PodsHandler) configureProfileNetworkAttachments(
 		return reqErr
 	}
 
-	switch profileKey {
-	case podnetwork.ProfileLANRouterV1:
+	profile, err := h.NetworkCatalog.Profile(profileKey)
+	if err != nil {
+		return &requestError{Status: http.StatusUnprocessableEntity, UserMessage: err.Error()}
+	}
+	// Router templates share net0/net1; the additional NIC is needed only by profiles that declare it.
+	if !profile.HasRouterDevice("net2") {
 		if reqErr := h.removeRouterNetworkDeviceIfPresent(ctx, router.clone.TargetNode, router.clone.VMID, "net2"); reqErr != nil {
 			return reqErr
 		}
-	case podnetwork.ProfileLANDMZRouterV1:
+	} else {
 		hasNet2, reqErr := h.routerHasManagedNIC(ctx, router.clone.TargetNode, router.clone.VMID, "net2")
 		if reqErr != nil {
 			return reqErr
 		}
 		if !hasNet2 {
-			return &requestError{
-				Status:      http.StatusUnprocessableEntity,
-				UserMessage: "router template must expose net2 for the LAN + DMZ Router profile",
-			}
+			return &requestError{Status: http.StatusUnprocessableEntity, UserMessage: fmt.Sprintf("router template must expose net2 for the %s profile", profile.Label)}
 		}
 	}
 

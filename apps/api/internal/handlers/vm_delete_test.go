@@ -29,7 +29,7 @@ func TestVerifyVMRecordIdentityForDeleteAllowsMissingUpstream(t *testing.T) {
 	if reqErr != nil {
 		t.Fatalf("verifyVMRecordIdentityForAction returned error: %v", reqErr)
 	}
-	if target.ItemID != itemID || target.Node != "node-a" || target.VMID != 101 || target.UpstreamUUID != upstreamUUID {
+	if target.ItemID != itemID || target.Node != "node-a" || target.VMID != 101 || target.GuestType != proxmox.GuestQEMU {
 		t.Fatalf("target = %+v, want database-backed target", target)
 	}
 }

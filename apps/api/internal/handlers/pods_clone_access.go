@@ -115,7 +115,7 @@ func (h *PodsHandler) resolveClonedPodPowerTargets(
 		if reqErr != nil {
 			return nil, reqErr
 		}
-		targets = append(targets, vmActionTarget(target))
+		targets = append(targets, target)
 	}
 
 	if len(targets) == 0 {
@@ -138,17 +138,6 @@ func vmidsFromTargets(targets []vmactions.Target) []int {
 
 func cloneMutationAllowed(isManager bool, ownerPrincipalID, actorPrincipalID uuid.UUID) bool {
 	return isManager || ownerPrincipalID == actorPrincipalID
-}
-
-func clonedPodVMAlreadyInPowerState(action string, status string) bool {
-	switch action {
-	case string(vmactions.PowerActionStart):
-		return status == "running"
-	case string(vmactions.PowerActionShutdown):
-		return status != "" && status != "running"
-	default:
-		return false
-	}
 }
 
 func (h *PodsHandler) deleteClonedPodProxmoxVM(ctx context.Context, node string, vmid int) error {

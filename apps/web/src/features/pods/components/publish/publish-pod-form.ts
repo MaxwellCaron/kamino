@@ -3,6 +3,7 @@ import type {
   PodAudiencePrincipal,
   PodCreator,
   PodStatus,
+  PublishedPodCatalogEntry,
 } from "@/features/pods/types/pod-types"
 import { InventoryPermissionBits } from "@/features/inventory/utils/inventory-permissions"
 import type { PrincipalOption } from "@/features/inventory/types/inventory-types"
@@ -35,23 +36,18 @@ const publishPodAudiencePrincipalSchema = z.object({
 const podImageUrlSchema = z
   .string()
   .trim()
-  .refine(
-    (image) => {
-      if (image.startsWith("/") && !image.startsWith("//")) return true
+  .refine((image) => {
+    if (image.startsWith("/") && !image.startsWith("//")) return true
 
-      try {
-        const url = new URL(image)
-        return (
-          url.protocol === "https:" &&
-          url.username === "" &&
-          url.password === ""
-        )
-      } catch {
-        return false
-      }
-    },
-    "Enter an HTTPS image URL or root-relative path."
-  )
+    try {
+      const url = new URL(image)
+      return (
+        url.protocol === "https:" && url.username === "" && url.password === ""
+      )
+    } catch {
+      return false
+    }
+  }, "Enter an HTTPS image URL or root-relative path.")
 
 const publishPodVmSchema = z.object({
   id: z.string().min(1),
@@ -268,9 +264,7 @@ export const publishPodFormSchema = z
     audience: z.array(publishPodAudiencePrincipalSchema),
     virtual_machines: z.array(publishPodVmSchema).min(1),
     update_virtual_machines: z.array(z.string()),
-    tasks: z
-      .array(publishPodTaskSchema)
-      .max(20, "You can add up to 20 tasks."),
+    tasks: z.array(publishPodTaskSchema).max(20, "You can add up to 20 tasks."),
     source_folder: z.string().trim().min(1, "Select a Pod Folder."),
     clone_target_key: z.string().trim().min(1, "Select a clone target."),
   })
@@ -355,8 +349,7 @@ export function createInitialPublishPodValues(): PublishPodFormValues {
     slug: "new-learning-pod",
     description:
       "A comprehensive environment for learning modern software engineering.",
-    image:
-      "https://i.imgur.com/sMbWqtc.png",
+    image: "https://i.imgur.com/sMbWqtc.png",
     creators: [],
     created_at: new Date().toISOString(),
     clone_count: 0,
@@ -410,4 +403,37 @@ export function toPodDraft(values: PublishPodFormValues): Pod {
     ...podDraft
   } = values
   return podDraft
+}
+
+export function toPublishPodFormValues(
+  pod: PublishedPodCatalogEntry
+): PublishPodFormValues {
+  return {
+    id: pod.id,
+    title: pod.title,
+    slug: pod.slug,
+    description: pod.description,
+    image: pod.image,
+    creators: structuredClone(pod.creators),
+    created_at: pod.created_at,
+    clone_count: pod.clone_count,
+    status: pod.status,
+    audience: structuredClone(pod.audience),
+    virtual_machines: structuredClone(pod.virtual_machines),
+    update_virtual_machines: [],
+    tasks: (pod.tasks ?? []).map((task) => ({
+      id: task.id,
+      title: task.title,
+      content: task.content,
+      questions: task.questions.map((question) => ({
+        id: question.id,
+        title: question.title,
+        answerOutline: question.answerOutline,
+        description: question.description,
+        hint: question.hint,
+      })),
+    })),
+    source_folder: pod.source_folder,
+    clone_target_key: pod.clone_target_key,
+  }
 }

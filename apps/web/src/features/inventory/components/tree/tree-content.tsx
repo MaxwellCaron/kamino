@@ -8,14 +8,7 @@ import {
   createTreeRangeExtractor,
   upsertRowVm,
 } from "./tree-content-utils"
-import {
-  useCallback,
-  useEffect,
-  useLayoutEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react"
+import { useCallback, useLayoutEffect, useMemo, useRef, useState } from "react"
 import {
   useInventoryTreeDataContext,
   useInventoryTreeNavigationContext,
@@ -102,58 +95,39 @@ export function InventoryTreeContent({
     useFlushSync: false,
   })
 
-  useEffect(() => {
-    scrollToItemHandlerRef.current = (itemId: string) => {
-      let lastIndex = -1
-      let stableFrames = 0
+  const pendingScrollItemId = useRef<string | null>(null)
 
-      const tick = (attempt: number) => {
-        if (attempt > 30) return
+  const scrollToPendingItem = useCallback(() => {
+    if (!pendingScrollItemId.current || !scrollElement) return
 
-        const index = tree
-          .getItems()
-          .findIndex((item) => item.getId() === itemId)
+    const index = items.findIndex(
+      (item) => item.getId() === pendingScrollItemId.current
+    )
+    if (index < 0) return
 
-        if (index < 0 || !virtualizer.scrollElement) {
-          requestAnimationFrame(() => tick(attempt + 1))
-          return
-        }
+    const [targetOffset] = virtualizer.getOffsetForIndex(index, "auto") ?? [
+      null,
+    ]
+    if (targetOffset === null) return
 
-        if (index === lastIndex) {
-          stableFrames += 1
-        } else {
-          lastIndex = index
-          stableFrames = 0
-        }
+    const distance = Math.abs(targetOffset - (virtualizer.scrollOffset ?? 0))
+    const viewportHeight = virtualizer.scrollRect?.height ?? 0
+    const behavior = distance <= viewportHeight * 3 ? "smooth" : "auto"
 
-        // Wait until the tree has settled (expansion rebuilds finished) before scrolling.
-        if (stableFrames < 2) {
-          requestAnimationFrame(() => tick(attempt + 1))
-          return
-        }
+    virtualizer.scrollToIndex(index, { align: "auto", behavior })
+    pendingScrollItemId.current = null
+  }, [items, scrollElement, virtualizer])
 
-        const [targetOffset] = virtualizer.getOffsetForIndex(index, "auto") ?? [
-          null,
-        ]
-        if (targetOffset === null) return
-
-        const distance = Math.abs(
-          targetOffset - (virtualizer.scrollOffset ?? 0)
-        )
-        const viewportHeight = virtualizer.scrollRect?.height ?? 0
-        // Uniform row heights: smooth scroll for nearby targets, instant for long jumps.
-        const behavior = distance <= viewportHeight * 3 ? "smooth" : "auto"
-
-        virtualizer.scrollToIndex(index, { align: "auto", behavior })
-      }
-
-      tick(0)
+  useLayoutEffect(() => {
+    scrollToItemHandlerRef.current = (itemId) => {
+      pendingScrollItemId.current = itemId
+      scrollToPendingItem()
     }
-
+    scrollToPendingItem()
     return () => {
       scrollToItemHandlerRef.current = null
     }
-  }, [scrollToItemHandlerRef, tree, virtualizer])
+  }, [scrollToItemHandlerRef, scrollToPendingItem])
 
   const virtualRows = virtualizer.getVirtualItems()
 

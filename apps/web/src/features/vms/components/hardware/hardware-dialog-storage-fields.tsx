@@ -18,12 +18,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@workspace/ui/components/select"
-import {
-  getFirstIssueMessage,
-  parseNumberInput,
-} from "@/features/vms/components/create/create-vm-form"
 import { Input } from "@workspace/ui/components/input"
 import { formatFieldError } from "@/features/vms/components/create/create-vm-step-utils"
+import { getFirstIssueMessage } from "@/components/forms/form-errors"
+import { parseNumberInput } from "@/components/forms/form-values"
 import { vmHardwareFormSchema } from "@/features/vms/components/hardware/hardware-dialog-schema"
 
 export function VmHardwareStorageFields({

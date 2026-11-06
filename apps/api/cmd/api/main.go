@@ -28,9 +28,6 @@ import (
 	"github.com/kelseyhightower/envconfig"
 )
 
-// Config holds all application configuration
-
-// init the environment
 func init() {
 	if err := godotenv.Load(); err != nil {
 		log.Println("No .env file found, using environment variables from system")
@@ -338,6 +335,7 @@ func main() {
 	go vmActionClaims.StartRecovery(context.Background())
 
 	eventsHandler := &handlers.EventsHandler{
+		PodProgress:       &podsHandler.Progress,
 		InventoryNotifier: inventoryNotifier,
 		VMNotifier:        vmStatusNotifier,
 		Requests:          requestService,

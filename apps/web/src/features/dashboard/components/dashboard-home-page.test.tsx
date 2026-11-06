@@ -128,7 +128,7 @@ vi.mock("./dashboard-requests-card", () => ({
   DashboardActivityTableCard: () => null,
 }))
 
-vi.mock("@/features/pods/components/browse/personal-pod-card", () => ({
+vi.mock("@/components/pods/personal-pod-card", () => ({
   PersonalPodCard: () => null,
 }))
 

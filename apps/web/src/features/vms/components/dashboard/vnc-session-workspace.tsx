@@ -12,11 +12,10 @@ import {
 } from "react"
 import type { VncConnectionStatus } from "@/features/vms/components/dashboard/vnc-console"
 import { VncConsole } from "@/features/vms/components/dashboard/vnc-console"
-
 import { cn } from "@workspace/ui/lib/utils"
 import { getVmCapabilities } from "@/features/inventory/utils/inventory-capabilities"
 import { inventoryItemQueryOptions } from "@/features/inventory/api/inventory-api"
-import { isApiErrorStatus } from "@/features/auth/api/auth-api"
+import { isApiErrorStatus } from "@/features/shared/api/api-error"
 import { useInventoryTreeDataContext } from "@/features/inventory/components/tree/inventory-tree-context"
 import { useParams } from "@tanstack/react-router"
 import { useQuery } from "@tanstack/react-query"

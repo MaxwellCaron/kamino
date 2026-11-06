@@ -1,22 +1,5 @@
 import * as React from "react"
 import {
-  DashboardSquare01Icon,
-  GitPullRequestIcon,
-  Globe02Icon,
-  Home03Icon,
-  NotebookIcon,
-  PackageAddIcon,
-  PackageCheck,
-  PackageIcon,
-  PackageMovingIcon,
-  ReloadIcon,
-  Shield01Icon,
-  SparklesIcon,
-  UserGroupIcon,
-  UserIcon,
-} from "@hugeicons/core-free-icons"
-
-import {
   HoverCard,
   HoverCardContent,
   HoverCardTrigger,
@@ -37,6 +20,7 @@ import {
   canAccessAdmin,
   canAccessRequestQueue,
 } from "@/features/auth/utils/management-permissions"
+import type { ApplicationPage } from "./application-pages"
 import type { AuthUser } from "@/features/auth/types/auth-types"
 import { HugeiconsIcon } from "@hugeicons/react"
 import { Image } from "@unpic/react"
@@ -45,145 +29,9 @@ import { InventoryTreeHeader } from "@/features/inventory/components/tree/invent
 import { NavUser } from "./nav-user"
 import { Separator } from "@workspace/ui/components/separator"
 import { cn } from "@workspace/ui/lib/utils"
+import { visibleApplicationPages } from "./application-pages"
 
-const navItems = [
-  {
-    title: "Home",
-    description: "Overview of infrastructure, activity, and recent changes.",
-    url: "/",
-    icon: Home03Icon,
-    group: "home",
-    visibility: "all",
-  },
-  {
-    title: "Pods",
-    description: "Browse and launch published pods.",
-    url: "/pods",
-    icon: PackageIcon,
-    group: "home",
-    visibility: "all",
-  },
-  {
-    title: "Changelog",
-    description: "View the changelog for the latest updates.",
-    url: "/changelog",
-    icon: SparklesIcon,
-    group: "home",
-    visibility: "all",
-  },
-  {
-    title: "User Guide",
-    description: "Learn how to browse, clone, and operate pods.",
-    url: "/docs",
-    icon: NotebookIcon,
-    group: "home",
-    visibility: "all",
-  },
-  {
-    title: "Create Pod",
-    description:
-      "Initialize a foundation for your pod by using virutal machine templates and more.",
-    url: "/pods/create",
-    icon: PackageAddIcon,
-    group: "manager",
-    visibility: "manager",
-  },
-  {
-    title: "Publish Pod",
-    description:
-      "Configure and publish a new pod for users to clone and interact with.",
-    url: "/pods/publish",
-    icon: PackageCheck,
-    group: "manager",
-    visibility: "manager",
-  },
-  {
-    title: "Published Pods",
-    description:
-      "Manager-facing catalog for reviewing pod visibility, access, and edit state.",
-    url: "/pods/published",
-    icon: PackageMovingIcon,
-    group: "manager",
-    visibility: "manager",
-  },
-  {
-    title: "Requests",
-    description: "Review pending and completed user requests.",
-    url: "/manager/requests",
-    icon: GitPullRequestIcon,
-    group: "manager",
-    visibility: "manager",
-  },
-  {
-    title: "Manager Guide",
-    description:
-      "Learn how to publish pods, manage clones, and review requests.",
-    url: "/manager/docs",
-    icon: NotebookIcon,
-    group: "manager",
-    visibility: "manager",
-  },
-  {
-    title: "Admin",
-    description:
-      "Review cluster health, principal activity, request flow, and capacity.",
-    url: "/admin",
-    icon: DashboardSquare01Icon,
-    group: "admin",
-    visibility: "admin",
-  },
-  {
-    title: "SDN",
-    description: "Inspect networks, topology, and software-defined resources.",
-    url: "/admin/sdn",
-    icon: Globe02Icon,
-    group: "admin",
-    visibility: "admin",
-  },
-  {
-    title: "Users",
-    description: "Browse people, identities, and account-level access details.",
-    url: "/admin/principals/users",
-    icon: UserIcon,
-    group: "admin",
-    visibility: "admin",
-  },
-  {
-    title: "Groups",
-    description: "Manage shared access, memberships, and management roles.",
-    url: "/admin/principals/groups",
-    icon: UserGroupIcon,
-    group: "admin",
-    visibility: "admin",
-  },
-  {
-    title: "Proxmox Sync",
-    description: "Reconcile inventory drift against Proxmox.",
-    url: "/admin/proxmox-sync",
-    icon: ReloadIcon,
-    group: "admin",
-    visibility: "admin",
-  },
-  {
-    title: "Audit Logs",
-    description: "Review direct VM and pod action history.",
-    url: "/admin/audit",
-    icon: Shield01Icon,
-    group: "admin",
-    visibility: "admin",
-  },
-  {
-    title: "Admin Guide",
-    description:
-      "Learn how to manage principals, roles, permissions, sync, and audit.",
-    url: "/admin/docs",
-    icon: NotebookIcon,
-    group: "admin",
-    visibility: "admin",
-  },
-] as const
-
-type NavItem = (typeof navItems)[number]
+type NavItem = ApplicationPage
 type NavGroupKey = NavItem["group"]
 type NavGroup = {
   key: NavGroupKey
@@ -254,15 +102,7 @@ function useVisibleNavGroups(user: AuthUser): Array<NavGroup> {
   const canAdminister = canAccessAdmin(user.management_permissions)
 
   return React.useMemo(() => {
-    const visible = navItems.filter((item) => {
-      if (item.visibility === "admin") {
-        return canAdminister
-      }
-      if (item.visibility === "manager") {
-        return canManage
-      }
-      return true
-    })
+    const visible = visibleApplicationPages(canAdminister, canManage)
 
     return [
       {
@@ -396,7 +236,6 @@ export function AppSidebar({
       {...props}
     >
       <div className="flex h-full w-full flex-row">
-        {/* Icon rail */}
         <Sidebar
           collapsible="none"
           className="group w-[calc(var(--sidebar-width-icon)+2px)]! bg-transparent"
@@ -406,7 +245,6 @@ export function AppSidebar({
           <AppSidebarIconRailContent user={user} />
         </Sidebar>
 
-        {/* Inventory panel */}
         <Sidebar
           collapsible="none"
           className="ml-2 flex min-w-0 flex-1 rounded-2xl border-l group-data-[state=collapsed]:border-l-0"

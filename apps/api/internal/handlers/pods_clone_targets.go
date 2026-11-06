@@ -41,7 +41,6 @@ type podCloneTarget struct {
 	IsPersonal        bool
 }
 
-// Network is the subset the profile catalog resolves attachments against.
 func (t podCloneTarget) Network() podnetwork.Target {
 	return podnetwork.Target{
 		Key:       t.Key,
@@ -122,11 +121,21 @@ func (t podCloneTarget) LANDMZNetworkFile() string {
 
 // SupportsProfile reports whether a pod using profileKey can clone onto this
 // target. A LAN + DMZ target has both VNets, so it also serves LAN-only pods.
-func (t podCloneTarget) SupportsProfile(profileKey string) bool {
-	if t.NetworkProfileKey == podnetwork.ProfileLANDMZRouterV1 {
-		return true
+func (t podCloneTarget) SupportsProfile(catalog *podnetwork.Catalog, profileKey string) bool {
+	targetProfile, err := catalog.Profile(t.NetworkProfileKey)
+	if err != nil {
+		return false
 	}
-	return profileKey == podnetwork.ProfileLANRouterV1
+	profile, err := catalog.Profile(profileKey)
+	if err != nil {
+		return false
+	}
+	for _, segment := range profile.Segments {
+		if !targetProfile.UsesVNet(segment.VNetKind) {
+			return false
+		}
+	}
+	return true
 }
 
 type podCloneTargetResponse struct {
@@ -275,7 +284,7 @@ func (h *PodsHandler) podCloneTargetsByKey(ctx context.Context) (map[string]podC
 }
 
 // The WAN subnet is descriptive only; the addresses come from the snippets.
-func normalizePodCloneTargetRequest(req podCloneTargetRequest, requireKey bool) (podCloneTarget, *requestError) {
+func normalizePodCloneTargetRequest(catalog *podnetwork.Catalog, req podCloneTargetRequest, requireKey bool) (podCloneTarget, *requestError) {
 	invalid := func(message string) *requestError {
 		return &requestError{Status: http.StatusUnprocessableEntity, UserMessage: message}
 	}
@@ -302,9 +311,8 @@ func normalizePodCloneTargetRequest(req podCloneTargetRequest, requireKey bool) 
 	if target.Label == "" || len(target.Label) > 48 {
 		return podCloneTarget{}, invalid("label must be between 1 and 48 characters")
 	}
-	switch target.NetworkProfileKey {
-	case podnetwork.ProfileLANRouterV1, podnetwork.ProfileLANDMZRouterV1:
-	default:
+	profile, err := catalog.Profile(target.NetworkProfileKey)
+	if err != nil {
 		return podCloneTarget{}, invalid("network profile must be lan-router-v1 or lan-dmz-router-v1")
 	}
 	if err := validateVNetID(target.LANVNet); err != nil {
@@ -324,7 +332,7 @@ func normalizePodCloneTargetRequest(req podCloneTargetRequest, requireKey bool) 
 		return podCloneTarget{}, invalid("network minimum must not exceed the maximum")
 	}
 
-	wantsDMZ := target.NetworkProfileKey == podnetwork.ProfileLANDMZRouterV1
+	wantsDMZ := profile.UsesVNet(podnetwork.VNetKindDMZ)
 	if wantsDMZ {
 		if err := validateVNetID(target.DMZVNet); err != nil {
 			return podCloneTarget{}, invalid("DMZ VNet: " + err.Error())
@@ -420,7 +428,7 @@ func (h *PodsHandler) CreatePodCloneTarget(c *gin.Context) {
 		return
 	}
 
-	target, reqErr := normalizePodCloneTargetRequest(req, true)
+	target, reqErr := normalizePodCloneTargetRequest(h.NetworkCatalog, req, true)
 	if reqErr != nil {
 		writeRequestError(c, reqErr)
 		return
@@ -486,7 +494,7 @@ func (h *PodsHandler) UpdatePodCloneTarget(c *gin.Context) {
 		return
 	}
 
-	target, reqErr := normalizePodCloneTargetRequest(req, false)
+	target, reqErr := normalizePodCloneTargetRequest(h.NetworkCatalog, req, false)
 	if reqErr != nil {
 		writeRequestError(c, reqErr)
 		return
@@ -574,8 +582,7 @@ func (h *PodsHandler) DeletePodCloneTarget(c *gin.Context) {
 		writeLoggedError(c, http.StatusInternalServerError, "failed to check pod clone target usage", "count pod clone target references", err)
 		return
 	}
-	if total := references.PublishedPodCount + references.ClonedPodCount +
-		references.AllocationCount + references.PersonalPodCount; total > 0 {
+	if podCloneTargetReferenceCount(references) > 0 {
 		writeConflict(c, fmt.Sprintf(
 			"pod clone target %q is still used by %d published pod(s), %d clone(s), %d personal pod(s), and %d network allocation(s)",
 			key, references.PublishedPodCount, references.ClonedPodCount,

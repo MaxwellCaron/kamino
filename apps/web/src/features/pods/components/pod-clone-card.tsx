@@ -11,10 +11,10 @@ import {
   CircularProgressTrack,
 } from "@workspace/ui/components/circular-progress"
 import type { ClonedPod, Pod } from "@/features/pods/types/pod-types"
-import { ClonedPodStatusHoverCard } from "./cloned-pod-status-badge"
+import { ClonedPodStatusHoverCard } from "@/components/pods/cloned-pod-status-badge"
 import { CopyIcon } from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
-import { PodCreatorIcon } from "./pod-creators"
+import { PodCreatorIcon } from "@/components/pods/pod-creators"
 import { PodHeaderActions } from "./pod-header-actions"
 import { PodNetworkDetails } from "./pod-network-details"
 import { PodVms } from "./pod-vms"

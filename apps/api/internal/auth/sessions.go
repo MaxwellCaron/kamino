@@ -29,7 +29,6 @@ const (
 	refreshCollisionWindow    = 5 * time.Second
 )
 
-// sessionStore is the seam SessionManager uses to talk to the database
 type sessionStore interface {
 	database.DBTX
 	BeginTx(ctx context.Context, opts pgx.TxOptions) (pgx.Tx, error)
@@ -96,11 +95,7 @@ func (m *SessionManager) RefreshSession(
 	if err != nil {
 		return "", Session{}, fmt.Errorf("begin auth session tx: %w", err)
 	}
-	defer func() {
-		if err != nil {
-			_ = tx.Rollback(ctx)
-		}
-	}()
+	defer tx.Rollback(ctx)
 
 	q := database.New(tx)
 	current, err := q.GetAuthSessionByTokenHashForUpdate(ctx, tokenHash)
@@ -217,11 +212,7 @@ func (m *SessionManager) RevokeSession(ctx context.Context, rawToken string) err
 	if err != nil {
 		return fmt.Errorf("begin auth session revoke tx: %w", err)
 	}
-	defer func() {
-		if err != nil {
-			_ = tx.Rollback(ctx)
-		}
-	}()
+	defer tx.Rollback(ctx)
 
 	q := database.New(tx)
 	session, err := q.GetAuthSessionByTokenHashForUpdate(ctx, tokenHash)

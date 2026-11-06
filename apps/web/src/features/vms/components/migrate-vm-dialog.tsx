@@ -20,7 +20,7 @@ import {
 import { ArrowDataTransferHorizontalIcon } from "@hugeicons/core-free-icons"
 import { DialogFooter } from "@workspace/ui/components/dialog"
 import { InlineErrorAlert } from "@/components/feedback/inline-error-alert"
-import type { MigrateVmDialogItem } from "@/features/inventory/components/inventory-dialogs-context"
+import type { MigrateVmDialogItem } from "@/components/inventory/inventory-dialogs-context"
 import { PreloadOverlay } from "@/components/loading-overlay"
 import { formatVmReference } from "@/features/shared/utils/format"
 import { nodesQueryOptions } from "@/features/vms/api/proxmox-options-api"

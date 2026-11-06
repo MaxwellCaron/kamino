@@ -4,7 +4,7 @@ import { QueryClient } from "@tanstack/react-query"
 import { RoutePending } from "@/components/loading-overlay"
 import { createRouter as createTanStackRouter } from "@tanstack/react-router"
 import { routeTree } from "./routeTree.gen"
-import { shouldRetryApiQuery } from "@/features/auth/api/auth-api"
+import { shouldRetryApiQuery } from "@/features/shared/api/api-error"
 
 export function createQueryClient() {
   return new QueryClient({

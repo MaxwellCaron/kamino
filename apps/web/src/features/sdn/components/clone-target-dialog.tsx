@@ -69,6 +69,7 @@ import {
 } from "@/features/pods/api/clone-targets-api"
 import {
   formatFieldError,
+  getFirstIssueMessage,
   isTouchedInvalid,
 } from "@/components/forms/form-errors"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
@@ -86,10 +87,6 @@ import { vnetsQueryOptions } from "@/features/sdn/api/sdn-api"
 import type { z } from "zod"
 
 type AppFieldComponent = ComponentType<any>
-
-function getFirstIssueMessage(result: z.ZodSafeParseResult<unknown>) {
-  return result.success ? undefined : result.error.issues[0]?.message
-}
 
 function CloneTargetTextField({
   FieldComponent,

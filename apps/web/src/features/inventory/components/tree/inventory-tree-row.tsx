@@ -14,12 +14,12 @@ import type { ApiTreeNode } from "../../types/inventory-types"
 import { Badge } from "@workspace/ui/components/badge"
 import { Button } from "@workspace/ui/components/button"
 import { HugeiconsIcon } from "@hugeicons/react"
-import { InventoryNodeIcon } from "../inventory-node-icon"
-import { InventoryNodeMenu } from "../inventory-actions/inventory-node-menu"
+import { InventoryNodeIcon } from "@/components/inventory/inventory-node-icon"
+import { InventoryNodeMenu } from "@/components/inventory/actions/inventory-node-menu"
 import type { InventoryTreeRowVm } from "./tree-content-utils"
 import { TREE_INDENT } from "../../utils/constants"
 import { cn } from "@workspace/ui/lib/utils"
-import { stopTreeItemEvent } from "../inventory-actions/inventory-action-utils"
+import { stopTreeItemEvent } from "@/components/inventory/actions/inventory-action-utils"
 
 interface InventoryTreeRowProps {
   vm: InventoryTreeRowVm

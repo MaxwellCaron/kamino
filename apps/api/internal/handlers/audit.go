@@ -57,7 +57,6 @@ type auditAuthz interface {
 	RequireManagement(ctx context.Context, principalID uuid.UUID, required authorization.ManagementPermission) error
 }
 
-// AuditHandler serves admin audit ledger endpoints.
 type AuditHandler struct {
 	Audit *audit.Service
 	Authz auditAuthz

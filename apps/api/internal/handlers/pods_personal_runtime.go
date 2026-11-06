@@ -12,7 +12,6 @@ import (
 	"github.com/google/uuid"
 )
 
-// PersonalPodRuntime adapts PodsHandler's clone/network/router mechanics to personalpods.Runtime.
 type PersonalPodRuntime struct {
 	h *PodsHandler
 }
@@ -49,7 +48,6 @@ func cloneTargetFromPersonalPods(target personalpods.CloneTarget) podCloneTarget
 	}
 }
 
-// personalPodsErrorFromRequestError converts a requestError to its equivalent kind at the package boundary.
 func personalPodsErrorFromRequestError(reqErr *requestError) *personalpods.Error {
 	if reqErr == nil {
 		return nil

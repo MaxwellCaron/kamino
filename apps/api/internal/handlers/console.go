@@ -12,7 +12,6 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// ConsoleHandler serves optional native SPICE configuration downloads.
 type ConsoleHandler struct {
 	PX             spiceProxyProxmox
 	Authz          vmAuthz
@@ -30,7 +29,6 @@ type spiceProxyProxmox interface {
 	) (*proxmox.SPICEProxyResponse, error)
 }
 
-// DownloadSPICEConfig handles POST /api/v1/inventory/items/:id/vm/console/spice-config.
 func (h *ConsoleHandler) DownloadSPICEConfig(c *gin.Context) {
 	principalID, ok := currentPrincipalID(c)
 	if !ok {

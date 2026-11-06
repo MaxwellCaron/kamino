@@ -4,6 +4,10 @@ import {
   createFormHookContexts,
   formOptions,
 } from "@tanstack/react-form"
+import {
+  vmHardwareConfigurationSchema,
+  vmNetworkInterfaceSchema,
+} from "@/features/vms/utils/vm-hardware-schema"
 import type { ApiVMTemplateOption } from "@/features/vms/api/proxmox-options-api"
 import type { CreateVMParams } from "@/features/vms/types/vm-types"
 import { optionalVmidSchema } from "@/components/vms/vmid-schema"
@@ -15,16 +19,11 @@ const createVmMethodSchema = z.enum(["template", "iso", "upload"])
 
 export type CreateVmMethod = z.infer<typeof createVmMethodSchema>
 
-export const networkInterfaceSchema = z.object({
+export const networkInterfaceSchema = vmNetworkInterfaceSchema.extend({
   id: z.string().min(1),
-  bridge: z
-    .string()
-    .trim()
-    .min(1, "Network bridge is required")
-    .default("vmbr0"),
-  model: z.string().trim().min(1, "NIC model is required").default("virtio"),
-  vlan_tag: z.number().int().min(1).max(4094).optional(),
-  firewall: z.boolean().default(true),
+  bridge: vmNetworkInterfaceSchema.shape.bridge.default("vmbr0"),
+  model: vmNetworkInterfaceSchema.shape.model.default("virtio"),
+  firewall: vmNetworkInterfaceSchema.shape.firewall.default(true),
 })
 
 export const optionalVmNameSchema = z.preprocess(
@@ -40,32 +39,21 @@ const templateConfigurationSchema = z.object({
   name: optionalVmNameSchema,
 })
 
-const isoConfigurationSchema = z.object({
+const isoConfigurationSchema = vmHardwareConfigurationSchema.extend({
   target_folder_id: z.string().trim().min(1, "Destination folder is required"),
   node: z.string().trim().optional(),
   vmid: optionalVmidSchema,
   name: vmNameSchema,
-  ostype: z.string().trim().min(1, "OS type is required"),
   iso_storage: z.string().trim().min(1, "ISO storage is required"),
   iso: z.string().trim().min(1, "ISO image is required"),
-  bios: z.string().trim().min(1, "BIOS is required"),
-  machine: z.string().trim().min(1, "Machine type is required"),
-  scsi: z.string().trim().min(1, "SCSI controller is required"),
-  sockets: z.number().int().min(1, "At least one socket is required"),
-  cores: z.number().int().min(1, "At least one core is required"),
-  cpu_type: z.string().trim().min(1, "CPU type is required"),
-  storage: z.string().trim().min(1, "Disk storage is required"),
-  disk_size: z
-    .number()
-    .int()
-    .min(1, "Disk size must be at least 1 GB")
-    .max(100, "Disk size must be at most 100 GB"),
-  memory: z
-    .number()
-    .int()
-    .min(1, "Memory must be at least 1 GB")
-    .max(24, "Memory must be at most 24 GB"),
-  balloon: z.number().int().min(0, "Balloon must be 0 GB or higher"),
+  disk_size: vmHardwareConfigurationSchema.shape.disk_size.max(
+    100,
+    "Disk size must be at most 100 GB"
+  ),
+  memory: vmHardwareConfigurationSchema.shape.memory.max(
+    24,
+    "Memory must be at most 24 GB"
+  ),
   networks: z
     .array(networkInterfaceSchema)
     .min(1, "At least one network interface is required")
@@ -214,20 +202,6 @@ export function getSelectedTemplate(
 ) {
   if (!templateId) return undefined
   return templateOptions.find((template) => template.id === templateId)
-}
-
-export function parseNumberInput(value: string, fallback: number) {
-  const next = Number.parseInt(value, 10)
-  return Number.isNaN(next) ? fallback : next
-}
-
-export function parseOptionalNumberInput(value: string) {
-  const next = Number.parseInt(value, 10)
-  return Number.isNaN(next) ? undefined : next
-}
-
-export function getFirstIssueMessage(result: z.ZodSafeParseResult<unknown>) {
-  return result.success ? undefined : result.error.issues[0]?.message
 }
 
 function optionalString(value: string | undefined) {

@@ -7,11 +7,11 @@ import {
 } from "@hugeicons/core-free-icons"
 import { Button, buttonVariants } from "@workspace/ui/components/button"
 import { Card, CardContent } from "@workspace/ui/components/card"
-import { GroupDialog } from "@/features/principals/components/groups/group-dialog"
+import { GroupDialog } from "@/components/principals/groups/group-dialog"
 import { HugeiconsIcon } from "@hugeicons/react"
 import { Link } from "@tanstack/react-router"
-import { UserDialog } from "@/features/principals/components/users/user-dialog"
-import { VNetDialog } from "@/features/sdn/components/vnet-dialog"
+import { UserDialog } from "@/components/principals/users/user-dialog"
+import { VNetDialog } from "@/components/sdn/vnet-dialog"
 
 export function AdminDashboardActionButtons() {
   const [userDialogOpen, setUserDialogOpen] = React.useState(false)

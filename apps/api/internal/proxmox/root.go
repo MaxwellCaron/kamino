@@ -9,8 +9,6 @@ const RootFolderName = "Proxmox"
 
 const RootFolderDescription = "Imported Proxmox inventory. Folders represent Proxmox resource pools."
 
-const proxmoxRootFolderName = RootFolderName
-
 func FindManagedRootFolderID(rows []database.GetAllInventoryItemsRow) *uuid.UUID {
 	var (
 		namedRootID *uuid.UUID
@@ -25,7 +23,7 @@ func FindManagedRootFolderID(rows []database.GetAllInventoryItemsRow) *uuid.UUID
 
 		rootCount++
 		id := row.ID
-		if row.Name == proxmoxRootFolderName {
+		if row.Name == RootFolderName {
 			namedRootID = &id
 		}
 		if soleRootID == nil {

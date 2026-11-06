@@ -21,7 +21,6 @@ type VMNetworkScope struct {
 	RouterNode   string
 }
 
-// podNetworkScopeReader is the narrow seam to resolve the nearest pod network allocation; *database.Queries satisfies it.
 type podNetworkScopeReader interface {
 	GetPodNetworkScopeForInventoryItem(ctx context.Context, inventoryItemID uuid.UUID) (database.GetPodNetworkScopeForInventoryItemRow, error)
 }

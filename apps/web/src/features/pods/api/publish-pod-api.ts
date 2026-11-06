@@ -1,6 +1,7 @@
 import type {
   Pod,
   PodCatalogSummary,
+  PublishPodInput,
   PublishedPodCatalogEntry,
   PublishedPodCloneSummary,
   PublishedPodVirtualMachine,
@@ -8,8 +9,7 @@ import type {
 import { apiJson, apiVoid } from "@/features/shared/api/api-json"
 import type { ClonedPodPowerAction } from "@/features/pods/api/clone-pod-api"
 import type { PodCloneTarget } from "@/features/pods/api/clone-targets-api"
-import type { PublishPodFormValues } from "@/features/pods/components/publish/publish-pod-form"
-import { shouldRetryApiQuery } from "@/features/auth/api/auth-api"
+import { shouldRetryApiQuery } from "@/features/shared/api/api-error"
 
 export type PublishPodFolder = {
   id: string
@@ -198,7 +198,7 @@ export async function createPublishedPodClone(
 }
 
 export async function savePublishedPod(
-  values: PublishPodFormValues,
+  values: PublishPodInput,
   options?: { existing?: boolean; progressId?: string }
 ): Promise<PublishedPodCatalogEntry> {
   const isExisting = options?.existing ?? false
@@ -239,37 +239,4 @@ export async function deletePublishedPod(id: string): Promise<void> {
   await apiVoid(`/api/v1/pods/published/${id}`, "delete published pod", {
     method: "DELETE",
   })
-}
-
-export function toPublishPodFormValues(
-  pod: PublishedPodCatalogEntry
-): PublishPodFormValues {
-  return {
-    id: pod.id,
-    title: pod.title,
-    slug: pod.slug,
-    description: pod.description,
-    image: pod.image,
-    creators: structuredClone(pod.creators),
-    created_at: pod.created_at,
-    clone_count: pod.clone_count,
-    status: pod.status,
-    audience: structuredClone(pod.audience),
-    virtual_machines: structuredClone(pod.virtual_machines),
-    update_virtual_machines: [],
-    tasks: (pod.tasks ?? []).map((task) => ({
-      id: task.id,
-      title: task.title,
-      content: task.content,
-      questions: task.questions.map((question) => ({
-        id: question.id,
-        title: question.title,
-        answerOutline: question.answerOutline,
-        description: question.description,
-        hint: question.hint,
-      })),
-    })),
-    source_folder: pod.source_folder,
-    clone_target_key: pod.clone_target_key,
-  }
 }

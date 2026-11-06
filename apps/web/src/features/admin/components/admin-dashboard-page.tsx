@@ -22,7 +22,7 @@ import { AdminDashboardPendingRequestsCard } from "./admin-dashboard-pending-req
 import { AdminDashboardPrincipalsCards } from "./admin-dashboard-principals-cards"
 import type { AuthUser } from "@/features/auth/types/auth-types"
 import { InlineErrorAlert } from "@/components/feedback/inline-error-alert"
-import { RequestDetailDialog } from "@/features/requests/components/request-detail-dialog"
+import { RequestDetailDialog } from "@/components/requests/request-detail-dialog"
 import { showSingleMutationToast } from "@/components/feedback/mutation-progress-toast"
 import { useAdminDashboardData } from "@/features/admin/hooks/use-admin-dashboard-data"
 

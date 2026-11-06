@@ -6,82 +6,87 @@ import (
 	"sync"
 	"sync/atomic"
 	"testing"
+	"testing/synctest"
 	"time"
 
 	"github.com/MaxwellCaron/kamino/internal/proxmox"
+	"github.com/MaxwellCaron/kamino/internal/vmactions"
 	"github.com/google/uuid"
 )
 
 func TestRunBoundedVMTemplateConversionsRespectsOperationLimit(t *testing.T) {
-	var active atomic.Int32
-	var maxSeen atomic.Int32
-	started := make(chan struct{}, 4)
-	release := make(chan struct{})
+	synctest.Test(t, func(t *testing.T) {
+		var active atomic.Int32
+		var maxSeen atomic.Int32
+		started := make(chan struct{}, 4)
+		release := make(chan struct{})
 
-	targets := make([]verifiedVMTarget, 4)
-	for i := range targets {
-		targets[i] = verifiedVMTarget{ItemID: uuid.New(), GuestType: proxmox.GuestQEMU}
-	}
+		targets := make([]vmactions.Target, 4)
+		for i := range targets {
+			targets[i] = vmactions.Target{ItemID: uuid.New(), GuestType: proxmox.GuestQEMU}
+		}
 
-	acquireFn := func(ctx context.Context) (func(), error) {
-		current := active.Add(1)
-		for {
-			seen := maxSeen.Load()
-			if current <= seen || maxSeen.CompareAndSwap(seen, current) {
-				break
+		acquireFn := func(ctx context.Context) (func(), error) {
+			current := active.Add(1)
+			for {
+				seen := maxSeen.Load()
+				if current <= seen || maxSeen.CompareAndSwap(seen, current) {
+					break
+				}
+			}
+			started <- struct{}{}
+			<-release
+			active.Add(-1)
+			return func() {}, nil
+		}
+
+		done := make(chan []boundedVMTemplateOutcome, 1)
+		go func() {
+			done <- runBoundedVMTemplateConversions(context.Background(), 2, targets, acquireFn, func(ctx context.Context, target vmactions.Target) (bool, bool, error) {
+				return true, false, nil
+			})
+		}()
+
+		waitStarted := func(count int) {
+			t.Helper()
+			for i := 0; i < count; i++ {
+				select {
+				case <-started:
+				case <-time.After(2 * time.Second):
+					t.Fatalf("timed out waiting for %d started workers", count)
+				}
 			}
 		}
-		started <- struct{}{}
-		<-release
-		active.Add(-1)
-		return func() {}, nil
-	}
 
-	done := make(chan []boundedVMTemplateOutcome, 1)
-	go func() {
-		done <- runBoundedVMTemplateConversions(context.Background(), 2, targets, acquireFn, func(ctx context.Context, target verifiedVMTarget) (bool, bool, error) {
-			return true, false, nil
-		})
-	}()
+		waitStarted(2)
+		synctest.Wait()
+		if maxSeen.Load() != 2 {
+			t.Fatalf("max overlap = %d, want 2", maxSeen.Load())
+		}
 
-	waitStarted := func(count int) {
-		t.Helper()
-		for i := 0; i < count; i++ {
-			select {
-			case <-started:
-			case <-time.After(2 * time.Second):
-				t.Fatalf("timed out waiting for %d started workers", count)
+		select {
+		case <-started:
+			t.Fatal("third worker started before release")
+		default:
+		}
+
+		close(release)
+		waitStarted(2)
+		select {
+		case outcomes := <-done:
+			if len(outcomes) != len(targets) {
+				t.Fatalf("outcomes len = %d, want %d", len(outcomes), len(targets))
 			}
+		case <-time.After(2 * time.Second):
+			t.Fatal("timed out waiting for runner completion")
 		}
-	}
-
-	waitStarted(2)
-	if maxSeen.Load() != 2 {
-		t.Fatalf("max overlap = %d, want 2", maxSeen.Load())
-	}
-
-	select {
-	case <-started:
-		t.Fatal("third worker started before release")
-	case <-time.After(100 * time.Millisecond):
-	}
-
-	close(release)
-	waitStarted(2)
-	select {
-	case outcomes := <-done:
-		if len(outcomes) != len(targets) {
-			t.Fatalf("outcomes len = %d, want %d", len(outcomes), len(targets))
-		}
-	case <-time.After(2 * time.Second):
-		t.Fatal("timed out waiting for runner completion")
-	}
+	})
 }
 
 func TestRunBoundedVMTemplateConversionsAttemptsAllTargetsAfterFailure(t *testing.T) {
 	var attempted sync.Map
 	errBoom := errors.New("boom")
-	targets := []verifiedVMTarget{
+	targets := []vmactions.Target{
 		{ItemID: uuid.New(), GuestType: proxmox.GuestQEMU},
 		{ItemID: uuid.New(), GuestType: proxmox.GuestQEMU},
 		{ItemID: uuid.New(), GuestType: proxmox.GuestQEMU},
@@ -89,7 +94,7 @@ func TestRunBoundedVMTemplateConversionsAttemptsAllTargetsAfterFailure(t *testin
 
 	outcomes := runBoundedVMTemplateConversions(context.Background(), 2, targets, func(ctx context.Context) (func(), error) {
 		return func() {}, nil
-	}, func(ctx context.Context, target verifiedVMTarget) (bool, bool, error) {
+	}, func(ctx context.Context, target vmactions.Target) (bool, bool, error) {
 		attempted.Store(target.ItemID, true)
 		if target.ItemID == targets[1].ItemID {
 			return true, false, errBoom
@@ -111,7 +116,7 @@ func TestRunBoundedVMTemplateConversionsPreservesOrderAndSkipsLXC(t *testing.T) 
 	qemu1 := uuid.New()
 	lxc := uuid.New()
 	qemu2 := uuid.New()
-	targets := []verifiedVMTarget{
+	targets := []vmactions.Target{
 		{ItemID: qemu1, GuestType: proxmox.GuestQEMU},
 		{ItemID: lxc, GuestType: proxmox.GuestLXC},
 		{ItemID: qemu2, GuestType: proxmox.GuestQEMU},
@@ -123,7 +128,7 @@ func TestRunBoundedVMTemplateConversionsPreservesOrderAndSkipsLXC(t *testing.T) 
 	outcomes := runBoundedVMTemplateConversions(context.Background(), 2, targets, func(ctx context.Context) (func(), error) {
 		acquireCount.Add(1)
 		return func() {}, nil
-	}, func(ctx context.Context, target verifiedVMTarget) (bool, bool, error) {
+	}, func(ctx context.Context, target vmactions.Target) (bool, bool, error) {
 		convertCount.Add(1)
 		return true, false, nil
 	})
@@ -153,7 +158,7 @@ func TestRunBoundedVMTemplateConversionsDoesNotStartBeforeAdmission(t *testing.T
 	releaseHold := make(chan struct{})
 	var convertStarted atomic.Bool
 
-	targets := []verifiedVMTarget{{ItemID: uuid.New(), GuestType: proxmox.GuestQEMU}}
+	targets := []vmactions.Target{{ItemID: uuid.New(), GuestType: proxmox.GuestQEMU}}
 
 	acquireFn := func(ctx context.Context) (func(), error) {
 		select {
@@ -167,7 +172,7 @@ func TestRunBoundedVMTemplateConversionsDoesNotStartBeforeAdmission(t *testing.T
 
 	done := make(chan []boundedVMTemplateOutcome, 1)
 	go func() {
-		done <- runBoundedVMTemplateConversions(context.Background(), 1, targets, acquireFn, func(ctx context.Context, target verifiedVMTarget) (bool, bool, error) {
+		done <- runBoundedVMTemplateConversions(context.Background(), 1, targets, acquireFn, func(ctx context.Context, target vmactions.Target) (bool, bool, error) {
 			convertStarted.Store(true)
 			return true, false, nil
 		})
@@ -191,7 +196,7 @@ func TestRunBoundedVMTemplateConversionsDoesNotStartBeforeAdmission(t *testing.T
 
 func TestRunBoundedVMTemplateConversionsReleasesAfterActionError(t *testing.T) {
 	var active atomic.Int32
-	targets := []verifiedVMTarget{{ItemID: uuid.New(), GuestType: proxmox.GuestQEMU}}
+	targets := []vmactions.Target{{ItemID: uuid.New(), GuestType: proxmox.GuestQEMU}}
 
 	acquireFn := func(ctx context.Context) (func(), error) {
 		if active.Add(1) > 1 {
@@ -200,7 +205,7 @@ func TestRunBoundedVMTemplateConversionsReleasesAfterActionError(t *testing.T) {
 		return func() { active.Add(-1) }, nil
 	}
 
-	outcomes := runBoundedVMTemplateConversions(context.Background(), 1, targets, acquireFn, func(ctx context.Context, target verifiedVMTarget) (bool, bool, error) {
+	outcomes := runBoundedVMTemplateConversions(context.Background(), 1, targets, acquireFn, func(ctx context.Context, target vmactions.Target) (bool, bool, error) {
 		return true, false, errors.New("convert failed")
 	})
 	if outcomes[0].err == nil {

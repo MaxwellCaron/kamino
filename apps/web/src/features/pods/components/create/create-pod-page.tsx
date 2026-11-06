@@ -9,8 +9,8 @@ import type {
   CreatePodResult,
 } from "@/features/pods/api/create-pod-api"
 import {
+  buildCreatePodRequestBody,
   createDefaultCreatePodValues,
-  isPodNetworkingWithRouter,
   useCreatePodForm,
 } from "./create-pod-form"
 import {
@@ -33,6 +33,7 @@ import { PackageAddIcon } from "@hugeicons/core-free-icons"
 import React from "react"
 import { getPreferredPodCloneTarget } from "@/features/pods/utils/pod-networking"
 import { inventoryTreeQueryOptions } from "@/features/inventory/api/inventory-api"
+import { isPodNetworkingWithRouter } from "@/features/pods/utils/pod-networking-mode"
 import { useSelector } from "@tanstack/react-store"
 import { useUnsavedChangesWarning } from "@/hooks/use-unsaved-changes-warning"
 import { uuid } from "@/features/shared/utils/uuid"
@@ -183,7 +184,7 @@ export function CreatePodPage() {
       submittedValuesRef.current = values
       dispatch({ type: "creationStarted", progressId: nextProgressId })
       createPodMutation.mutate({
-        values,
+        input: buildCreatePodRequestBody(values),
         progressId: nextProgressId,
       })
     },

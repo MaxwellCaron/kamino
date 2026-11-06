@@ -36,9 +36,7 @@ import {
 } from "@/features/vms/components/hardware/hardware-options"
 import {
   createVmFormOptions,
-  getFirstIssueMessage,
   networkInterfaceSchema,
-  parseNumberInput,
   withCreateVmForm,
 } from "./create-vm-form"
 import { HugeiconsIcon } from "@hugeicons/react"
@@ -49,6 +47,8 @@ import { VmHardwareNetworksField } from "@/features/vms/components/hardware/vm-h
 import { applyScopedNetworkToInterfaces } from "@/features/vms/utils/vm-network-scope"
 import { buildVmHardwareNetworkOptions } from "@/features/vms/components/hardware/hardware-section-utils"
 import { formatFieldError } from "./create-vm-step-utils"
+import { getFirstIssueMessage } from "@/components/forms/form-errors"
+import { parseNumberInput } from "@/components/forms/form-values"
 import { replaceWhitespaceWithHyphen } from "@/features/shared/utils/sanitize"
 import { useEffect } from "react"
 import { uuid } from "@/features/shared/utils/uuid"

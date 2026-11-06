@@ -141,13 +141,13 @@ func TestVMRollbackSnapshot_Unauthenticated(t *testing.T) {
 	assertBodyContains(t, w, "authentication required")
 }
 
-func TestVMActionTargetPropagatesAllFields(t *testing.T) {
+func TestVerifiedVMTargetFromRecordPropagatesActionCoordinates(t *testing.T) {
 	itemID := uuid.New()
-	got := vmActionTarget(verifiedVMTarget{
-		ItemID:    itemID,
-		Node:      "node-a",
-		VMID:      101,
-		GuestType: proxmox.GuestLXC,
+	got := verifiedVMTargetFromRecord(authorization.VMRecord{
+		InventoryItemID: itemID,
+		Node:            "node-a",
+		Vmid:            101,
+		GuestType:       string(proxmox.GuestLXC),
 	})
 
 	want := vmactions.Target{
@@ -157,7 +157,7 @@ func TestVMActionTargetPropagatesAllFields(t *testing.T) {
 		GuestType: proxmox.GuestLXC,
 	}
 	if got != want {
-		t.Errorf("vmActionTarget() = %#v, want %#v", got, want)
+		t.Errorf("verifiedVMTargetFromRecord() = %#v, want %#v", got, want)
 	}
 }
 

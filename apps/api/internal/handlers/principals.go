@@ -20,18 +20,15 @@ type principalSessionRevoker interface {
 	RevokePrincipalSessions(context.Context, uuid.UUID) error
 }
 
-// principalsAuthz is the narrow slice of authorization.Service PrincipalsHandler needs, so tests can fake it.
 type principalsAuthz interface {
 	RequireManagement(ctx context.Context, principalID uuid.UUID, required authorization.ManagementPermission) error
 }
 
-// principalsAudit is the narrow slice of audit.Service PrincipalsHandler needs, so tests can fake it.
 type principalsAudit interface {
 	RecordSuccess(ctx context.Context, params audit.EventParams)
 	RecordFailure(ctx context.Context, params audit.EventParams, errMsg string)
 }
 
-// PrincipalsHandler handles user and group CRUD via a generic principal provider.
 type PrincipalsHandler struct {
 	Provider     principals.Provider
 	Authz        principalsAuthz
@@ -255,8 +252,6 @@ func parseBulkMembershipIDs(c *gin.Context) ([]uuid.UUID, []string, bool) {
 
 	return memberIDs, req.MemberIDs, true
 }
-
-// ---------- Users ----------
 
 // ListUsers returns all user principals.
 // GET /api/v1/principals/users

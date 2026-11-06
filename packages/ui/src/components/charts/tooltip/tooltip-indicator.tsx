@@ -22,9 +22,7 @@ export type IndicatorWidth =
 export interface TooltipIndicatorProps {
   /** X position in pixels (center of the indicator) */
   x: number;
-  /** Height of the indicator */
   height: number;
-  /** Whether the indicator is visible */
   visible: boolean;
   /**
    * Width of the indicator - number (pixels) or preset.
@@ -48,7 +46,6 @@ export interface TooltipIndicatorProps {
   fadeLength?: number;
   /** Animate position with a spring. Default: true */
   animate?: boolean;
-  /** Unique ID for the gradient */
   gradientId?: string;
   /** Per-chart override; falls back to `ChartConfigProvider.tooltipSpring`. */
   springConfig?: SpringConfig;

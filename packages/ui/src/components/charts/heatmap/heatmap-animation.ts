@@ -2,29 +2,23 @@ import type { HeatmapColumn } from "./heatmap-context";
 import type { Transition } from "motion/react";
 import { getHeatmapContributionLevel } from "./heatmap-utils";
 
-/** Default enter duration when no motion props are passed (ms). */
 export const HEATMAP_DEFAULT_ENTER_DURATION_MS = 1600;
 
-/** Default cubic-bezier for heatmap cell enter / loading transitions. */
 export const HEATMAP_DEFAULT_ENTER_EASE = [0.85, 0, 0.916, 0.282] as const;
 
-/** Default enter transition for {@link HeatmapChart}. */
 export const HEATMAP_DEFAULT_ENTER_TRANSITION: Transition = {
   type: "tween",
   duration: HEATMAP_DEFAULT_ENTER_DURATION_MS / 1000,
   ease: HEATMAP_DEFAULT_ENTER_EASE,
 };
 
-/** Chart opacity while `status="loading"`. */
 export const HEATMAP_LOADING_CHART_OPACITY = 1;
 
-/** Default max per-cell opacity during loading shimmer. */
 export const HEATMAP_DEFAULT_LOADING_CELL_MAX_OPACITY = 0.85;
 
 /** Default share of cells that participate in loading shimmer (0–1). */
 export const HEATMAP_DEFAULT_LOADING_CELL_RANDOMNESS = 1;
 
-/** Opacity for loading cells that do not participate in shimmer. */
 export const HEATMAP_LOADING_BASE_CELL_OPACITY = 0.2;
 
 /** Duration for ready → loading cell conceal before shimmer resumes (ms). */
@@ -53,7 +47,6 @@ export interface HeatmapLevelRange {
   max: number;
 }
 
-/** Min/max contribution levels present in the dataset. */
 export function computeHeatmapLevelRange(
   data: Array<HeatmapColumn>
 ): HeatmapLevelRange {
@@ -79,7 +72,6 @@ export function computeHeatmapLevelRange(
   return { min, max };
 }
 
-/** Per-cell fade duration derived from the motion enter transition. */
 export function resolveHeatmapEnterFadeDurationSec(
   enterTransition: Transition | undefined,
   animationDurationMs: number

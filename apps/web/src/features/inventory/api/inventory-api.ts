@@ -5,7 +5,7 @@ import type {
 } from "../types/inventory-types"
 import { apiJson, apiVoid } from "@/features/shared/api/api-json"
 import { inventoryTreeFixtureVmCount } from "../dev/inventory-tree-fixture-config"
-import { shouldRetryApiQuery } from "@/features/auth/api/auth-api"
+import { shouldRetryApiQuery } from "@/features/shared/api/api-error"
 
 let inventoryTreeFixtureCache: Array<ApiTreeNode> | null = null
 
@@ -15,9 +15,8 @@ async function fetchInventoryTree(): Promise<Array<ApiTreeNode>> {
       return inventoryTreeFixtureCache
     }
 
-    const { createInventoryTreeFixture } = await import(
-      "../dev/inventory-tree-fixture"
-    )
+    const { createInventoryTreeFixture } =
+      await import("../dev/inventory-tree-fixture")
     inventoryTreeFixtureCache = createInventoryTreeFixture(
       inventoryTreeFixtureVmCount
     )
@@ -78,13 +77,17 @@ export async function updateInventoryAcl(params: {
     permissions: number
   }>
 }): Promise<void> {
-  await apiVoid(`/api/v1/inventory/items/${params.itemId}/acl`, "update inventory ACL", {
-    method: "PUT",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      entries: params.entries,
-    }),
-  })
+  await apiVoid(
+    `/api/v1/inventory/items/${params.itemId}/acl`,
+    "update inventory ACL",
+    {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        entries: params.entries,
+      }),
+    }
+  )
 }
 
 export async function moveInventoryItems(params: {
@@ -120,14 +123,18 @@ export async function renameFolder(params: {
   name: string
   description?: string
 }): Promise<void> {
-  await apiVoid(`/api/v1/inventory/folders/${params.id}/rename`, "rename folder", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      name: params.name,
-      description: params.description ?? "",
-    }),
-  })
+  await apiVoid(
+    `/api/v1/inventory/folders/${params.id}/rename`,
+    "rename folder",
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        name: params.name,
+        description: params.description ?? "",
+      }),
+    }
+  )
 }
 
 export async function updateFolderVmLimit(params: {

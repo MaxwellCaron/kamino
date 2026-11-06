@@ -111,7 +111,6 @@ function MembershipEditor({
   principal: ApiPrincipal
   onOpenChange: (open: boolean) => void
 }) {
-  // Current memberships
   const {
     data: members,
     error: membersError,
@@ -128,7 +127,6 @@ function MembershipEditor({
     ...userGroupsQueryOptions(principal.id),
     enabled: open && mode === "user-groups",
   })
-  // All possible options
   const {
     data: allGroups,
     error: allGroupsError,

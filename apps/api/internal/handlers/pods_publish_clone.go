@@ -11,6 +11,7 @@ import (
 	"github.com/MaxwellCaron/kamino/internal/authorization"
 	"github.com/MaxwellCaron/kamino/internal/inventory"
 	"github.com/MaxwellCaron/kamino/internal/proxmox"
+	"github.com/MaxwellCaron/kamino/internal/vmactions"
 	"github.com/MaxwellCaron/kamino/internal/vmidalloc"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -64,7 +65,7 @@ func (h *PodsHandler) cloneVMIntoFolder(
 
 func (h *PodsHandler) cloneVerifiedVMIntoFolder(
 	ctx context.Context,
-	source verifiedVMTarget,
+	source vmactions.Target,
 	sourceItemID uuid.UUID,
 	placement inventory.FolderPlacement,
 	targetNode string,
@@ -133,7 +134,7 @@ func (h *PodsHandler) cloneVerifiedVMIntoFolder(
 
 func (h *PodsHandler) startAndWaitForVMClone(
 	ctx context.Context,
-	source verifiedVMTarget,
+	source vmactions.Target,
 	sourceItemID uuid.UUID,
 	targetNode string,
 	name string,
@@ -185,10 +186,9 @@ func (h *PodsHandler) startAndWaitForVMClone(
 	}
 }
 
-// startVMClone allocates a VMID and starts the clone task.
 func (h *PodsHandler) startVMClone(
 	ctx context.Context,
-	source verifiedVMTarget,
+	source vmactions.Target,
 	targetNode string,
 	name string,
 	full bool,

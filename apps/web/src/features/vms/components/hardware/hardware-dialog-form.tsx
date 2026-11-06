@@ -25,7 +25,7 @@ import { VmHardwareComputeFields } from "@/features/vms/components/hardware/hard
 import { VmHardwareNetworksField } from "@/features/vms/components/hardware/vm-hardware-networks-field"
 import { VmHardwareOperatingSystemFields } from "@/features/vms/components/hardware/hardware-dialog-fields"
 import { VmHardwareStorageFields } from "@/features/vms/components/hardware/hardware-dialog-storage-fields"
-import { getFirstIssueMessage } from "@/features/vms/components/create/create-vm-form"
+import { getFirstIssueMessage } from "@/components/forms/form-errors"
 import { toast } from "sonner"
 import { toastUpdateHardware } from "@/features/vms/utils/vm-toasts"
 import { useForm } from "@tanstack/react-form"

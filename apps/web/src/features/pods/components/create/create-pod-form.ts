@@ -1,16 +1,18 @@
 import type {
+  CreatePodInput,
   PodNetworkProfile,
   PodTemplateOption,
 } from "@/features/pods/api/create-pod-api"
+import type {
+  PodNetworkingMode,
+  PodVmSegmentKey,
+} from "@/features/pods/utils/pod-networking-mode"
+import { isPodNetworkingWithRouter } from "@/features/pods/utils/pod-networking-mode"
 import { replaceWhitespaceWithHyphen } from "@/features/shared/utils/sanitize"
 import { useForm } from "@tanstack/react-form"
 import { useMemo } from "react"
 import { uuid } from "@/features/shared/utils/uuid"
 import { z } from "zod"
-
-export type PodNetworkingMode = "none" | "lan-router-v1" | "lan-dmz-router-v1"
-
-export type PodVmSegmentKey = "lan" | "dmz"
 
 const podVmSegmentKeySchema = z.enum(["lan", "dmz"])
 
@@ -138,25 +140,6 @@ type UseCreatePodFormOptions = {
 
 function clampNumber(value: number, min: number, max: number) {
   return Math.min(max, Math.max(min, value))
-}
-
-export function isPodNetworkingWithRouter(mode: PodNetworkingMode) {
-  return mode !== "none"
-}
-
-export function getPodNetworkingModeLabel(mode: PodNetworkingMode) {
-  switch (mode) {
-    case "none":
-      return "None"
-    case "lan-router-v1":
-      return "LAN Router"
-    case "lan-dmz-router-v1":
-      return "LAN + DMZ Router"
-  }
-}
-
-export function getPodSegmentLabel(segmentKey: PodVmSegmentKey) {
-  return segmentKey === "dmz" ? "DMZ" : "LAN"
 }
 
 export function getPodDefaultVmSegmentKey(
@@ -299,3 +282,29 @@ export function useCreatePodForm({
 }
 
 export type CreatePodFormApi = ReturnType<typeof useCreatePodForm>
+
+export function buildCreatePodRequestBody(
+  values: CreatePodFormValues
+): CreatePodInput {
+  return {
+    name: values.name,
+    ...(values.networkingMode !== "none"
+      ? {
+          network_profile_key: values.networkingMode,
+          clone_target_key: values.cloneTargetKey,
+        }
+      : {}),
+    templates: values.templates.map((template) => ({
+      template_item_id: template.templateItemId,
+      vms: template.vms.map((vm) => ({
+        name: vm.name,
+        cpu_count: vm.cpuCount,
+        memory_gb: vm.memoryGb,
+        storage_gb: vm.storageGb,
+        ...(values.networkingMode === "lan-dmz-router-v1" && vm.segmentKey
+          ? { segment_key: vm.segmentKey }
+          : {}),
+      })),
+    })),
+  }
+}

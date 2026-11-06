@@ -7,7 +7,6 @@ import { getHeatmapColumnMonthAnchor } from "./heatmap-utils";
 import { useHeatmap } from "./heatmap-context";
 
 export interface HeatmapXAxisProps {
-  /** Additional class name for labels */
   className?: string;
 }
 

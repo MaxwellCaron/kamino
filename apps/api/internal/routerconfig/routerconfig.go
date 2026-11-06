@@ -3,7 +3,6 @@ package routerconfig
 import (
 	"fmt"
 	"net/netip"
-	"strconv"
 	"strings"
 	"unicode"
 )
@@ -76,31 +75,6 @@ func PodWANSubnet(wanSubnet string, networkNumber int32) (netip.Prefix, error) {
 	return netip.PrefixFrom(netip.AddrFrom4(octets), 24), nil
 }
 
-func NormalizeDottedPrefix(value string) (string, error) {
-	trimmed := strings.TrimSpace(value)
-	if trimmed == "" {
-		return "", nil
-	}
-
-	trimmed = strings.TrimSuffix(trimmed, ".")
-	segments := strings.Split(trimmed, ".")
-	if len(segments) == 0 {
-		return "", fmt.Errorf("must be a dotted numeric prefix")
-	}
-
-	for _, segment := range segments {
-		if strings.TrimSpace(segment) == "" {
-			return "", fmt.Errorf("must be a dotted numeric prefix")
-		}
-		octet, err := strconv.Atoi(segment)
-		if err != nil || octet < 0 || octet > 255 {
-			return "", fmt.Errorf("must be a dotted numeric prefix")
-		}
-	}
-
-	return strings.Join(segments, ".") + ".", nil
-}
-
 func ValidateCloudInitSnippetFilename(filename string) error {
 	filename = strings.TrimSpace(filename)
 	if filename == "" {
@@ -120,45 +94,4 @@ func ValidateCloudInitSnippetFilename(filename string) error {
 
 func NormalizeCloudInitStorage(value string) string {
 	return strings.TrimSpace(value)
-}
-
-func NormalizeCloudInitFilePattern(envName, value string) (string, error) {
-	trimmed := strings.TrimSpace(value)
-	if trimmed == "" {
-		return "", fmt.Errorf("%s must not be empty", envName)
-	}
-	if strings.Count(trimmed, "{network}") != 1 {
-		return "", fmt.Errorf("%s must contain {network} exactly once", envName)
-	}
-	filename := strings.Replace(trimmed, "{network}", "24", 1)
-	if err := ValidateCloudInitSnippetFilename(filename); err != nil {
-		return "", fmt.Errorf("%s %w", envName, err)
-	}
-	return trimmed, nil
-}
-
-const (
-	DefaultLANRouterCloudInitUserFilePattern    = "kamino-router-{network}-user-data.yaml"
-	DefaultLANRouterCloudInitNetworkFile        = "kamino-router-network-config.yaml"
-	DefaultLANDMZRouterCloudInitUserFilePattern = "kamino-router-lan-dmz-{network}-user-data.yaml"
-	DefaultLANDMZRouterCloudInitNetworkFile     = "kamino-router-lan-dmz-network-config.yaml"
-
-	LANDMZLANSubnet      = "192.168.1.0/24"
-	LANDMZLANGatewayHost = 1
-	LANDMZDMZSubnet      = "10.0.50.0/24"
-	LANDMZDMZGatewayHost = 1
-)
-
-func NormalizeCloudInitFileName(envName, value string) (string, error) {
-	trimmed := strings.TrimSpace(value)
-	if trimmed == "" {
-		return "", fmt.Errorf("%s must not be empty", envName)
-	}
-	if strings.Contains(trimmed, "{network}") {
-		return "", fmt.Errorf("%s must not contain {network}", envName)
-	}
-	if err := ValidateCloudInitSnippetFilename(trimmed); err != nil {
-		return "", fmt.Errorf("%s %w", envName, err)
-	}
-	return trimmed, nil
 }

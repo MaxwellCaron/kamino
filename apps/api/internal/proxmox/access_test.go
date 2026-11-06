@@ -8,8 +8,6 @@ import (
 	"net/url"
 	"strings"
 	"testing"
-
-	"github.com/MaxwellCaron/kamino/internal/principals"
 )
 
 func TestAuthenticateTicketPostsWithoutAuthorization(t *testing.T) {
@@ -87,7 +85,7 @@ func TestAuthenticateTicketInvalidCredentials(t *testing.T) {
 
 	client := newTestClient(server)
 	_, err := client.AuthenticateTicket(context.Background(), "alice", "bad", "ad")
-	if !errors.Is(err, principals.ErrInvalidCredentials) {
+	if !errors.Is(err, ErrInvalidCredentials) {
 		t.Fatalf("error = %v, want ErrInvalidCredentials", err)
 	}
 }
@@ -259,5 +257,21 @@ func TestSetAccessUserGroupsUsesReplacementSemantics(t *testing.T) {
 	}
 	if form.Has("append") {
 		t.Fatalf("append form value = %q, want omitted", form.Get("append"))
+	}
+}
+
+func TestAuthenticateTicketRejectsCredentialsEvenWithTruncatedErrorBody(t *testing.T) {
+	for _, status := range []int{http.StatusUnauthorized, http.StatusForbidden} {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Content-Length", "100")
+			w.WriteHeader(status)
+			_, _ = w.Write([]byte("denied"))
+		}))
+		client := newTestClient(server)
+		_, err := client.AuthenticateTicket(context.Background(), "alice", "bad", "ad")
+		server.Close()
+		if !errors.Is(err, ErrInvalidCredentials) {
+			t.Fatalf("status %d: got %v, want invalid credentials", status, err)
+		}
 	}
 }

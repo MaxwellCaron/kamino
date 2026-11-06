@@ -12,6 +12,7 @@ import (
 	"sync"
 	"sync/atomic"
 	"testing"
+	"testing/synctest"
 	"time"
 
 	"github.com/MaxwellCaron/kamino/database"
@@ -45,67 +46,70 @@ func TestClonedPodVMDeleteTargetsPreservesOrderAndSkipsIncompleteRows(t *testing
 }
 
 func TestRunBoundedClonedPodVMDeletesRespectsLimit(t *testing.T) {
-	var active atomic.Int32
-	var maxSeen atomic.Int32
-	started := make(chan struct{}, 4)
-	release := make(chan struct{})
+	synctest.Test(t, func(t *testing.T) {
+		var active atomic.Int32
+		var maxSeen atomic.Int32
+		started := make(chan struct{}, 4)
+		release := make(chan struct{})
 
-	targets := []clonedPodVMDeleteTarget{
-		{Node: "node1", VMID: 101},
-		{Node: "node1", VMID: 102},
-		{Node: "node1", VMID: 103},
-		{Node: "node1", VMID: 104},
-	}
+		targets := []clonedPodVMDeleteTarget{
+			{Node: "node1", VMID: 101},
+			{Node: "node1", VMID: 102},
+			{Node: "node1", VMID: 103},
+			{Node: "node1", VMID: 104},
+		}
 
-	done := make(chan error, 1)
-	go func() {
-		done <- runBoundedClonedPodVMDeletes(context.Background(), 2, targets, func(ctx context.Context, node string, vmid int) error {
-			current := active.Add(1)
-			for {
-				seen := maxSeen.Load()
-				if current <= seen || maxSeen.CompareAndSwap(seen, current) {
-					break
+		done := make(chan error, 1)
+		go func() {
+			done <- runBoundedClonedPodVMDeletes(context.Background(), 2, targets, func(ctx context.Context, node string, vmid int) error {
+				current := active.Add(1)
+				for {
+					seen := maxSeen.Load()
+					if current <= seen || maxSeen.CompareAndSwap(seen, current) {
+						break
+					}
+				}
+				started <- struct{}{}
+				<-release
+				active.Add(-1)
+				return nil
+			})
+		}()
+
+		waitForStarted := func(count int) {
+			t.Helper()
+			deadline := time.After(2 * time.Second)
+			for i := 0; i < count; i++ {
+				select {
+				case <-started:
+				case <-deadline:
+					t.Fatalf("timed out waiting for %d started callbacks", count)
 				}
 			}
-			started <- struct{}{}
-			<-release
-			active.Add(-1)
-			return nil
-		})
-	}()
+		}
 
-	waitForStarted := func(count int) {
-		t.Helper()
-		deadline := time.After(2 * time.Second)
-		for i := 0; i < count; i++ {
-			select {
-			case <-started:
-			case <-deadline:
-				t.Fatalf("timed out waiting for %d started callbacks", count)
+		waitForStarted(2)
+		synctest.Wait()
+		if maxSeen.Load() != 2 {
+			t.Fatalf("max overlap = %d, want 2", maxSeen.Load())
+		}
+
+		select {
+		case <-started:
+			t.Fatal("third callback started before release")
+		default:
+		}
+
+		close(release)
+		select {
+		case err := <-done:
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
 			}
+		case <-time.After(2 * time.Second):
+			t.Fatal("timed out waiting for runner completion")
 		}
-	}
-
-	waitForStarted(2)
-	if maxSeen.Load() != 2 {
-		t.Fatalf("max overlap = %d, want 2", maxSeen.Load())
-	}
-
-	select {
-	case <-started:
-		t.Fatal("third callback started before release")
-	case <-time.After(100 * time.Millisecond):
-	}
-
-	close(release)
-	select {
-	case err := <-done:
-		if err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
-	case <-time.After(2 * time.Second):
-		t.Fatal("timed out waiting for runner completion")
-	}
+	})
 }
 
 func TestRunBoundedClonedPodVMDeletesAttemptsAllTargetsAfterError(t *testing.T) {

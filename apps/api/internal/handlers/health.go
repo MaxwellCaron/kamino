@@ -10,12 +10,10 @@ import (
 
 const readinessTimeout = 2 * time.Second
 
-// DatabasePinger is the narrow database seam used for readiness checks.
 type DatabasePinger interface {
 	Ping(ctx context.Context) error
 }
 
-// HealthHandler serves process liveness and database readiness endpoints.
 type HealthHandler struct {
 	DB DatabasePinger
 }

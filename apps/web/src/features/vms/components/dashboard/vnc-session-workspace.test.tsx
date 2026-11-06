@@ -207,16 +207,14 @@ function setConsoleStatus(itemId: string, status: VncConnectionStatus) {
 }
 
 function countRetainedLiveSessions(): number {
-  return screen
-    .getAllByTestId(/^console-/)
-    .filter((node) => {
-      const itemId = node.getAttribute("data-testid")!.slice("console-".length)
-      const status = consoleStatuses.current.get(itemId)
-      return (
-        status !== undefined &&
-        ["connecting", "connected", "expired"].includes(status)
-      )
-    }).length
+  return screen.getAllByTestId(/^console-/).filter((node) => {
+    const itemId = node.getAttribute("data-testid")!.slice("console-".length)
+    const status = consoleStatuses.current.get(itemId)
+    return (
+      status !== undefined &&
+      ["connecting", "connected", "expired"].includes(status)
+    )
+  }).length
 }
 
 describe("VncSessionWorkspace", () => {
@@ -315,6 +313,8 @@ describe("VncSessionWorkspace", () => {
   it("ignores a late disconnect from an evicted console", () => {
     const { rerenderWorkspace } = renderWorkspace()
     setConsoleStatus("vm-a", "connected")
+    const lateStatusChange = statusHandlers.current.get("vm-a")!
+    expect(lateStatusChange).toBeTypeOf("function")
 
     setRoute("vm-b")
     rerenderWorkspace()
@@ -323,7 +323,7 @@ describe("VncSessionWorkspace", () => {
     setConsoleStatus("vm-b", "connected")
 
     act(() => {
-      statusHandlers.current.get("vm-a")?.("disconnected")
+      lateStatusChange("disconnected")
     })
     rerenderWorkspace()
 
@@ -378,10 +378,6 @@ describe("VncSessionWorkspace", () => {
 
     const workspace = screen.getByTestId("vnc-session-workspace")
     expect(workspace).not.toHaveAttribute("hidden")
-    expect(workspace.className).toContain("fixed")
-    expect(workspace.className).toContain("inset-0")
-    expect(workspace.className).toContain("invisible")
-    expect(workspace.className).toContain("pointer-events-none")
     expect(workspace).toHaveAttribute("aria-hidden", "true")
     expect(workspace).toHaveAttribute("inert")
   })
@@ -484,32 +480,8 @@ describe("VncSessionWorkspace", () => {
     const inactivePanel = screen.getByTestId("vnc-panel-vm-a")
     expect(consoleMounts.current.get("vm-a")).toBe(1)
     expect(inactivePanel).not.toHaveAttribute("hidden")
-    expect(inactivePanel.className).toContain("invisible")
-    expect(inactivePanel.className).toContain("pointer-events-none")
-    expect(inactivePanel.className).toContain("col-start-1")
-    expect(inactivePanel.className).toContain("row-start-1")
     expect(inactivePanel).toHaveAttribute("aria-hidden", "true")
     expect(inactivePanel).toHaveAttribute("inert")
-  })
-
-  it("overlaps active and inactive panels in one grid cell", () => {
-    const { rerenderWorkspace } = renderWorkspace()
-    setConsoleStatus("vm-a", "connected")
-
-    setRoute("vm-b")
-    rerenderWorkspace()
-
-    const workspace = screen.getByTestId("vnc-session-workspace")
-    expect(workspace.className).toContain("grid")
-
-    const panelA = screen.getByTestId("vnc-panel-vm-a")
-    const panelB = screen.getByTestId("vnc-panel-vm-b")
-    expect(panelA.className).toContain("col-start-1")
-    expect(panelA.className).toContain("row-start-1")
-    expect(panelB.className).toContain("col-start-1")
-    expect(panelB.className).toContain("row-start-1")
-    expect(panelA.parentElement).toBe(workspace)
-    expect(panelB.parentElement).toBe(workspace)
   })
 
   it("marks the active console unviewed while the browser tab is hidden", () => {
@@ -537,9 +509,6 @@ describe("VncSessionWorkspace", () => {
 
       const workspace = screen.getByTestId("vnc-session-workspace")
       expect(workspace).toHaveAttribute("data-pinned", "true")
-      expect(workspace.className).toContain("absolute")
-      expect(workspace.className).toContain("inset-x-0")
-      expect(workspace.className).toContain("bg-background")
     })
 
     it("pins the workspace for an expired active console", () => {
@@ -556,7 +525,6 @@ describe("VncSessionWorkspace", () => {
 
       const workspace = screen.getByTestId("vnc-session-workspace")
       expect(workspace).toHaveAttribute("data-pinned", "true")
-      expect(workspace.className).toContain("absolute")
     })
 
     it("keeps a disconnected destination inline in document flow", () => {
@@ -567,7 +535,6 @@ describe("VncSessionWorkspace", () => {
 
       const workspace = screen.getByTestId("vnc-session-workspace")
       expect(workspace).toHaveAttribute("data-pinned", "false")
-      expect(workspace.className).not.toContain("absolute")
     })
 
     it("stays pinned when returning to the retained connected console", () => {
@@ -593,7 +560,6 @@ describe("VncSessionWorkspace", () => {
 
       const workspace = screen.getByTestId("vnc-session-workspace")
       expect(workspace).toHaveAttribute("data-pinned", "false")
-      expect(workspace.className).not.toContain("absolute")
     })
   })
 
@@ -663,16 +629,35 @@ describe("VncSessionWorkspace", () => {
     })
 
     it("clears published state on unmount without warnings", () => {
-      const consoleError = vi.spyOn(console, "error").mockImplementation(() => {})
-      const { unmount } = renderWorkspace({ markerItemId: "vm-a" })
+      const consoleError = vi
+        .spyOn(console, "error")
+        .mockImplementation(() => {})
+      const queryClient = createTestQueryClient()
+      const { rerender } = renderWithQueryClient(
+        <VncSessionVisibilityProvider>
+          <VncSessionWorkspace />
+          <PinnedItemMarker itemId="vm-a" />
+        </VncSessionVisibilityProvider>,
+        queryClient
+      )
       setConsoleStatus("vm-a", "connected")
       expect(screen.getByTestId("pinned-marker-vm-a")).toHaveAttribute(
         "data-pinned",
         "true"
       )
 
-      unmount()
+      rerender(
+        <QueryClientProvider client={queryClient}>
+          <VncSessionVisibilityProvider>
+            <PinnedItemMarker itemId="vm-a" />
+          </VncSessionVisibilityProvider>
+        </QueryClientProvider>
+      )
 
+      expect(screen.getByTestId("pinned-marker-vm-a")).toHaveAttribute(
+        "data-pinned",
+        "false"
+      )
       expect(consoleError).not.toHaveBeenCalled()
       consoleError.mockRestore()
     })

@@ -16,7 +16,6 @@ const (
 	VNetKindDMZ     = "dmz"
 )
 
-// Segment describes one isolated network segment in a profile.
 type Segment struct {
 	Key                string
 	Label              string
@@ -26,7 +25,6 @@ type Segment struct {
 	WorkloadAssignable bool
 }
 
-// Interface describes one router NIC attachment in a profile.
 type Interface struct {
 	Device     string
 	SegmentKey string
@@ -43,7 +41,6 @@ type Profile struct {
 	Key               string
 	Label             string
 	Description       string
-	RequiredVNets     []string
 	DefaultSegmentKey string
 	RouterInterfaces  []Interface
 	Segments          []Segment
@@ -59,7 +56,6 @@ type Target struct {
 	WANSubnet string
 }
 
-// WorkloadAttachment is the resolved Proxmox attachment for a workload NIC.
 type WorkloadAttachment struct {
 	Device     string
 	VNetName   string
@@ -67,7 +63,6 @@ type WorkloadAttachment struct {
 	SegmentKey string
 }
 
-// RouterAttachment is the resolved Proxmox attachment for a router NIC.
 type RouterAttachment struct {
 	Device    string
 	Bridge    string
@@ -76,7 +71,6 @@ type RouterAttachment struct {
 	Uplink    bool
 }
 
-// PublicProfile is returned by create options for the frontend.
 type PublicProfile struct {
 	Key                 string          `json:"key"`
 	Label               string          `json:"label"`
@@ -93,7 +87,7 @@ type PublicSegment struct {
 
 // Catalog holds validated profile definitions; VNets come from the passed Target.
 type Catalog struct {
-	profiles map[string]Profile
+	profiles []Profile
 }
 
 func NewCatalog() (*Catalog, error) {
@@ -102,13 +96,40 @@ func NewCatalog() (*Catalog, error) {
 		buildLANDMZRouterV1Profile(),
 	}
 
-	catalog := &Catalog{profiles: make(map[string]Profile, len(profiles))}
+	catalog := &Catalog{profiles: profiles}
 	for _, profile := range profiles {
 		if err := validateProfile(profile); err != nil {
 			return nil, fmt.Errorf("profile %s: %w", profile.Key, err)
 		}
-		catalog.profiles[profile.Key] = profile
 	}
 
 	return catalog, nil
+}
+
+func (p Profile) RequiresExplicitSegments() bool {
+	count := 0
+	for _, segment := range p.Segments {
+		if segment.WorkloadAssignable {
+			count++
+		}
+	}
+	return count > 1
+}
+
+func (p Profile) UsesVNet(kind string) bool {
+	for _, segment := range p.Segments {
+		if segment.VNetKind == kind {
+			return true
+		}
+	}
+	return false
+}
+
+func (p Profile) HasRouterDevice(device string) bool {
+	for _, iface := range p.RouterInterfaces {
+		if iface.Device == device {
+			return true
+		}
+	}
+	return false
 }

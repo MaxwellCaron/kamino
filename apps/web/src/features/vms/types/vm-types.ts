@@ -128,3 +128,5 @@ export type CreateVMParams = {
   disk_size?: number
   networks: Array<NetworkInterface>
 }
+
+export type SnapshotDialogMode = "direct" | "request"

@@ -1,7 +1,7 @@
 import { getRouteApi, notFound } from "@tanstack/react-router"
 import { PodPage } from "@/features/pods/components/pod-page"
 import { clonedPodQueryOptions } from "@/features/pods/api/clone-pod-api"
-import { isApiErrorStatus } from "@/features/auth/api/auth-api"
+import { isApiErrorStatus } from "@/features/shared/api/api-error"
 import { podCatalogEntryQueryOptions } from "@/features/pods/api/publish-pod-api"
 import { useQuery } from "@tanstack/react-query"
 

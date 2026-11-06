@@ -1,6 +1,11 @@
 import type * as ActionBarModule from "@workspace/ui/components/action-bar"
+import type * as MutationProgressToastModule from "@/components/feedback/mutation-progress-toast"
 import { act, screen } from "@testing-library/react"
 import { describe, expect, it, vi } from "vitest"
+import {
+  runMutationUnits,
+  showUnitMutationToast,
+} from "@/components/feedback/mutation-progress-toast"
 import type { ApiRequestSummary } from "@/features/requests/types/request-types"
 import { createElement } from "react"
 import { renderWithQueryClient } from "@/test/test-utils"
@@ -11,44 +16,13 @@ vi.mock("@/features/requests/utils/request-presenters", () => ({
   getRequestIcon: () => null,
 }))
 
-vi.mock("@/components/feedback/mutation-progress-toast", () => ({
-  showUnitMutationToast: ({
-    units,
-    onSettled,
-  }: {
-    units: Array<{
-      items: Array<{ id: string }>
-      run: () => Promise<{ failed: Array<{ id: string; error: string }> } | void>
-    }>
-    onSettled?: (result: {
-      succeeded: Array<string>
-      failed: Array<{ id: string; error: string }>
-    }) => void
-  }) =>
-    Promise.all(
-      units.map(async (unit) => {
-        try {
-          const result = await unit.run()
-          return result && result.failed.length > 0
-            ? { failed: result.failed, succeeded: [] }
-            : { failed: [], succeeded: unit.items.map((item) => item.id) }
-        } catch (error) {
-          return {
-            failed: unit.items.map((item) => ({
-              id: item.id,
-              error: error instanceof Error ? error.message : "Failed",
-            })),
-            succeeded: [],
-          }
-        }
-      })
-    ).then((results) => {
-      onSettled?.({
-        succeeded: results.flatMap((result) => result.succeeded),
-        failed: results.flatMap((result) => result.failed),
-      })
-    }),
-}))
+vi.mock(
+  "@/components/feedback/mutation-progress-toast",
+  async (importOriginal) => ({
+    ...(await importOriginal<typeof MutationProgressToastModule>()),
+    showUnitMutationToast: vi.fn(),
+  })
+)
 
 vi.mock("@workspace/ui/components/action-bar", async (importOriginal) => {
   const actual = await importOriginal<typeof ActionBarModule>()
@@ -93,9 +67,8 @@ describe("RequestsSelectionActions", () => {
       capturedOnConfirm = config.onConfirm
     })
 
-    const { RequestsSelectionActions } = await import(
-      "./requests-selection-actions"
-    )
+    const { RequestsSelectionActions } =
+      await import("./requests-selection-actions")
 
     renderWithQueryClient(
       <RequestsSelectionActions
@@ -114,7 +87,8 @@ describe("RequestsSelectionActions", () => {
 
     await act(async () => {
       capturedOnConfirm!()
-      await Promise.resolve()
+      const config = vi.mocked(showUnitMutationToast).mock.calls.at(-1)![0]
+      config.onSettled?.(await runMutationUnits(config.units, () => {}, 1))
     })
 
     expect(denyMutation.mutateAsync).toHaveBeenCalledWith(["req-1"])
@@ -135,9 +109,8 @@ describe("RequestsSelectionActions", () => {
       capturedOnConfirm = config.onConfirm
     })
 
-    const { RequestsSelectionActions } = await import(
-      "./requests-selection-actions"
-    )
+    const { RequestsSelectionActions } =
+      await import("./requests-selection-actions")
 
     renderWithQueryClient(
       <RequestsSelectionActions
@@ -153,7 +126,8 @@ describe("RequestsSelectionActions", () => {
 
     await act(async () => {
       capturedOnConfirm!()
-      await Promise.resolve()
+      const config = vi.mocked(showUnitMutationToast).mock.calls.at(-1)![0]
+      config.onSettled?.(await runMutationUnits(config.units, () => {}, 1))
     })
 
     expect(clearSelection).toHaveBeenCalled()

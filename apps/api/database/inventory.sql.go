@@ -30,15 +30,11 @@ func (q *Queries) CreateChildFolder(ctx context.Context, arg CreateChildFolderPa
 }
 
 const createRootFolder = `-- name: CreateRootFolder :one
-
 INSERT INTO inventory_items (parent_id, kind, name)
 VALUES (NULL, 'folder', $1)
 RETURNING id
 `
 
-// ---------------------------------------------------------------------------
-// Sync queries
-// ---------------------------------------------------------------------------
 func (q *Queries) CreateRootFolder(ctx context.Context, name string) (uuid.UUID, error) {
 	row := q.db.QueryRow(ctx, createRootFolder, name)
 	var id uuid.UUID
@@ -692,7 +688,6 @@ func (q *Queries) UpdateInventoryFolderDescription(ctx context.Context, arg Upda
 }
 
 const updateInventoryFolderDetails = `-- name: UpdateInventoryFolderDetails :exec
-
 UPDATE inventory_items
 SET name = $1,
     description = $2
@@ -706,9 +701,6 @@ type UpdateInventoryFolderDetailsParams struct {
 	ID          uuid.UUID `json:"id"`
 }
 
-// ---------------------------------------------------------------------------
-// Read queries for API endpoints
-// ---------------------------------------------------------------------------
 func (q *Queries) UpdateInventoryFolderDetails(ctx context.Context, arg UpdateInventoryFolderDetailsParams) error {
 	_, err := q.db.Exec(ctx, updateInventoryFolderDetails, arg.Name, arg.Description, arg.ID)
 	return err

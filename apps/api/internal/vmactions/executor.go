@@ -111,12 +111,7 @@ func (e *Executor) PowerAction(ctx context.Context, target Target, action PowerA
 		return err
 	}
 
-	switch action {
-	case PowerActionStart, PowerActionReboot:
-		go e.waitForObservedVMStatus(target.VMID, "running")
-	case PowerActionShutdown, PowerActionStop:
-		go e.waitForObservedVMStatus(target.VMID, "stopped")
-	}
+	go e.waitForObservedVMStatus(target.VMID, action.ExpectedStatus())
 
 	return nil
 }

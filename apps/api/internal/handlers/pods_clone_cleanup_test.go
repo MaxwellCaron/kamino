@@ -6,6 +6,7 @@ import (
 	"sync"
 	"sync/atomic"
 	"testing"
+	"testing/synctest"
 	"time"
 
 	"github.com/MaxwellCaron/kamino/internal/inventory"
@@ -13,7 +14,6 @@ import (
 	"github.com/google/uuid"
 )
 
-// emptyFolderPlan is the buildFolderPlan stub for tests with no extra synced guests/pools.
 func emptyFolderPlan(context.Context, uuid.UUID) (inventory.FolderDeletionPlan, error) {
 	return inventory.FolderDeletionPlan{}, nil
 }
@@ -103,56 +103,53 @@ func TestRunFailedPodProvisionCleanupWaitsBeforeDelete(t *testing.T) {
 }
 
 func TestRunFailedPodProvisionCleanupBoundedOverlap(t *testing.T) {
-	created := map[int]clonedVM{
-		1: {TargetNode: "node-a", VMID: 1, CloneTask: proxmox.CloneTask{Node: "node-a", UPID: "UPID:1"}},
-		2: {TargetNode: "node-a", VMID: 2, CloneTask: proxmox.CloneTask{Node: "node-a", UPID: "UPID:2"}},
-		3: {TargetNode: "node-a", VMID: 3, CloneTask: proxmox.CloneTask{Node: "node-a", UPID: "UPID:3"}},
-	}
-
-	var active atomic.Int32
-	var maxActive atomic.Int32
-	block := make(chan struct{})
-
-	cbs := failedPodProvisionCleanupCallbacks{
-		waitCloneTask: func(ctx context.Context, node, upid string) error {
-			current := active.Add(1)
-			for {
-				prev := maxActive.Load()
-				if current <= prev || maxActive.CompareAndSwap(prev, current) {
-					break
-				}
-			}
-			<-block
-			active.Add(-1)
-			return nil
-		},
-		deleteProxmoxVM: func(ctx context.Context, node string, vmid int) error {
-			return nil
-		},
-	}
-
-	done := make(chan error, 1)
-	go func() {
-		done <- runFailedPodProvisionCleanup(context.Background(), uuid.Nil, created, 2, cbs)
-	}()
-
-	deadline := time.After(2 * time.Second)
-	for maxActive.Load() < 2 {
-		select {
-		case <-deadline:
-			t.Fatalf("expected two cleanup workers to overlap, max active=%d", maxActive.Load())
-		default:
-			time.Sleep(5 * time.Millisecond)
+	synctest.Test(t, func(t *testing.T) {
+		created := map[int]clonedVM{
+			1: {TargetNode: "node-a", VMID: 1, CloneTask: proxmox.CloneTask{Node: "node-a", UPID: "UPID:1"}},
+			2: {TargetNode: "node-a", VMID: 2, CloneTask: proxmox.CloneTask{Node: "node-a", UPID: "UPID:2"}},
+			3: {TargetNode: "node-a", VMID: 3, CloneTask: proxmox.CloneTask{Node: "node-a", UPID: "UPID:3"}},
 		}
-	}
-	close(block)
 
-	if err := readWithTimeout(t, done, 2*time.Second); err != nil {
-		t.Fatalf("cleanup error = %v", err)
-	}
-	if got := maxActive.Load(); got != 2 {
-		t.Fatalf("max active = %d, want 2", got)
-	}
+		var active atomic.Int32
+		var maxActive atomic.Int32
+		block := make(chan struct{})
+
+		cbs := failedPodProvisionCleanupCallbacks{
+			waitCloneTask: func(ctx context.Context, node, upid string) error {
+				current := active.Add(1)
+				for {
+					prev := maxActive.Load()
+					if current <= prev || maxActive.CompareAndSwap(prev, current) {
+						break
+					}
+				}
+				<-block
+				active.Add(-1)
+				return nil
+			},
+			deleteProxmoxVM: func(ctx context.Context, node string, vmid int) error {
+				return nil
+			},
+		}
+
+		done := make(chan error, 1)
+		go func() {
+			done <- runFailedPodProvisionCleanup(context.Background(), uuid.Nil, created, 2, cbs)
+		}()
+
+		synctest.Wait()
+		if maxActive.Load() != 2 {
+			t.Fatalf("expected two cleanup workers to overlap, max active=%d", maxActive.Load())
+		}
+		close(block)
+
+		if err := readWithTimeout(t, done, 2*time.Second); err != nil {
+			t.Fatalf("cleanup error = %v", err)
+		}
+		if got := maxActive.Load(); got != 2 {
+			t.Fatalf("max active = %d, want 2", got)
+		}
+	})
 }
 
 func TestRunFailedPodProvisionCleanupAttemptsAllOnFailure(t *testing.T) {

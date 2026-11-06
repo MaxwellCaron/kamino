@@ -48,7 +48,7 @@ import { HugeiconsIcon } from "@hugeicons/react"
 import { Progress } from "@workspace/ui/components/progress"
 import type { ReactNode } from "react"
 import { Skeleton } from "@workspace/ui/components/skeleton"
-import { VmOptionsMenu } from "@/features/inventory/components/inventory-actions/vm-options-menu"
+import { VmOptionsMenu } from "@/components/inventory/actions/vm-options-menu"
 import { m } from "motion/react"
 
 type Stat = {

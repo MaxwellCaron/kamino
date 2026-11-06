@@ -11,7 +11,6 @@ import (
 	"github.com/google/uuid"
 )
 
-// fakeAccessSessionValidator is a minimal, configurable accessSessionValidator.
 type fakeAccessSessionValidator struct {
 	err error
 }

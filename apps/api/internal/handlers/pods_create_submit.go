@@ -28,7 +28,7 @@ func (h *PodsHandler) Create(c *gin.Context) {
 		return
 	}
 
-	progress := newCreatePodProgressReporter(c.Query("progress_id"))
+	progress := h.Progress.createReporter(c.Query("progress_id"))
 	progress.set(createProgressStepValidating, "Checking Pod name and selected templates.")
 
 	var req createPodRequest
@@ -68,7 +68,7 @@ func (h *PodsHandler) Create(c *gin.Context) {
 			writeRequestError(c, reqErr)
 			return
 		}
-		if !devCloneTarget.SupportsProfile(profileKey) {
+		if !devCloneTarget.SupportsProfile(h.NetworkCatalog, profileKey) {
 			message := fmt.Sprintf(
 				"clone target %s does not support the %s network profile",
 				devCloneTarget.Label,

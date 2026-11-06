@@ -6,7 +6,7 @@ import {
 import type { ClonedPodNetwork } from "@/features/pods/types/pod-types"
 import type { IconSvgElement } from "@hugeicons/react"
 import type { PodCloneTarget } from "@/features/pods/api/clone-targets-api"
-import { getPodNetworkingModeLabel } from "@/features/pods/components/create/create-pod-form"
+import { getPodNetworkingModeLabel } from "./pod-networking-mode"
 
 export function podCloneTargetSupportsProfile(
   target: PodCloneTarget,

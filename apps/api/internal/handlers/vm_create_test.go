@@ -57,7 +57,6 @@ func testNetworkCatalog(t *testing.T) *podnetwork.Catalog {
 	return catalog
 }
 
-// personalScopeRow is a personal-pod allocation joined to the personal target.
 func personalScopeRow(networkNumber int32) database.GetPodNetworkScopeForInventoryItemRow {
 	lan := "personal"
 	bridge, subnet := "personalwan", "172.25.0.0/16"

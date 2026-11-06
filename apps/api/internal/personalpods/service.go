@@ -43,7 +43,6 @@ type ProvisionRouterRequest struct {
 	NetworkNumber int32
 }
 
-// Runtime is the coarse seam into handler-owned clone/network/router mechanics.
 type Runtime interface {
 	ResolveProvisionContext(ctx context.Context) (ProvisionContext, error)
 	ProvisionRouter(ctx context.Context, req ProvisionRouterRequest) error

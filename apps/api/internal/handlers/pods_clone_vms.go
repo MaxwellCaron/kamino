@@ -12,6 +12,7 @@ import (
 	"github.com/MaxwellCaron/kamino/internal/inventory"
 	"github.com/MaxwellCaron/kamino/internal/podnetworks"
 	"github.com/MaxwellCaron/kamino/internal/proxmox"
+	"github.com/MaxwellCaron/kamino/internal/vmactions"
 	"github.com/MaxwellCaron/kamino/internal/vmidalloc"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -25,7 +26,7 @@ func (h *PodsHandler) clonePublishedPodVMs(
 	targetNode string,
 	publishedVMs []database.ListPublishedPodVMsForCloneRow,
 	batch *vmidalloc.Batch,
-	progress *clonePodProgressReporter,
+	progress *podProgressReporter,
 ) ([]clonePublishedVMResult, map[int]clonedVM, *requestError) {
 	results := make([]clonePublishedVMResult, len(publishedVMs))
 	created := make(map[int]clonedVM, len(publishedVMs))
@@ -38,7 +39,7 @@ func (h *PodsHandler) clonePublishedPodVMs(
 		index, publishedVM := index, publishedVM
 		group.Go(func() error {
 			progress.set(cloneProgressStepCloning, "Cloning "+publishedVM.Name+" into a Cloned Pod VM")
-			router := isPublishedPodRouterVM(publishedVM)
+			router := publishedVM.IsRouter
 			sourceItemID, err := publishedPodVMTemplateItemID(
 				publishedVM,
 				h.RouterTemplateItemID,
@@ -184,17 +185,17 @@ func (h *PodsHandler) preflightPublishedPodVMTemplatesForClone(
 func (h *PodsHandler) resolvePublishedPodVMTemplate(
 	ctx context.Context,
 	sourceItemID uuid.UUID,
-) (verifiedVMTarget, *requestError) {
+) (vmactions.Target, *requestError) {
 	record, err := h.Authz.GetVMRecord(ctx, sourceItemID)
 	switch {
 	case err == nil:
 	case errors.Is(err, pgx.ErrNoRows):
-		return verifiedVMTarget{}, &requestError{
+		return vmactions.Target{}, &requestError{
 			Status:      http.StatusConflict,
 			UserMessage: "published Pod Template VM is missing from inventory",
 		}
 	default:
-		return verifiedVMTarget{}, &requestError{
+		return vmactions.Target{}, &requestError{
 			Status:      http.StatusInternalServerError,
 			UserMessage: "failed to verify Pod Template VM",
 			Operation:   "load published Pod Template VM record",
@@ -202,16 +203,18 @@ func (h *PodsHandler) resolvePublishedPodVMTemplate(
 		}
 	}
 
-	identity, err := h.PX.GetVMIdentity(ctx, proxmox.GuestType(record.GuestType), record.Node, int(record.Vmid))
+	identity, err := proxmox.VerifyVMIdentity(ctx, h.PX, proxmox.GuestType(record.GuestType), record.Node, int(record.Vmid), record.UpstreamUUID)
 	switch {
 	case err == nil:
 	case errors.Is(err, proxmox.ErrVMIdentityNotConfigured), errors.Is(err, proxmox.ErrVMIdentityInvalid):
-		return verifiedVMTarget{}, &requestError{
+		return vmactions.Target{}, &requestError{
 			Status:      http.StatusConflict,
 			UserMessage: "published Pod Template VM identity is not initialized in Proxmox",
 		}
+	case errors.Is(err, proxmox.ErrVMIdentityMismatch):
+		return vmactions.Target{}, &requestError{Status: http.StatusConflict, UserMessage: "published Pod Template VM has drifted from inventory"}
 	default:
-		return verifiedVMTarget{}, &requestError{
+		return vmactions.Target{}, &requestError{
 			Status:      http.StatusBadGateway,
 			UserMessage: "failed to verify Pod Template VM",
 			Operation:   "verify published Pod Template VM identity",
@@ -219,25 +222,18 @@ func (h *PodsHandler) resolvePublishedPodVMTemplate(
 		}
 	}
 
-	if identity.UpstreamUUID != record.UpstreamUUID {
-		return verifiedVMTarget{}, &requestError{
-			Status:      http.StatusConflict,
-			UserMessage: "published Pod Template VM has drifted from inventory",
-		}
-	}
 	if !identity.IsTemplate {
-		return verifiedVMTarget{}, &requestError{
+		return vmactions.Target{}, &requestError{
 			Status:      http.StatusConflict,
 			UserMessage: "published Pod Template VM is no longer a Proxmox template",
 		}
 	}
 
-	return verifiedVMTarget{
-		ItemID:       record.InventoryItemID,
-		Node:         record.Node,
-		VMID:         int(record.Vmid),
-		UpstreamUUID: record.UpstreamUUID,
-		GuestType:    proxmox.GuestType(record.GuestType),
+	return vmactions.Target{
+		ItemID:    record.InventoryItemID,
+		Node:      record.Node,
+		VMID:      int(record.Vmid),
+		GuestType: proxmox.GuestType(record.GuestType),
 	}, nil
 }
 

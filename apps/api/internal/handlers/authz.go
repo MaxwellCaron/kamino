@@ -8,6 +8,7 @@ import (
 
 	"github.com/MaxwellCaron/kamino/internal/authorization"
 	"github.com/MaxwellCaron/kamino/internal/proxmox"
+	"github.com/MaxwellCaron/kamino/internal/vmactions"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -95,14 +96,6 @@ func requireInventoryPermission(
 	}
 }
 
-type verifiedVMTarget struct {
-	ItemID       uuid.UUID
-	Node         string
-	VMID         int
-	UpstreamUUID uuid.UUID
-	GuestType    proxmox.GuestType
-}
-
 type requestError struct {
 	Status      int
 	UserMessage string
@@ -110,7 +103,6 @@ type requestError struct {
 	Err         error
 }
 
-// Error lets a *requestError travel through error channels like errgroup.
 func (e *requestError) Error() string {
 	if e == nil {
 		return ""
@@ -152,22 +144,22 @@ func resolveVerifiedVMItemPermission(
 	itemID uuid.UUID,
 	required authorization.Mask,
 	lock bool,
-) (verifiedVMTarget, *requestError) {
+) (vmactions.Target, *requestError) {
 	err := authzService.Require(ctx, principalID, itemID, required)
 	switch {
 	case err == nil:
 	case errors.Is(err, pgx.ErrNoRows):
-		return verifiedVMTarget{}, &requestError{
+		return vmactions.Target{}, &requestError{
 			Status:      http.StatusNotFound,
 			UserMessage: "item not found",
 		}
 	case authorization.IsForbidden(err):
-		return verifiedVMTarget{}, &requestError{
+		return vmactions.Target{}, &requestError{
 			Status:      http.StatusForbidden,
 			UserMessage: "forbidden",
 		}
 	default:
-		return verifiedVMTarget{}, &requestError{
+		return vmactions.Target{}, &requestError{
 			Status:      http.StatusInternalServerError,
 			UserMessage: "authorization failed",
 			Operation:   "authorize inventory resource",
@@ -184,7 +176,7 @@ func resolveVerifiedVMItem(
 	px vmProxmox,
 	itemID uuid.UUID,
 	lock bool,
-) (verifiedVMTarget, *requestError) {
+) (vmactions.Target, *requestError) {
 
 	var record authorization.VMRecord
 	var err error
@@ -197,12 +189,12 @@ func resolveVerifiedVMItem(
 	switch {
 	case err == nil:
 	case errors.Is(err, pgx.ErrNoRows):
-		return verifiedVMTarget{}, &requestError{
+		return vmactions.Target{}, &requestError{
 			Status:      http.StatusNotFound,
 			UserMessage: "vm not found",
 		}
 	default:
-		return verifiedVMTarget{}, &requestError{
+		return vmactions.Target{}, &requestError{
 			Status:      http.StatusInternalServerError,
 			UserMessage: "authorization failed",
 			Operation:   "resolve vm inventory mapping",
@@ -217,28 +209,26 @@ func verifyVMRecordIdentity(
 	ctx context.Context,
 	px vmProxmox,
 	record authorization.VMRecord,
-) (verifiedVMTarget, *requestError) {
-	identity, err := px.GetVMIdentity(ctx, proxmox.GuestType(record.GuestType), record.Node, int(record.Vmid))
+) (vmactions.Target, *requestError) {
+	_, err := proxmox.VerifyVMIdentity(ctx, px, proxmox.GuestType(record.GuestType), record.Node, int(record.Vmid), record.UpstreamUUID)
 	switch {
 	case err == nil:
 	case errors.Is(err, proxmox.ErrVMIdentityNotConfigured), errors.Is(err, proxmox.ErrVMIdentityInvalid):
-		return verifiedVMTarget{}, &requestError{
+		return vmactions.Target{}, &requestError{
 			Status:      http.StatusConflict,
 			UserMessage: "vm identity is not initialized in Proxmox",
 		}
+	case errors.Is(err, proxmox.ErrVMIdentityMismatch):
+		return vmactions.Target{}, &requestError{
+			Status:      http.StatusConflict,
+			UserMessage: "inventory mapping is stale; upstream VM identity no longer matches",
+		}
 	default:
-		return verifiedVMTarget{}, &requestError{
+		return vmactions.Target{}, &requestError{
 			Status:      http.StatusBadGateway,
 			UserMessage: "failed to verify VM identity",
 			Operation:   "verify proxmox vm identity",
 			Err:         err,
-		}
-	}
-
-	if identity.UpstreamUUID != record.UpstreamUUID {
-		return verifiedVMTarget{}, &requestError{
-			Status:      http.StatusConflict,
-			UserMessage: "inventory mapping is stale; upstream VM identity no longer matches",
 		}
 	}
 
@@ -250,7 +240,7 @@ func verifyVMRecordIdentityForAction(
 	px vmProxmox,
 	record authorization.VMRecord,
 	allowMissingUpstream bool,
-) (verifiedVMTarget, *requestError) {
+) (vmactions.Target, *requestError) {
 	target, reqErr := verifyVMRecordIdentity(ctx, px, record)
 	if allowMissingUpstream && reqErr != nil && isMissingProxmoxVMError(reqErr.Err) {
 		return verifiedVMTargetFromRecord(record), nil
@@ -258,13 +248,12 @@ func verifyVMRecordIdentityForAction(
 	return target, reqErr
 }
 
-func verifiedVMTargetFromRecord(record authorization.VMRecord) verifiedVMTarget {
-	return verifiedVMTarget{
-		ItemID:       record.InventoryItemID,
-		Node:         record.Node,
-		VMID:         int(record.Vmid),
-		UpstreamUUID: record.UpstreamUUID,
-		GuestType:    proxmox.GuestType(record.GuestType),
+func verifiedVMTargetFromRecord(record authorization.VMRecord) vmactions.Target {
+	return vmactions.Target{
+		ItemID:    record.InventoryItemID,
+		Node:      record.Node,
+		VMID:      int(record.Vmid),
+		GuestType: proxmox.GuestType(record.GuestType),
 	}
 }
 
@@ -290,7 +279,7 @@ func requireVerifiedVMItemPermission(
 	itemID uuid.UUID,
 	required authorization.Mask,
 	lock bool,
-) (verifiedVMTarget, bool) {
+) (vmactions.Target, bool) {
 	target, reqErr := resolveVerifiedVMItemPermission(
 		c.Request.Context(),
 		authzService,
@@ -302,7 +291,7 @@ func requireVerifiedVMItemPermission(
 	)
 	if reqErr != nil {
 		writeRequestError(c, reqErr)
-		return verifiedVMTarget{}, false
+		return vmactions.Target{}, false
 	}
 
 	return target, true

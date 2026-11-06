@@ -9,18 +9,19 @@ import (
 	"testing"
 	"time"
 
+	"github.com/MaxwellCaron/kamino/database"
+	"github.com/MaxwellCaron/kamino/internal/authorization"
 	requestqueue "github.com/MaxwellCaron/kamino/internal/requests"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 )
 
-// fakeEventsAuthz is a minimal, configurable eventsAuthz implementation.
 type fakeEventsAuthz struct {
 	mu             sync.Mutex
 	isManager      bool
 	filterStatuses map[int]string
 	filterErr      error
-	filterCtxs     []context.Context
 }
 
 func (f *fakeEventsAuthz) IsManager(_ context.Context, _ uuid.UUID) (bool, error) {
@@ -32,7 +33,6 @@ func (f *fakeEventsAuthz) IsManager(_ context.Context, _ uuid.UUID) (bool, error
 func (f *fakeEventsAuthz) FilterVisibleStatuses(ctx context.Context, _ uuid.UUID, statuses map[int]string) (map[int]string, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
-	f.filterCtxs = append(f.filterCtxs, ctx)
 	if f.filterErr != nil {
 		return nil, f.filterErr
 	}
@@ -50,7 +50,6 @@ func (f *fakeEventsAuthz) setIsManager(v bool) {
 
 var _ eventsAuthz = (*fakeEventsAuthz)(nil)
 
-// fakeEventsRequestService is a minimal, configurable eventsRequestService.
 type fakeEventsRequestService struct {
 	mu        sync.Mutex
 	ensureErr error
@@ -141,23 +140,51 @@ func TestAuthorizePublishProgressEvent_SkippedAfterManagerRemoved(t *testing.T) 
 	}
 }
 
-func TestFilterVMStatuses_UsesSeparatePrincipalCacheInstancesPerCall(t *testing.T) {
-	principalID := uuid.New()
-	authz := &fakeEventsAuthz{}
-	h := &EventsHandler{Authz: authz}
+type eventPrincipalDB struct {
+	database.DBTX
+	principalIDs []uuid.UUID
+}
 
-	if _, err := h.filterVMStatuses(context.Background(), principalID, map[int]string{1: "running"}); err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if _, err := h.filterVMStatuses(context.Background(), principalID, map[int]string{2: "stopped"}); err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
+func (db *eventPrincipalDB) Begin(context.Context) (pgx.Tx, error) {
+	return nil, errors.New("unexpected transaction")
+}
 
-	if len(authz.filterCtxs) != 2 {
-		t.Fatalf("expected 2 recorded contexts, got %d", len(authz.filterCtxs))
+func (db *eventPrincipalDB) Query(context.Context, string, ...any) (pgx.Rows, error) {
+	return &eventPrincipalRows{ids: db.principalIDs}, nil
+}
+
+type eventPrincipalRows struct {
+	pgx.Rows
+	ids   []uuid.UUID
+	index int
+}
+
+func (rows *eventPrincipalRows) Next() bool { rows.index++; return rows.index <= len(rows.ids) }
+func (rows *eventPrincipalRows) Close()     {}
+func (rows *eventPrincipalRows) Err() error { return nil }
+func (rows *eventPrincipalRows) Scan(dest ...any) error {
+	*dest[0].(*uuid.UUID) = rows.ids[rows.index-1]
+	return nil
+}
+
+func TestFilterVMStatusesRevokedAdministratorLosesVisibility(t *testing.T) {
+	principalID, administratorGroupID := uuid.New(), uuid.New()
+	db := &eventPrincipalDB{principalIDs: []uuid.UUID{administratorGroupID}}
+	h := &EventsHandler{Authz: authorization.NewService(db, []uuid.UUID{administratorGroupID})}
+	ctx := authorization.WithPrincipalCache(context.Background())
+	statuses := map[int]string{1: "running"}
+
+	visible, err := h.filterVMStatuses(ctx, principalID, statuses)
+	if err != nil || visible[1] != "running" {
+		t.Fatalf("administrator statuses = %v, %v", visible, err)
 	}
-	if authz.filterCtxs[0] == authz.filterCtxs[1] {
-		t.Fatal("expected filterVMStatuses to wrap each call in a fresh principal cache, not reuse one across events")
+	db.principalIDs = nil
+	visible, err = h.filterVMStatuses(ctx, principalID, statuses)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(visible) != 0 {
+		t.Fatalf("revoked administrator still receives statuses: %v", visible)
 	}
 }
 

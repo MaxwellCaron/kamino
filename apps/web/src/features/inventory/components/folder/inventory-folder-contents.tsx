@@ -1,6 +1,6 @@
 import { animateContainer, animateTableRow } from "@/components/animate"
 import type { ApiTreeNode } from "../../types/inventory-types"
-import { InventoryFolderItem } from "./inventory-folder-item"
+import { InventoryFolderItem } from "@/components/inventory/inventory-folder-item"
 import { ItemGroup } from "@workspace/ui/components/item"
 import { m } from "motion/react"
 import { sortInventoryTree } from "../../utils/inventory-tree"

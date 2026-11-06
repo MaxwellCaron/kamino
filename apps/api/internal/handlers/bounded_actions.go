@@ -6,18 +6,13 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
-type boundedActionResult struct {
-	Index int
-	Err   error
-}
-
 func runBoundedActions[T any](
 	ctx context.Context,
 	limit int,
 	targets []T,
 	fn func(ctx context.Context, index int, target T) error,
-) []boundedActionResult {
-	results := make([]boundedActionResult, len(targets))
+) []error {
+	results := make([]error, len(targets))
 	if len(targets) == 0 {
 		return results
 	}
@@ -30,10 +25,7 @@ func runBoundedActions[T any](
 	for index, target := range targets {
 		index, target := index, target
 		group.Go(func() error {
-			results[index] = boundedActionResult{
-				Index: index,
-				Err:   fn(ctx, index, target),
-			}
+			results[index] = fn(ctx, index, target)
 			return nil
 		})
 	}

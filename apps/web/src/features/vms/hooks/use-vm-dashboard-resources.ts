@@ -1,10 +1,10 @@
+import {
+  VM_RESOURCE_POLL_INTERVAL_MS,
+  vmResourcesQueryOptions,
+} from "@/features/vms/api/vm-api"
 import { useEffect, useState } from "react"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
-
 import type { VmResources } from "@/features/vms/types/vm-types"
-import { vmResourcesQueryOptions } from "@/features/vms/api/vm-api"
-
-const RESOURCE_POLL_INTERVAL_MS = 10_000
 
 export function useVmDashboardResources({
   itemId,
@@ -43,7 +43,7 @@ export function useVmDashboardResources({
 
     const timeout = window.setTimeout(() => {
       setReadyItemId(itemId)
-    }, RESOURCE_POLL_INTERVAL_MS)
+    }, VM_RESOURCE_POLL_INTERVAL_MS)
 
     return () => window.clearTimeout(timeout)
   }, [enabled, initialResources, itemId, overviewSettled, queryClient])

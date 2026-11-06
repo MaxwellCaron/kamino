@@ -9,7 +9,6 @@ import (
 	"github.com/google/uuid"
 )
 
-// SyncChangeKind classifies a sync diff entry.
 type SyncChangeKind string
 
 const (
@@ -18,14 +17,12 @@ const (
 	SyncChangeUpdate SyncChangeKind = "update"
 )
 
-// SyncFieldChange describes a single field that differs between Proxmox and the DB.
 type SyncFieldChange struct {
 	Field string `json:"field"` // "name" | "template" | "pool"
 	From  string `json:"from"`
 	To    string `json:"to"`
 }
 
-// SyncChange is one item in the diff result.
 type SyncChange struct {
 	ID         string            `json:"id"` // stable key: "node/vmid"
 	Kind       SyncChangeKind    `json:"kind"`
@@ -44,7 +41,6 @@ type SyncChange struct {
 	Pool     string     `json:"-"` // Proxmox pool name, for add placement
 }
 
-// SyncDiff is the complete diff returned by Plan.
 type SyncDiff struct {
 	Adds           []SyncChange `json:"adds"`
 	Removes        []SyncChange `json:"removes"`
@@ -53,7 +49,6 @@ type SyncDiff struct {
 	Warning        string       `json:"warning,omitempty"`
 }
 
-// dbVMRecord holds the relevant DB columns for a single VM item.
 type dbVMRecord struct {
 	itemID     uuid.UUID
 	parentID   *uuid.UUID
@@ -83,14 +78,12 @@ func computeSyncDiff(
 		dbPools[syncVMKey(key.Node, key.VMID)] = pool
 	}
 
-	// Index Proxmox VMs by "node/vmid".
 	proxmoxByKey := make(map[string]VM, len(vms))
 	for _, vm := range vms {
 		key := syncVMKey(vm.Node, vm.VMID)
 		proxmoxByKey[key] = vm
 	}
 
-	// Index DB VM rows (skip folders and items without node/vmid) by "node/vmid".
 	dbByKey := make(map[string]dbVMRecord, len(dbRows))
 	for _, row := range dbRows {
 		if row.Kind == database.InventoryItemKindFolder || row.Node == nil || row.Vmid == nil {
@@ -125,7 +118,6 @@ func computeSyncDiff(
 		ProxmoxVMCount: len(vms),
 	}
 
-	// Adds: in Proxmox but not in DB.
 	for key, vm := range proxmoxByKey {
 		if _, exists := dbByKey[key]; !exists {
 			diff.Adds = append(diff.Adds, SyncChange{
@@ -142,7 +134,6 @@ func computeSyncDiff(
 		}
 	}
 
-	// Removes: in DB but not in Proxmox.
 	for key, rec := range dbByKey {
 		if _, exists := proxmoxByKey[key]; !exists {
 			node, vmid := splitVMKey(key)
@@ -166,7 +157,6 @@ func computeSyncDiff(
 		}
 	}
 
-	// Updates: in both, with name or template flag differing.
 	for key, vm := range proxmoxByKey {
 		rec, exists := dbByKey[key]
 		if !exists {

@@ -201,7 +201,7 @@ func (h *PodsHandler) GetPublishedProgress(c *gin.Context) {
 		return
 	}
 
-	snapshot, ok := publishedPodProgress.get(progressID)
+	snapshot, ok := h.Progress.publish.get(progressID)
 	if !ok {
 		c.JSON(http.StatusNotFound, gin.H{"error": "progress not found"})
 		return

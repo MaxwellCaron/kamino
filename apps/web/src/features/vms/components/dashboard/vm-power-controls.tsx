@@ -10,7 +10,7 @@ import { Button } from "@workspace/ui/components/button"
 import { HugeiconsIcon } from "@hugeicons/react"
 import { PowerIcon } from "@hugeicons/core-free-icons"
 import type { VmPowerActionItem } from "@/features/vms/hooks/use-vm-power-actions"
-import { useInventoryDialogs } from "@/features/inventory/components/inventory-dialogs-context"
+import { useInventoryDialogs } from "@/components/inventory/inventory-dialogs-context"
 import { useVmPowerActions } from "@/features/vms/hooks/use-vm-power-actions"
 
 interface VmPowerControlsProps {

@@ -27,20 +27,17 @@ describe("getRelativeTimeUpdateDelay", () => {
   })
 
   it("schedules hour updates for hour-level timestamps", () => {
-    const now = new Date("2026-08-10T12:30:00.000Z")
-    const date = new Date("2026-08-10T08:00:00.000Z")
+    const now = new Date(2026, 7, 10, 12, 30)
+    const date = new Date(2026, 7, 10, 8)
 
     expect(getRelativeTimeUpdateDelay(date, now)).toBe(30 * 60 * 1000)
   })
 
   it("schedules day updates for multi-day timestamps", () => {
-    const now = new Date("2026-08-10T12:00:00.000Z")
-    const date = new Date("2026-08-08T12:00:00.000Z")
-    const delay = getRelativeTimeUpdateDelay(date, now)
+    const now = new Date(2026, 7, 10, 12)
+    const date = new Date(2026, 7, 8, 12)
 
-    expect(delay).not.toBeNull()
-    expect(delay).toBeGreaterThan(3_600_000)
-    expect(delay).toBeLessThanOrEqual(86_400_000)
+    expect(getRelativeTimeUpdateDelay(date, now)).toBe(12 * 60 * 60 * 1000)
   })
 })
 

@@ -20,7 +20,6 @@ const (
 	PurposeProxmoxRootFolderDescription          = proxmox.RootFolderDescription
 )
 
-// DesiredPoolForFolder returns the desired Proxmox pool ID and comment for a single inventory folder.
 func (s *Service) DesiredPoolForFolder(ctx context.Context, folderID uuid.UUID) (string, *string, error) {
 	q := database.New(s.db)
 

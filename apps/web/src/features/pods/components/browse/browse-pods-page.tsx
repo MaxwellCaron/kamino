@@ -1,7 +1,7 @@
 import {
   BrowsePodsGridSkeleton,
   browsePodsGridClassName,
-} from "./browse-pods-skeleton"
+} from "@/components/pods/browse-pods-skeleton"
 import {
   Empty,
   EmptyDescription,
@@ -9,7 +9,7 @@ import {
   EmptyMedia,
   EmptyTitle,
 } from "@workspace/ui/components/empty"
-import { BrowsePodsCard } from "./browse-pods-card"
+import { BrowsePodsCard } from "@/components/pods/browse-pods-card"
 import { GrainientBackground } from "@/components/grainient-background"
 import { HugeiconsIcon } from "@hugeicons/react"
 import { InlineErrorAlert } from "@/components/feedback/inline-error-alert"

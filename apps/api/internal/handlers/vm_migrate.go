@@ -10,6 +10,7 @@ import (
 	"github.com/MaxwellCaron/kamino/internal/audit"
 	"github.com/MaxwellCaron/kamino/internal/authorization"
 	"github.com/MaxwellCaron/kamino/internal/proxmox"
+	"github.com/MaxwellCaron/kamino/internal/vmactions"
 	"github.com/gin-gonic/gin"
 )
 
@@ -71,7 +72,7 @@ func (h *VMHandler) MigrateVMs(c *gin.Context) {
 		c.Request.Context(),
 		operationLimit,
 		targets,
-		func(ctx context.Context, _ int, target verifiedVMTarget) error {
+		func(ctx context.Context, _ int, target vmactions.Target) error {
 			if target.GuestType != proxmox.GuestQEMU {
 				return errVMMigrationUnsupported
 			}
@@ -110,9 +111,9 @@ func (h *VMHandler) MigrateVMs(c *gin.Context) {
 
 	for index, result := range results {
 		target := targets[index]
-		if result.Err != nil {
-			errorMessage := migrationErrorMessage(result.Err)
-			logRequestError(c, "migrate vm item_id="+target.ItemID.String(), result.Err)
+		if result != nil {
+			errorMessage := migrationErrorMessage(result)
+			logRequestError(c, "migrate vm item_id="+target.ItemID.String(), result)
 			h.Audit.RecordFailure(c.Request.Context(), audit.EventParams{
 				ActorPrincipalID: &principalID,
 				ActionKind:       "vm.migrate",

@@ -38,13 +38,14 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@workspace/ui/components/tooltip"
-import { apiFetch, apiUrl } from "@/features/auth/api/auth-api"
 import { AppActionButton } from "@/components/actions/app-action-button"
 import { Badge } from "@workspace/ui/components/badge"
 import { Button } from "@workspace/ui/components/button"
 import { HugeiconsIcon } from "@hugeicons/react"
 import type { VncScreenClientHandle } from "./vnc-screen-client"
 import { alignVncLayoutAnchorIfOverscrolled } from "@/features/vms/components/dashboard/vnc-layout-anchor"
+import { apiFetch } from "@/features/auth/api/auth-api"
+import { apiUrl } from "@/features/shared/api/api-url"
 import { downloadSpiceConfig } from "@/features/vms/api/vm-console-api"
 import { supportsNativeSpice } from "@/features/vms/utils/vm-console-utils"
 import { toastDownloadSpiceConfig } from "@/features/vms/utils/vm-toasts"

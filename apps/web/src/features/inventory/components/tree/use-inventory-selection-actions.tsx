@@ -27,7 +27,7 @@ import { formatVmReference } from "@/features/shared/utils/format"
 import { hasDirectInventoryCapability } from "../../utils/inventory-capabilities"
 import { showUnitMutationToast } from "@/components/feedback/mutation-progress-toast"
 import { useDeleteFolder } from "../../hooks/use-inventory-actions"
-import { useInventoryDialogs } from "../inventory-dialogs-context"
+import { useInventoryDialogs } from "@/components/inventory/inventory-dialogs-context"
 import { useQueryClient } from "@tanstack/react-query"
 
 export function useInventorySelectionActions() {

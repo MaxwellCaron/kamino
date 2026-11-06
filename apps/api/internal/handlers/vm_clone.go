@@ -10,6 +10,7 @@ import (
 	"github.com/MaxwellCaron/kamino/internal/authorization"
 	"github.com/MaxwellCaron/kamino/internal/names"
 	"github.com/MaxwellCaron/kamino/internal/proxmox"
+	"github.com/MaxwellCaron/kamino/internal/vmactions"
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 )
@@ -37,14 +38,14 @@ func resolveVMCloneSource(
 	configuredFolderID uuid.UUID,
 	principalID uuid.UUID,
 	itemID uuid.UUID,
-) (verifiedVMTarget, *requestError) {
+) (vmactions.Target, *requestError) {
 	err := validateTemplateLibrarySource(ctx, templateLibrary, configuredFolderID, itemID)
 	switch err {
 	case nil:
 		return resolveVerifiedVMItem(ctx, authzService, px, itemID, true)
 	case errTemplateLibraryUnavailable, errTemplateSourceOutOfScope:
 	default:
-		return verifiedVMTarget{}, &requestError{
+		return vmactions.Target{}, &requestError{
 			Status:      http.StatusInternalServerError,
 			UserMessage: "failed to validate template source",
 			Operation:   "validate configured VM template source",
@@ -369,7 +370,7 @@ func (h *VMHandler) ConvertToTemplate(c *gin.Context) {
 		operationLimit,
 		targets,
 		acquireOp,
-		func(ctx context.Context, target verifiedVMTarget) (bool, bool, error) {
+		func(ctx context.Context, target vmactions.Target) (bool, bool, error) {
 			inventorySyncFailed := false
 			actionErr, claimed := h.runClaimedBulkVMAction(ctx, target, "convert_to_template", principalID, func() error {
 				if err := h.PX.ConvertToTemplate(ctx, target.Node, target.VMID); err != nil {

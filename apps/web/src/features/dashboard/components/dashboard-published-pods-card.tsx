@@ -18,11 +18,11 @@ import {
   EmptyTitle,
 } from "@workspace/ui/components/empty"
 import { ScrollArea, ScrollBar } from "@workspace/ui/components/scroll-area"
-import { BrowsePodsCard } from "@/features/pods/components/browse/browse-pods-card"
+import { BrowsePodsCard } from "@/components/pods/browse-pods-card"
 import { HugeiconsIcon } from "@hugeicons/react"
 import { Link } from "@tanstack/react-router"
 import type { PodCatalogSummary } from "@/features/pods/types/pod-types"
-import { browsePodsCarouselItemClassName } from "@/features/pods/components/browse/browse-pods-skeleton"
+import { browsePodsCarouselItemClassName } from "@/components/pods/browse-pods-skeleton"
 import { buttonVariants } from "@workspace/ui/components/button"
 import { cn } from "@workspace/ui/lib/utils"
 

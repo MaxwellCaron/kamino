@@ -137,10 +137,6 @@ func (h *PodsHandler) cleanupFailedPodProvision(folderID uuid.UUID, created map[
 	}
 }
 
-func (h *PodsHandler) cleanupFailedUserClone(folderID uuid.UUID, created map[int]clonedVM) {
-	h.cleanupFailedPodProvision(folderID, created)
-}
-
 func (h *PodsHandler) cleanupPublishClones(created map[int]clonedVM) {
 	h.cleanupFailedPodProvision(uuid.Nil, created)
 }

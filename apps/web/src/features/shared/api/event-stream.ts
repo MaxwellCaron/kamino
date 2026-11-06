@@ -1,4 +1,4 @@
-import { apiUrl } from "@/features/auth/api/auth-api"
+import { apiUrl } from "@/features/shared/api/api-url"
 
 type JsonEventHandlers<TEvents extends object> = {
   [K in keyof TEvents & string]?: (

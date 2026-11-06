@@ -3,7 +3,6 @@ import { useEffect, useRef } from "react"
 import { arc as arcGenerator } from "@visx/shape"
 import { usePie } from "./pie-context"
 
-// Helper to generate arc path using d3 arc generator
 function generateArcPath(
   innerRadius: number,
   outerRadius: number,
@@ -21,13 +20,11 @@ function generateArcPath(
   return generator({ startAngle, endAngle }) || ""
 }
 
-// Calculate the translation offset for a slice to "pop out" along its radial axis
 function getSliceOffset(
   startAngle: number,
   endAngle: number,
   distance: number
 ): { x: number; y: number } {
-  // Calculate the midpoint angle of the slice
   const midAngle = (startAngle + endAngle) / 2
   // In d3-shape, 0 radians is at 12 o'clock, angles increase clockwise
   // So the outward direction is: x = sin(angle), y = -cos(angle)
@@ -37,7 +34,6 @@ function getSliceOffset(
   }
 }
 
-/** Hover effect types */
 export type PieSliceHoverEffect = "translate" | "grow" | "none"
 
 export interface PieSliceProps {
@@ -47,7 +43,6 @@ export interface PieSliceProps {
   color?: string
   /** Optional fill override for patterns/gradients (e.g., "url(#patternId)") */
   fill?: string
-  /** Optional Tailwind CSS classes for the slice (e.g., "fill-blue-500") */
   className?: string
   /** Animate the slice on mount. Default: true */
   animate?: boolean
@@ -290,10 +285,8 @@ export function PieSlice({
     getFill,
   } = usePie()
 
-  // Use prop if provided, otherwise use context value
   const hoverOffset = hoverOffsetProp ?? contextHoverOffset
 
-  // Track if initial mount animation is complete
   const hasAnimated = useRef(false)
   const sliceExpandDelay = index * 0.08
 
@@ -319,14 +312,12 @@ export function PieSlice({
   const isHovered = hoveredIndex === index
   const isFaded = hoveredIndex !== null && hoveredIndex !== index
 
-  // Calculate values for non-animated/static paths
   const offset = getSliceOffset(
     arcData.startAngle,
     arcData.endAngle,
     hoverOffset
   )
 
-  // Generate the static hitbox path (always uses base outer radius)
   const hitboxPath = generateArcPath(
     innerRadius,
     outerRadius,
@@ -336,7 +327,6 @@ export function PieSlice({
     arcData.padAngle
   )
 
-  // Generate the visible path for grow effect
   const grownOuterRadius = isHovered ? outerRadius + hoverOffset : outerRadius
   const grownPath = generateArcPath(
     innerRadius,
@@ -347,7 +337,6 @@ export function PieSlice({
     arcData.padAngle
   )
 
-  // Render animated slice based on effect type
   const renderAnimatedSlice = () => {
     if (hoverEffect === "grow") {
       return (
@@ -371,7 +360,6 @@ export function PieSlice({
       )
     }
 
-    // Default: translate effect (also covers "none" with hoverOffset=0)
     return (
       <AnimatedSliceTranslate
         animationKey={animationKey}
@@ -393,7 +381,6 @@ export function PieSlice({
     )
   }
 
-  // Render static (non-animated) slice
   const renderStaticSlice = () => {
     if (hoverEffect === "grow") {
       return (
@@ -421,7 +408,6 @@ export function PieSlice({
       )
     }
 
-    // Default: translate effect
     const shouldTranslate = hoverEffect !== "none" && isHovered
     const translateX = shouldTranslate ? offset.x : 0
     const translateY = shouldTranslate ? offset.y : 0
@@ -456,7 +442,6 @@ export function PieSlice({
 
   return (
     <g style={{ cursor: "pointer" }}>
-      {/* Invisible hitbox - stays in place, handles hover events */}
       {/* biome-ignore lint/a11y/noStaticElementInteractions: SVG path used as hover hitbox for visualization */}
       <path
         d={hitboxPath}
@@ -465,7 +450,6 @@ export function PieSlice({
         onMouseLeave={() => setHoveredIndex(null)}
       />
 
-      {/* Visible slice - animates based on hover effect, no pointer events */}
       {animate ? renderAnimatedSlice() : renderStaticSlice()}
     </g>
   )

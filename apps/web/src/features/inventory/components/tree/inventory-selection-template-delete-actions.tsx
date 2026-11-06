@@ -5,7 +5,7 @@ import {
 import { Copy02Icon, Delete01Icon } from "@hugeicons/core-free-icons"
 import type { ConfirmConfig } from "@/components/dialogs/confirm-dialog"
 import { HugeiconsIcon } from "@hugeicons/react"
-import { InventoryDeleteConfirmItems } from "@/features/inventory/components/inventory-delete-confirm-items"
+import { InventoryDeleteConfirmItems } from "@/components/inventory/inventory-delete-confirm-items"
 import type { InventoryDeleteItem } from "@/features/inventory/utils/inventory-delete-items"
 
 type InventorySelectionTemplateDeleteActionsProps = {
