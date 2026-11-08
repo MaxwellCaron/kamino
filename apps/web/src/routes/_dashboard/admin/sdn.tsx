@@ -1,7 +1,7 @@
-import { SdnPage } from "@/features/sdn/components/sdn-page"
+import { SdnPage } from "@/components/sdn/sdn-page"
 import { createFileRoute } from "@tanstack/react-router"
-import { pageTitle } from "@/features/shared/utils/page-title"
-import { preloadSdnPage } from "@/features/sdn/api/sdn-route-loaders"
+import { pageTitle } from "@/lib/app-shell/page-title"
+import { preloadSdnPage } from "@/lib/sdn/sdn-route-loaders"
 
 export const Route = createFileRoute("/_dashboard/admin/sdn")({
   staticData: {

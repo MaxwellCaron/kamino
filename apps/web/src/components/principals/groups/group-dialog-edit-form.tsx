@@ -8,9 +8,9 @@ import {
 import {
   descriptionFieldSchema,
   groupNameSchema,
-} from "@/components/principals/groups/group-dialog-utils"
+} from "@/lib/principals/group-dialog-utils"
 import { CountedTextareaField } from "@/components/forms/counted-textarea-field"
-import type { GroupFormApi } from "@/components/principals/groups/group-dialog-utils"
+import type { GroupFormApi } from "@/lib/principals/group-dialog-utils"
 import { Input } from "@workspace/ui/components/input"
 
 type GroupDialogEditFormProps = {

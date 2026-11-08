@@ -6,7 +6,7 @@ import {
 import { ExternalLinkIcon, StarIcon } from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
 import { Link } from "@tanstack/react-router"
-import { hasFavoriteAction } from "@/components/inventory/actions/inventory-action-utils"
+import { hasFavoriteAction } from "@/lib/inventory/actions/inventory-action-utils"
 
 export function GeneralVmMenuItems({
   itemId,

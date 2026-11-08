@@ -5,8 +5,8 @@ import (
 	"errors"
 
 	"github.com/MaxwellCaron/kamino/database"
+	"github.com/MaxwellCaron/kamino/internal/inventory/poolmapping"
 	"github.com/MaxwellCaron/kamino/internal/names"
-	"github.com/MaxwellCaron/kamino/internal/proxmox"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 )
@@ -17,7 +17,7 @@ const (
 	PurposeTemplatesFolderDescription            = "Source templates used when creating pods. Add Proxmox templates here so managers can include them in new pod workspaces."
 	PurposePodVirtualMachinesFolderDescription   = "Working VMs for this pod. Build and test the pod here, then publish it when the workload is ready for others to clone."
 	PurposePublishedPodTemplateFolderDescription = "Prepared template copies for this published pod. Kamino maintains these clones for catalog launches and reclones."
-	PurposeProxmoxRootFolderDescription          = proxmox.RootFolderDescription
+	PurposeProxmoxRootFolderDescription          = poolmapping.RootFolderDescription
 )
 
 func (s *Service) DesiredPoolForFolder(ctx context.Context, folderID uuid.UUID) (string, *string, error) {
@@ -38,7 +38,7 @@ func (s *Service) DesiredPoolForFolder(ctx context.Context, folderID uuid.UUID) 
 	if err != nil {
 		return "", nil, err
 	}
-	return proxmox.DesiredPoolForFolder(rows, folderID)
+	return poolmapping.DesiredPoolForFolder(rows, folderID)
 }
 
 func (s *Service) CreateFolder(ctx context.Context, parentID uuid.UUID, name string) (uuid.UUID, error) {

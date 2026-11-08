@@ -34,20 +34,20 @@ import {
   formatRequestStatus,
   getRequestIcon,
   getRequestStatusClassName,
-} from "@/features/requests/utils/request-presenters"
-import type { ApiRequestDetail } from "@/features/requests/types/request-types"
-import type { ApiTreeNode } from "@/features/inventory/types/inventory-types"
-import { AppActionButton } from "@/components/actions/app-action-button"
+} from "@/lib/requests/request-presenters"
+import type { ApiRequestDetail } from "@/lib/requests/request-types"
+import type { ApiTreeNode } from "@/lib/inventory/inventory-types"
+import { AppActionButton } from "@/components/app-action-button"
 import { AppEmptyState } from "@/components/feedback/app-empty-state"
 import { Badge } from "@workspace/ui/components/badge"
 import { FacehashIcon } from "@workspace/ui/components/facehash"
 import { HugeiconsIcon } from "@hugeicons/react"
 import type { IconSvgElement } from "@hugeicons/react"
 import { Link } from "@tanstack/react-router"
-import { PreloadOverlay } from "@/components/loading-overlay"
+import { PreloadOverlay } from "@/components/feedback/loading-overlay"
 import { RelativeTimeCard } from "@workspace/ui/components/relative-time-card"
-import { findTreePath } from "@/features/inventory/utils/inventory-tree"
-import { formatVmReference } from "@/features/shared/utils/format"
+import { findTreePath } from "@/lib/inventory/inventory-tree"
+import { formatVmReference } from "@/lib/vms/vm-reference"
 
 type RequestDetailDialogProps = {
   canReview: boolean

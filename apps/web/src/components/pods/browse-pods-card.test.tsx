@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest"
 import { render, screen } from "@testing-library/react"
 import { BrowsePodsCard } from "@/components/pods/browse-pods-card"
-import type { PodCatalogSummary } from "@/features/pods/types/pod-types"
+import type { PodCatalogSummary } from "@/lib/pods/pod-types"
 
 vi.mock("@tanstack/react-router", () => ({
   Link: ({

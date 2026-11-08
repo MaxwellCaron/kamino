@@ -1,0 +1,348 @@
+import {
+  Alert,
+  AlertDescription,
+  AlertTitle,
+} from "@workspace/ui/components/alert"
+import {
+  Alert01Icon,
+  CheckmarkCircle01Icon,
+  ReloadIcon,
+} from "@hugeicons/core-free-icons"
+import {
+  Card,
+  CardAction,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@workspace/ui/components/card"
+import {
+  ManagementPermissionKeys,
+  canAccessAdmin,
+  hasManagementPermission,
+} from "@/lib/auth/management-permissions"
+import { Navigate, getRouteApi } from "@tanstack/react-router"
+import type {
+  SyncChange,
+  SyncSelection,
+} from "@/lib/proxmox-sync-api"
+import {
+  applyProxmoxSync,
+  proxmoxSyncPreviewQueryOptions,
+} from "@/lib/proxmox-sync-api"
+import { useMemo, useState } from "react"
+import { useQuery, useQueryClient } from "@tanstack/react-query"
+import { ActionBarItem } from "@workspace/ui/components/action-bar"
+import { AppEmptyState } from "@/components/feedback/app-empty-state"
+import { Badge } from "@workspace/ui/components/badge"
+import { Button } from "@workspace/ui/components/button"
+import type { ConfirmConfig } from "@/lib/confirm-dialog"
+import { ConfirmDialog } from "@/components/dialogs/confirm-dialog"
+import { DataTable } from "@/components/data-table/data-table"
+import { HugeiconsIcon } from "@hugeicons/react"
+import { InlineErrorAlert } from "@/components/feedback/inline-error-alert"
+import { getSyncDiffColumns } from "@/components/proxmox-sync/sync-diff-columns"
+import { inventoryTreeQueryOptions } from "@/lib/inventory/inventory-api"
+import { showUnitMutationToast } from "@/components/feedback/mutation-progress-toast"
+
+const syncRouteApi = getRouteApi("/_dashboard/admin/proxmox-sync")
+
+function allChanges(
+  adds: Array<SyncChange>,
+  removes: Array<SyncChange>,
+  updates: Array<SyncChange>
+): Array<SyncChange> {
+  return [...adds, ...removes, ...updates]
+}
+
+function buildSyncSelection(selected: Array<SyncChange>): SyncSelection {
+  const selection: SyncSelection = {
+    add_ids: [],
+    remove_ids: [],
+    update_ids: [],
+  }
+
+  for (const row of selected) {
+    if (row.kind === "add") {
+      selection.add_ids.push(row.id)
+    } else if (row.kind === "remove") {
+      selection.remove_ids.push(row.id)
+    } else {
+      selection.update_ids.push(row.id)
+    }
+  }
+
+  return selection
+}
+
+function SyncSummaryBadges({
+  addCount,
+  blockedCount,
+  removeCount,
+  updateCount,
+}: {
+  addCount: number
+  blockedCount: number
+  removeCount: number
+  updateCount: number
+}) {
+  return (
+    <>
+      {addCount > 0 ? (
+        <Badge className="bg-emerald-600/10 text-emerald-600 dark:bg-emerald-400/10 dark:text-emerald-400">
+          +{addCount}
+        </Badge>
+      ) : null}
+      {removeCount > 0 ? (
+        <Badge className="bg-destructive/10 text-destructive">
+          -{removeCount}
+        </Badge>
+      ) : null}
+      {updateCount > 0 ? (
+        <Badge className="bg-amber-600/10 text-amber-600 dark:bg-amber-400/10 dark:text-amber-400">
+          ~{updateCount}
+        </Badge>
+      ) : null}
+      {blockedCount > 0 ? (
+        <Badge variant="outline" className="text-muted-foreground tabular-nums">
+          {blockedCount} blocked
+        </Badge>
+      ) : null}
+    </>
+  )
+}
+
+function SyncTableContent({
+  applyChanges,
+  columns,
+  error,
+  isEmpty,
+  isLoading,
+  onOpenConfirm,
+  proxmoxVmCount,
+  rows,
+}: {
+  applyChanges: (changes: Array<SyncChange>, onAllSuccess?: () => void) => void
+  columns: ReturnType<typeof getSyncDiffColumns>
+  error: Error | null
+  isEmpty: boolean
+  isLoading: boolean
+  onOpenConfirm: (config: ConfirmConfig) => void
+  proxmoxVmCount: number
+  rows: Array<SyncChange>
+}) {
+  if (error) {
+    return (
+      <div className="mx-6 py-6">
+        <InlineErrorAlert
+          error={error}
+          fallback="Failed to load sync preview."
+          title="Sync Error"
+        />
+      </div>
+    )
+  }
+
+  if (isEmpty) {
+    return (
+      <div className="mx-6">
+        <AppEmptyState
+          className="min-h-[80vh] border border-dashed"
+          icon={CheckmarkCircle01Icon}
+          iconClassName="size-6 text-emerald-600 dark:text-emerald-400"
+          title="Synced"
+          description={`Proxmox has ${proxmoxVmCount} VMs, all matching inventory.`}
+        />
+      </div>
+    )
+  }
+
+  return (
+    <DataTable
+      columns={columns}
+      data={rows}
+      features={{ loading: isLoading }}
+      error={error}
+      searchLabel="Search sync changes"
+      getRowId={(change) => change.id}
+      selectionActions={({ selectedRows, clearSelection }) => {
+        const selectableRows = selectedRows.filter(
+          (row) => !(row.kind === "remove" && row.removable === false)
+        )
+        if (selectableRows.length === 0) return null
+
+        return (
+          <ActionBarItem
+            onSelect={(event) => event.preventDefault()}
+            onClick={() => {
+              onOpenConfirm({
+                title: "Apply Sync Changes",
+                icon: ReloadIcon,
+                description: `Apply ${selectableRows.length} selected change${selectableRows.length === 1 ? "" : "s"} to the inventory.`,
+                actionLabel: "Apply",
+                variant: "default",
+                onConfirm: () => applyChanges(selectableRows, clearSelection),
+              })
+            }}
+          >
+            <HugeiconsIcon icon={ReloadIcon} data-icon="inline-start" />
+            Sync {selectableRows.length} change
+            {selectableRows.length === 1 ? "" : "s"}
+          </ActionBarItem>
+        )
+      }}
+    />
+  )
+}
+
+export function ProxmoxSyncPage() {
+  const { user } = syncRouteApi.useRouteContext()
+  const canAdminister = hasManagementPermission(
+    user.management_permissions,
+    ManagementPermissionKeys.administrator
+  )
+  const {
+    data: diff,
+    isLoading,
+    error,
+  } = useQuery({
+    ...proxmoxSyncPreviewQueryOptions,
+    enabled: canAdminister,
+  })
+  const queryClient = useQueryClient()
+  const [confirm, setConfirm] = useState<ConfirmConfig | null>(null)
+
+  const applyChangesWithToast = (
+    changes: Array<SyncChange>,
+    onAllSuccess?: () => void
+  ) => {
+    const kindRank = { add: 0, update: 1, remove: 2 } as const
+    const ordered = changes.toSorted(
+      (a, b) => kindRank[a.kind] - kindRank[b.kind]
+    )
+    showUnitMutationToast({
+      title: `Applying ${changes.length} sync change${changes.length === 1 ? "" : "s"}`,
+      concurrency: 1,
+      units: ordered.map((row) => ({
+        items: [{ id: row.id, name: row.name }],
+        run: async () => {
+          const response = await applyProxmoxSync(buildSyncSelection([row]))
+          const result = response.results.find((entry) => entry.id === row.id)
+          if (result?.status === "success") return
+          return {
+            failed: [{ id: row.id, error: result?.error ?? "skipped" }],
+          }
+        },
+      })),
+      onSettled: async (result) => {
+        await Promise.all([
+          queryClient.invalidateQueries({
+            queryKey: proxmoxSyncPreviewQueryOptions.queryKey,
+          }),
+          queryClient.invalidateQueries({
+            queryKey: inventoryTreeQueryOptions.queryKey,
+          }),
+        ])
+        if (result.failed.length === 0) onAllSuccess?.()
+      },
+    })
+  }
+
+  const columns = useMemo(() => getSyncDiffColumns(), [])
+
+  const rows = useMemo(() => {
+    if (!diff) return []
+    return allChanges(diff.adds, diff.removes, diff.updates)
+  }, [diff])
+
+  if (!canAccessAdmin(user.management_permissions)) {
+    return <Navigate to="/" />
+  }
+
+  const adds: Array<SyncChange> = diff ? diff.adds : []
+  const removes: Array<SyncChange> = diff ? diff.removes : []
+  const updates: Array<SyncChange> = diff ? diff.updates : []
+  const blocked = removes.filter((r) => r.removable === false).length
+  const syncableChanges = rows.filter(
+    (r) => !(r.kind === "remove" && r.removable === false)
+  )
+  const isEmpty =
+    adds.length === 0 && removes.length === 0 && updates.length === 0
+
+  return (
+    <div className="@container/main relative flex flex-1 flex-col gap-2">
+      {!isLoading && (
+        <div className="flex flex-col gap-4 px-4 py-4 md:gap-6 md:py-6 lg:px-6">
+          {diff?.warning && (
+            <Alert variant="destructive">
+              <HugeiconsIcon icon={Alert01Icon} className="size-4" />
+              <AlertTitle>Proxmox sync warning</AlertTitle>
+              <AlertDescription>{diff.warning}</AlertDescription>
+            </Alert>
+          )}
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex flex-wrap items-center gap-2">
+                <HugeiconsIcon
+                  icon={ReloadIcon}
+                  className="size-7 text-muted-foreground"
+                />
+                <h1 className="scroll-m-20 pr-2 text-center text-4xl font-extrabold tracking-tight text-balance">
+                  Proxmox Sync
+                </h1>
+                <SyncSummaryBadges
+                  addCount={adds.length}
+                  blockedCount={blocked}
+                  removeCount={removes.length}
+                  updateCount={updates.length}
+                />
+              </CardTitle>
+              <CardDescription>
+                Review drift between Proxmox and inventory. Select changes and
+                apply.
+              </CardDescription>
+              <CardAction>
+                <Button
+                  onClick={() =>
+                    setConfirm({
+                      title: "Sync All Changes",
+                      icon: ReloadIcon,
+                      description:
+                        blocked > 0
+                          ? `Apply all ${syncableChanges.length} pending change${syncableChanges.length === 1 ? "" : "s"} to the inventory. ${blocked} blocked removal${blocked === 1 ? "" : "s"} will be skipped.`
+                          : `Apply all ${syncableChanges.length} pending change${syncableChanges.length === 1 ? "" : "s"} to the inventory.`,
+                      actionLabel: "Sync All",
+                      variant: "default",
+                      onConfirm: () => applyChangesWithToast(syncableChanges),
+                    })
+                  }
+                  disabled={!!error || syncableChanges.length === 0}
+                >
+                  <HugeiconsIcon icon={ReloadIcon} data-icon="inline-start" />
+                  Sync All
+                </Button>
+              </CardAction>
+            </CardHeader>
+            <CardContent className="px-0">
+              <SyncTableContent
+                applyChanges={applyChangesWithToast}
+                columns={columns}
+                error={error}
+                isEmpty={isEmpty}
+                isLoading={isLoading}
+                onOpenConfirm={setConfirm}
+                proxmoxVmCount={diff?.proxmox_vm_count ?? 0}
+                rows={rows}
+              />
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {confirm && (
+        <ConfirmDialog config={confirm} onClose={() => setConfirm(null)} />
+      )}
+    </div>
+  )
+}

@@ -5,18 +5,18 @@ import (
 	"errors"
 
 	"github.com/MaxwellCaron/kamino/database"
-	"github.com/MaxwellCaron/kamino/internal/proxmox"
+	"github.com/MaxwellCaron/kamino/internal/inventory/poolmapping"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 )
 
 // DesiredVMPoolPlacements returns the desired Proxmox pool for every VM nested under any of the given item IDs.
-func (s *Service) DesiredVMPoolPlacements(ctx context.Context, itemIDs []uuid.UUID) ([]proxmox.VMPoolPlacement, error) {
+func (s *Service) DesiredVMPoolPlacements(ctx context.Context, itemIDs []uuid.UUID) ([]poolmapping.VMPoolPlacement, error) {
 	rows, err := database.New(s.db).GetAllInventoryItems(ctx)
 	if err != nil {
 		return nil, err
 	}
-	return proxmox.DesiredVMPoolPlacements(rows, itemIDs)
+	return poolmapping.DesiredVMPoolPlacements(rows, itemIDs)
 }
 
 func (s *Service) MoveInventoryItem(ctx context.Context, itemID, parentID uuid.UUID) error {

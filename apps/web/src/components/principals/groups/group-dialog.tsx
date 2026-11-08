@@ -8,34 +8,31 @@ import type {
   ApiBulkCreateResponse,
   ApiPrincipal,
   CreateGroupInput,
-} from "@/features/principals/types/principals-types"
+} from "@/lib/principals/principals-types"
 import {
   AppDialogPrimaryButton,
   AppDialogScrollBody,
-  nestedDialogAnimationClassName,
 } from "@/components/dialogs/app-dialog"
 import {
   buildCreateGroups,
   getDefaultGroupFormValues,
   groupSchema,
   normalizeDescription,
-} from "@/components/principals/groups/group-dialog-utils"
-import {
-  createGroup,
-  updateGroup,
-} from "@/features/principals/api/principals-api"
+} from "@/lib/principals/group-dialog-utils"
+import { createGroup, updateGroup } from "@/lib/principals/principals-api"
 import {
   showSingleMutationToast,
   showUnitMutationToast,
 } from "@/components/feedback/mutation-progress-toast"
 import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { BulkCreateResultsSummary } from "@/components/principals/create-results-summary"
-import type { CreateMode } from "@/components/principals/groups/group-dialog-utils"
+import type { CreateMode } from "@/lib/principals/group-dialog-utils"
 import { DialogFooter } from "@workspace/ui/components/dialog"
 import { FieldError } from "@workspace/ui/components/field"
 import { GroupDialogCreateForm } from "@/components/principals/groups/group-dialog-create-form"
 import { GroupDialogEditForm } from "@/components/principals/groups/group-dialog-edit-form"
 import { PrincipalDialogShell } from "@/components/principals/principal-dialog-shell"
+import { nestedDialogAnimationClassName } from "@/lib/motion/animate"
 import { useForm } from "@tanstack/react-form"
 
 export function GroupDialog({

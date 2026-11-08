@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/MaxwellCaron/kamino/internal/handlers/httpx"
 	"github.com/gin-gonic/gin"
 )
 
@@ -27,7 +28,7 @@ func (h *HealthHandler) Readiness(c *gin.Context) {
 	defer cancel()
 
 	if err := h.DB.Ping(ctx); err != nil {
-		logRequestError(c, "readiness", err)
+		httpx.LogRequestError(c, "readiness", err)
 		c.JSON(http.StatusServiceUnavailable, gin.H{"status": "not_ready"})
 		return
 	}

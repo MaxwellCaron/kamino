@@ -1,10 +1,10 @@
 import "@/configure-zod"
-import type { AppBreadcrumb } from "@/components/app-shell/site-breadcrumb-data"
+import type { AppBreadcrumb } from "@/lib/app-shell/site-breadcrumb-data"
 import { QueryClient } from "@tanstack/react-query"
-import { RoutePending } from "@/components/loading-overlay"
+import { RoutePending } from "@/components/feedback/loading-overlay"
 import { createRouter as createTanStackRouter } from "@tanstack/react-router"
 import { routeTree } from "./routeTree.gen"
-import { shouldRetryApiQuery } from "@/features/shared/api/api-error"
+import { shouldRetryApiQuery } from "@/lib/api/api-error"
 
 export function createQueryClient() {
   return new QueryClient({

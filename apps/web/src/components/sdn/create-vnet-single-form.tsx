@@ -1,7 +1,7 @@
 import type {
   AppFieldComponent,
   AppSubscribeComponent,
-} from "@/components/sdn/vnet-form-fields"
+} from "@/lib/forms/form-components"
 import {
   FieldDescription,
   FieldGroup,
@@ -17,11 +17,8 @@ import {
   VNetZoneField,
   VNetZonesUnavailableState,
 } from "@/components/sdn/vnet-form-fields"
-import {
-  getZoneType,
-  isVlanAwareDisabled,
-} from "@/components/sdn/vnet-dialog-utils"
-import type { ApiSDNZone } from "@/features/sdn/types/sdn-types"
+import { getZoneType, isVlanAwareDisabled } from "@/lib/sdn/vnet-dialog-utils"
+import type { ApiSDNZone } from "@/lib/sdn/sdn-types"
 
 export function CreateVNetSingleForm({
   FieldComponent,

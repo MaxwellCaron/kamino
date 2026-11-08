@@ -8,7 +8,7 @@ import type {
   ApiSDNZone,
   ApiVNet,
   CreateVNetInput,
-} from "@/features/sdn/types/sdn-types"
+} from "@/lib/sdn/sdn-types"
 import {
   AppDialog,
   AppDialogHeaderTabs,
@@ -19,7 +19,7 @@ import { Tabs, TabsContent, TabsTrigger } from "@workspace/ui/components/tabs"
 import type {
   VNetCreateMode,
   VNetFormValues,
-} from "@/components/sdn/vnet-dialog-utils"
+} from "@/lib/sdn/vnet-dialog-utils"
 import {
   applySDN,
   createVNet,
@@ -27,13 +27,13 @@ import {
   createVNetsInChunks,
   sdnZonesQueryOptions,
   updateVNet,
-} from "@/features/sdn/api/sdn-api"
+} from "@/lib/sdn/sdn-api"
 import {
   buildCreateVNets,
   getDefaultVNetFormValues,
   getTagRule,
   isVlanAwareDisabled,
-} from "@/components/sdn/vnet-dialog-utils"
+} from "@/lib/sdn/vnet-dialog-utils"
 import {
   showSingleMutationToast,
   showUnitMutationToast,
@@ -47,8 +47,8 @@ import { EditVNetForm } from "@/components/sdn/edit-vnet-form"
 import { FieldError } from "@workspace/ui/components/field"
 import { HugeiconsIcon } from "@hugeicons/react"
 import { InlineErrorAlert } from "@/components/feedback/inline-error-alert"
-import type { MutationItemUpdate } from "@/components/feedback/mutation-progress-toast"
-import { PreloadOverlay } from "@/components/loading-overlay"
+import type { MutationItemUpdate } from "@/lib/mutation-progress-toast"
+import { PreloadOverlay } from "@/components/feedback/loading-overlay"
 import { useForm } from "@tanstack/react-form"
 
 const SDN_APPLY_ITEM_ID = "sdn-apply"

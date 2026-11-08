@@ -5,6 +5,16 @@ import (
 
 	"github.com/MaxwellCaron/kamino/internal/auth"
 	"github.com/MaxwellCaron/kamino/internal/handlers"
+	audithttp "github.com/MaxwellCaron/kamino/internal/handlers/audit"
+	authhttp "github.com/MaxwellCaron/kamino/internal/handlers/auth"
+	inventoryhttp "github.com/MaxwellCaron/kamino/internal/handlers/inventory"
+	podshttp "github.com/MaxwellCaron/kamino/internal/handlers/pods"
+	principalshttp "github.com/MaxwellCaron/kamino/internal/handlers/principals"
+	proxmoxadminhttp "github.com/MaxwellCaron/kamino/internal/handlers/proxmoxadmin"
+	requestshttp "github.com/MaxwellCaron/kamino/internal/handlers/requests"
+	sdnhttp "github.com/MaxwellCaron/kamino/internal/handlers/sdn"
+	streamshttp "github.com/MaxwellCaron/kamino/internal/handlers/streams"
+	vmshttp "github.com/MaxwellCaron/kamino/internal/handlers/vms"
 	"github.com/MaxwellCaron/kamino/internal/middleware"
 	"github.com/gin-gonic/gin"
 )
@@ -12,22 +22,23 @@ import (
 func RegisterRoutes(
 	r *gin.Engine,
 	health *handlers.HealthHandler,
-	authHandler *handlers.AuthHandler,
+	authHandler *authhttp.AuthHandler,
 	authService *auth.Service,
 	sessionManager *auth.SessionManager,
-	inventory *handlers.InventoryHandler,
-	vnc *handlers.VNCHandler,
-	console *handlers.ConsoleHandler,
-	vm *handlers.VMHandler,
-	vmCreate *handlers.VMCreateHandler,
-	pods *handlers.PodsHandler,
-	sdn *handlers.SDNHandler,
-	principals *handlers.PrincipalsHandler,
-	authz *handlers.AuthorizationHandler,
-	requests *handlers.RequestsHandler,
-	events *handlers.EventsHandler,
-	proxmoxSync *handlers.ProxmoxSyncHandler,
-	auditHandler *handlers.AuditHandler,
+	inventory *inventoryhttp.InventoryHandler,
+	vnc *vmshttp.VNCHandler,
+	console *vmshttp.ConsoleHandler,
+	vm *vmshttp.VMHandler,
+	vmCreate *vmshttp.VMCreateHandler,
+	pods *podshttp.PodsHandler,
+	sdn *sdnhttp.SDNHandler,
+	principals *principalshttp.PrincipalsHandler,
+	authz *principalshttp.AuthorizationHandler,
+	requests *requestshttp.RequestsHandler,
+	events *streamshttp.EventsHandler,
+	proxmoxSync *proxmoxadminhttp.ProxmoxSyncHandler,
+	metrics *proxmoxadminhttp.MetricsHandler,
+	auditHandler *audithttp.AuditHandler,
 ) {
 	v1 := r.Group("/api/v1")
 	protected := v1
@@ -106,7 +117,7 @@ func RegisterRoutes(
 	protected.GET("/proxmox/nodes/:node/bridges", vmCreate.GetBridges)
 	protected.GET("/proxmox/vmid/:vmid/validate", vmCreate.ValidateVMID)
 	protected.GET("/proxmox/nextid", vmCreate.GetNextVMID)
-	protected.GET("/proxmox/cluster/usage-history", vmCreate.GetClusterUsageHistory)
+	protected.GET("/proxmox/cluster/usage-history", metrics.GetClusterUsageHistory)
 
 	if pods != nil {
 		protected.GET("/pods/create/options", pods.GetCreateOptions)

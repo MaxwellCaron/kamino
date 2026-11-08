@@ -4,8 +4,6 @@ import { QueryClientProvider } from "@tanstack/react-query"
 import { SiteCommandProvider } from "./site-command"
 import { TooltipProvider } from "@workspace/ui/components/tooltip"
 
-export const themeStorageKey = "vite-ui-theme"
-export const defaultTheme = "dark"
 const rootRouteApi = getRouteApi("__root__")
 
 export function RootComponent() {

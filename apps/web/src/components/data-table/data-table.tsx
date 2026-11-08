@@ -9,13 +9,11 @@ import type {
   AppTableFeatures,
   DataTableFeatures,
   DataTableSelectionActionsContext,
-} from "./data-table-types"
+} from "../../lib/data-table-types"
 import { Cancel01Icon, Search01Icon } from "@hugeicons/core-free-icons"
 import type {
   ColumnDef,
   ExpandedState,
-  OnChangeFn,
-  PaginationState,
   ReactTable,
   RowData,
   RowSelectionState,
@@ -46,9 +44,13 @@ import {
   TableHeader,
   TableRow,
 } from "@workspace/ui/components/table"
-import { appTableFeatures, defaultDataTableFeatures } from "./data-table-types"
+import {
+  appTableFeatures,
+  defaultDataTableFeatures,
+} from "../../lib/data-table-types"
 import { flexRender, useTable } from "@tanstack/react-table"
 import { DataTablePagination } from "./data-table-pagination"
+import type { DataTableServerPagination } from "@/lib/data-table-types"
 import { DataTableStateRow } from "./data-table-state-row"
 import { HugeiconsIcon } from "@hugeicons/react"
 import { Skeleton } from "@workspace/ui/components/skeleton"
@@ -56,22 +58,6 @@ import { Skeleton } from "@workspace/ui/components/skeleton"
 const LOADING_ROW_IDS = ["loading-row-1", "loading-row-2", "loading-row-3"]
 
 const ROWS_PER_PAGE_OPTIONS = [10, 20, 25, 30, 40, 50]
-
-/**
- * Server-pagination mode for DataTable. When provided, the table no longer
- * paginates or filters rows locally: `data` is treated as the current API
- * page only, `pagination`/`onPaginationChange` are controlled by the
- * consumer, and `search`/`onSearchChange` drive a server-side search query
- * instead of TanStack's local global filter.
- */
-export type DataTableServerPagination = {
-  mode: "server"
-  pagination: PaginationState
-  onPaginationChange: OnChangeFn<PaginationState>
-  rowCount: number
-  search: string
-  onSearchChange: (value: string) => void
-}
 
 interface DataTableProps<TData extends RowData, TValue> {
   columns: Array<ColumnDef<AppTableFeatures, TData, TValue>>
@@ -240,7 +226,10 @@ function DataTableContent<TData extends RowData, TValue>({
                       key={cell.id}
                       className={cell.column.columnDef.meta?.className}
                     >
-                      {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                      {flexRender(
+                        cell.column.columnDef.cell,
+                        cell.getContext()
+                      )}
                     </TableCell>
                   ))}
                 </TableRow>

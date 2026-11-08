@@ -1,0 +1,183 @@
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@workspace/ui/components/card"
+import {
+  ChevronDownIcon,
+  ComputerIcon,
+  FolderClosedIcon,
+  Globe02Icon,
+} from "@hugeicons/core-free-icons"
+import {
+  Item,
+  ItemContent,
+  ItemDescription,
+  ItemGroup,
+  ItemMedia,
+  ItemTitle,
+} from "@workspace/ui/components/item"
+import {
+  getPodNetworkingModeLabel,
+  getPodSegmentLabel,
+} from "@/lib/pods/pod-networking-mode"
+import type { CreatePodFormApi } from "@/hooks/pods/use-create-pod-form"
+import { FolderIcon } from "@/components/inventory/folder-icon"
+import { HugeiconsIcon } from "@hugeicons/react"
+import type { PodCloneTarget } from "@/lib/pods/clone-targets-api"
+import { VmIcon } from "@/components/vms/vm-icon"
+import { cn } from "@workspace/ui/lib/utils"
+import { getReviewVms } from "@/lib/pods/create/create-pod-form"
+
+const treePreviewRowClass =
+  "bg-transparent flex min-h-8 items-center gap-1 rounded-3xl bg-sidebar px-2 py-1.5 text-sm transition-colors [&_svg]:pointer-events-none [&_svg]:shrink-0"
+const podVirtualMachinesFolderName = "a0-Virtual-Machines"
+
+type CreatePodReviewSectionProps = {
+  form: CreatePodFormApi
+  cloneTargets: Array<PodCloneTarget>
+}
+
+type ReviewTreePreviewProps = {
+  podName: string
+  vms: ReturnType<typeof getReviewVms>
+}
+
+function ReviewTreePreview({ podName, vms }: ReviewTreePreviewProps) {
+  return (
+    <div>
+      <div className="flex flex-col gap-0.5">
+        <div className={treePreviewRowClass}>
+          <HugeiconsIcon
+            icon={ChevronDownIcon}
+            className="size-4 text-muted-foreground"
+          />
+          <FolderIcon open />
+          <span className="ml-1 flex-1 truncate">{podName || "New pod"}</span>
+        </div>
+
+        <div
+          className={cn(
+            treePreviewRowClass,
+            "bg-transparent ps-7 text-muted-foreground"
+          )}
+        >
+          <HugeiconsIcon
+            icon={ChevronDownIcon}
+            className="size-4 text-muted-foreground"
+          />
+          <FolderIcon open />
+          <span className="ml-1 flex-1 truncate text-foreground">
+            {podVirtualMachinesFolderName}
+          </span>
+        </div>
+
+        {vms.map((vm) => (
+          <div
+            key={vm.id}
+            className={cn(
+              treePreviewRowClass,
+              "bg-transparent ps-16 text-muted-foreground"
+            )}
+          >
+            <VmIcon status="running" />
+            <span className="ml-1 flex-1 truncate text-foreground">
+              {vm.name}
+              {vm.segmentKey ? (
+                <span className="text-muted-foreground">
+                  {" "}
+                  ({getPodSegmentLabel(vm.segmentKey)})
+                </span>
+              ) : null}
+            </span>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+export function CreatePodReviewSection({
+  form,
+  cloneTargets,
+}: CreatePodReviewSectionProps) {
+  return (
+    <form.Subscribe selector={(state) => state.values}>
+      {(values) => {
+        const vms = getReviewVms(values)
+        const cloneTarget = cloneTargets.find(
+          (target) => target.key === values.cloneTargetKey
+        )
+        const networkingDescription =
+          values.networkingMode === "none"
+            ? getPodNetworkingModeLabel(values.networkingMode)
+            : `${getPodNetworkingModeLabel(values.networkingMode)} · ${cloneTarget?.label ?? "No target selected"}`
+
+        return (
+          <div className="grid gap-4 md:grid-cols-2">
+            <ItemGroup className="flex-1">
+              <Item
+                variant="muted"
+                className="flex-1 shadow ring-1 ring-border dark:ring-0"
+              >
+                <ItemMedia
+                  variant="icon"
+                  className="translate-y-0! self-center!"
+                >
+                  <HugeiconsIcon icon={FolderClosedIcon} />
+                </ItemMedia>
+                <ItemContent>
+                  <ItemTitle>Name</ItemTitle>
+                  <ItemDescription>{values.name || "New pod"}</ItemDescription>
+                </ItemContent>
+              </Item>
+              <Item
+                variant="muted"
+                className="flex-1 shadow ring-1 ring-border dark:ring-0"
+              >
+                <ItemMedia
+                  variant="icon"
+                  className="translate-y-0! self-center!"
+                >
+                  <HugeiconsIcon icon={Globe02Icon} />
+                </ItemMedia>
+                <ItemContent>
+                  <ItemTitle>Networking</ItemTitle>
+                  <ItemDescription>{networkingDescription}</ItemDescription>
+                </ItemContent>
+              </Item>
+              <Item
+                variant="muted"
+                className="flex-1 shadow ring-1 ring-border dark:ring-0"
+              >
+                <ItemMedia
+                  variant="icon"
+                  className="translate-y-0! self-center!"
+                >
+                  <HugeiconsIcon icon={ComputerIcon} />
+                </ItemMedia>
+                <ItemContent>
+                  <ItemTitle>Virtual Machines</ItemTitle>
+                  <ItemDescription>{vms.length}</ItemDescription>
+                </ItemContent>
+              </Item>
+            </ItemGroup>
+            <Card className="w-full bg-muted/50">
+              <CardHeader>
+                <CardTitle>Tree Preview</CardTitle>
+                <CardDescription>
+                  A visual representation of your pod&apos;s tree structure.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <ReviewTreePreview podName={values.name} vms={vms} />
+              </CardContent>
+            </Card>
+          </div>
+        )
+      }}
+    </form.Subscribe>
+  )
+}

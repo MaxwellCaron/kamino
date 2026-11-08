@@ -10,20 +10,20 @@ import type {
   RenameFolderDialogConfig,
   RenameVmDialogConfig,
   SnapshotDialogConfig,
-} from "./inventory-dialogs-context"
+} from "../../lib/inventory/inventory-dialogs-context"
 import { useMemo, useReducer } from "react"
-import { CloneDialog } from "@/features/vms/components/clone-dialog"
-import type { ConfirmConfig } from "@/components/dialogs/confirm-dialog"
+import { CloneDialog } from "@/components/vms/clone-dialog"
+import type { ConfirmConfig } from "@/lib/confirm-dialog"
 import { ConfirmDialog } from "@/components/dialogs/confirm-dialog"
-import { CreateVmDialog } from "@/features/vms/components/create/create-vm-dialog"
-import { FolderLimitDialog } from "@/features/inventory/components/folder-limit-dialog"
-import { InventoryDialogsContext } from "./inventory-dialogs-context"
-import { InventoryPermissionsDialog } from "@/features/inventory/components/permissions/permissions-dialog"
-import { MigrateVmDialog } from "@/features/vms/components/migrate-vm-dialog"
+import { CreateVmDialog } from "@/components/vms/create/create-vm-dialog"
+import { FolderLimitDialog } from "@/components/inventory/folder-limit-dialog"
+import { InventoryDialogsContext } from "../../lib/inventory/inventory-dialogs-context"
+import { InventoryPermissionsDialog } from "@/components/inventory/permissions/permissions-dialog"
+import { MigrateVmDialog } from "@/components/vms/migrate-vm-dialog"
 import type { ReactNode } from "react"
-import { RenameDialog } from "@/features/inventory/components/rename-dialog"
-import { SnapshotDialog } from "@/features/vms/components/snapshot-dialog"
-import { VmHardwareDialog } from "@/features/vms/components/hardware/hardware-dialog"
+import { RenameDialog } from "@/components/inventory/rename-dialog"
+import { SnapshotDialog } from "@/components/vms/snapshot-dialog"
+import { VmHardwareDialog } from "@/components/vms/hardware/hardware-dialog"
 
 type InventoryDialogsState = {
   confirm: ConfirmConfig | null

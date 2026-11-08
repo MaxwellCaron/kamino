@@ -6,12 +6,12 @@ import {
 import {
   AppDialogContent,
   AppDialogScrollBody,
-  nestedDialogAnimationClassName,
 } from "@/components/dialogs/app-dialog"
 import { AlertCircleIcon } from "@hugeicons/core-free-icons"
-import type { ApiBulkCreateResponse } from "@/features/principals/types/principals-types"
+import type { ApiBulkCreateResponse } from "@/lib/principals/principals-types"
 import { Dialog } from "@workspace/ui/components/dialog"
 import { HugeiconsIcon } from "@hugeicons/react"
+import { nestedDialogAnimationClassName } from "@/lib/motion/animate"
 
 export function BulkCreateResultsSummary({
   entityLabel,

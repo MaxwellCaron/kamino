@@ -4,7 +4,7 @@ import {
   ToggleGroupItem,
 } from "@workspace/ui/components/toggle-group"
 import { HugeiconsIcon } from "@hugeicons/react"
-import type { PermissionState } from "@/features/inventory/types/inventory-types"
+import type { PermissionState } from "@/lib/inventory/inventory-types"
 
 type PermissionStateControlProps = {
   onChange: (value: PermissionState) => void

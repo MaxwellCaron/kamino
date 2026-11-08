@@ -1,8 +1,8 @@
-import { PodSlugPage } from "@/features/pods/components/pod-slug-page"
-import { clonedPodQueryOptions } from "@/features/pods/api/clone-pod-api"
+import { PodSlugPage } from "@/components/pods/pod-slug-page"
+import { clonedPodQueryOptions } from "@/lib/pods/clone-pod-api"
 import { createFileRoute } from "@tanstack/react-router"
-import { pageTitle } from "@/features/shared/utils/page-title"
-import { podCatalogEntryQueryOptions } from "@/features/pods/api/publish-pod-api"
+import { pageTitle } from "@/lib/app-shell/page-title"
+import { podCatalogEntryQueryOptions } from "@/lib/pods/publish-pod-api"
 
 export const Route = createFileRoute("/_pods/pods/$podSlug")({
   loader: async ({ context, params }) => {

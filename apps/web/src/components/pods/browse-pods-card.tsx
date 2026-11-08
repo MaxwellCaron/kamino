@@ -11,7 +11,7 @@ import {
   useCutoutContentStaggerVariants,
 } from "@workspace/ui/components/cutout-card"
 import { Link } from "@tanstack/react-router"
-import type { PodCatalogSummary } from "@/features/pods/types/pod-types"
+import type { PodCatalogSummary } from "@/lib/pods/pod-types"
 import { PodCoverImage } from "@/components/pods/pod-cover-image"
 import { PodCreators } from "@/components/pods/pod-creators"
 import { cn } from "@workspace/ui/lib/utils"

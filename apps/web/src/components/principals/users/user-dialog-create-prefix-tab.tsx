@@ -11,12 +11,12 @@ import {
   positiveIntegerStringSchema,
   prefixSchema,
   requiredPasswordSchema,
-} from "@/components/principals/users/user-dialog-utils"
+} from "@/lib/principals/user-dialog-utils"
 import { CountedTextareaField } from "@/components/forms/counted-textarea-field"
 import { Input } from "@workspace/ui/components/input"
 import type React from "react"
 import { UserDialogGroupAssignmentsField } from "@/components/principals/users/user-dialog-group-assignments-field"
-import type { UserFormApi } from "@/components/principals/users/user-dialog-utils"
+import type { UserFormApi } from "@/lib/principals/user-dialog-utils"
 
 export function UserDialogCreatePrefixTab({
   form,

@@ -3,16 +3,16 @@ import {
   DropdownMenuContent,
   DropdownMenuTrigger,
 } from "@workspace/ui/components/dropdown-menu"
-import type { ApiTreeNodePermissions } from "@/features/inventory/types/inventory-types"
+import type { ApiTreeNodePermissions } from "@/lib/inventory/inventory-types"
 import { Button } from "@workspace/ui/components/button"
 import { FolderMenuItems } from "@/components/inventory/actions/folder-menu-items"
 import { HugeiconsIcon } from "@hugeicons/react"
 import { MoreHorizontalIcon } from "@hugeicons/core-free-icons"
 import { TemplateMenuItems } from "@/components/inventory/actions/template-menu-items"
 import { VmMenuItems } from "@/components/inventory/actions/vm-menu-items"
-import { hasFolderActions } from "@/features/inventory/utils/inventory-capabilities"
-import { useInventoryDialogs } from "@/components/inventory/inventory-dialogs-context"
-import { useInventoryFavorites } from "@/features/inventory/hooks/use-inventory-favorites"
+import { hasFolderActions } from "@/lib/inventory/inventory-capabilities"
+import { useInventoryDialogs } from "@/hooks/inventory/use-inventory-dialogs"
+import { useInventoryFavorites } from "@/hooks/inventory/use-inventory-favorites"
 
 export function VmOptionsMenu({
   nodeId,

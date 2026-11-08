@@ -6,8 +6,8 @@ import {
   ComboboxItem,
   ComboboxList,
 } from "@workspace/ui/components/combobox"
-import type { InventoryFolderOption } from "@/features/inventory/utils/inventory-tree"
-import { getSelectedFolder } from "@/features/inventory/utils/inventory-tree"
+import type { InventoryFolderOption } from "@/lib/inventory/inventory-tree"
+import { getSelectedFolder } from "@/lib/inventory/inventory-tree"
 
 export function InventoryFolderCombobox({
   folderOptions,

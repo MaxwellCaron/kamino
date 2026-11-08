@@ -7,6 +7,7 @@ import (
 	"github.com/MaxwellCaron/kamino/internal/principals"
 	"github.com/MaxwellCaron/kamino/internal/principals/activedirectory"
 	"github.com/MaxwellCaron/kamino/internal/proxmox"
+	"github.com/MaxwellCaron/kamino/internal/proxmoxsync"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -14,7 +15,7 @@ type Server struct {
 	Config                 *Config
 	DBPool                 *pgxpool.Pool
 	ProxmoxClient          *proxmox.Client
-	ProxmoxImport          *proxmox.InventoryImporter
+	ProxmoxImport          *proxmoxsync.InventoryImporter
 	ADClient               *activedirectory.Client
 	PrincipalProvider      principals.Provider
 	PrincipalAuthenticator principals.Authenticator
@@ -46,7 +47,7 @@ func newServer(config *Config) (*Server, error) {
 	)
 	pxClient.SetSharedStorageNames(splitCSV(config.ProxmoxSharedStorageNames))
 
-	pxImport := proxmox.NewInventoryImporter(dbPool, pxClient)
+	pxImport := proxmoxsync.NewInventoryImporter(dbPool, pxClient)
 
 	server := &Server{
 		Config:        config,

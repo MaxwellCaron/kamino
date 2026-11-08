@@ -16,55 +16,17 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@workspace/ui/components/sidebar"
-import {
-  canAccessAdmin,
-  canAccessRequestQueue,
-} from "@/features/auth/utils/management-permissions"
-import type { ApplicationPage } from "./application-pages"
-import type { AuthUser } from "@/features/auth/types/auth-types"
+import { isActivePath, navGroupStyles } from "@/lib/app-shell/sidebar"
+import type { AuthUser } from "@/lib/auth/auth-types"
 import { HugeiconsIcon } from "@hugeicons/react"
 import { Image } from "@unpic/react"
-import { InventoryTreeBody } from "@/features/inventory/components/tree/inventory-tree-body"
-import { InventoryTreeHeader } from "@/features/inventory/components/tree/inventory-tree-header"
+import { InventoryTreeBody } from "@/components/inventory/tree/inventory-tree-body"
+import { InventoryTreeHeader } from "@/components/inventory/tree/inventory-tree-header"
+import type { NavItem } from "@/lib/app-shell/sidebar"
 import { NavUser } from "./nav-user"
 import { Separator } from "@workspace/ui/components/separator"
 import { cn } from "@workspace/ui/lib/utils"
-import { visibleApplicationPages } from "./application-pages"
-
-type NavItem = ApplicationPage
-type NavGroupKey = NavItem["group"]
-type NavGroup = {
-  key: NavGroupKey
-  items: Array<NavItem>
-}
-
-const navGroupStyles = {
-  home: {
-    rail: "",
-    button:
-      "text-muted-foreground hover:bg-muted hover:text-foreground active:bg-muted/80 active:text-foreground data-active:bg-muted data-active:text-foreground",
-    indicator: "bg-foreground",
-  },
-  manager: {
-    rail: "bg-amber-600/5 text-amber-600 dark:bg-amber-400/5 dark:text-amber-400",
-    button:
-      "text-amber-600 hover:bg-amber-600/10 hover:text-amber-700 active:bg-amber-600/14 active:text-amber-700 data-active:bg-amber-600/14 data-active:text-amber-700 dark:text-amber-400 dark:hover:bg-amber-400/10 dark:hover:text-amber-300 dark:active:bg-amber-400/14 dark:active:text-amber-300 dark:data-active:bg-amber-400/14 dark:data-active:text-amber-300",
-    indicator: "bg-amber-600 dark:bg-amber-400",
-  },
-  admin: {
-    rail: "bg-emerald-600/5 text-emerald-600 dark:bg-emerald-400/5 dark:text-emerald-400",
-    button:
-      "text-emerald-600 hover:bg-emerald-600/10 hover:text-emerald-700 active:bg-emerald-600/14 active:text-emerald-700 data-active:bg-emerald-600/14 data-active:text-emerald-700 dark:text-emerald-400 dark:hover:bg-emerald-400/10 dark:hover:text-emerald-300 dark:active:bg-emerald-400/14 dark:active:text-emerald-300 dark:data-active:bg-emerald-400/14 dark:data-active:text-emerald-300",
-    indicator: "bg-emerald-600 dark:bg-emerald-400",
-  },
-} as const satisfies Record<
-  NavGroupKey,
-  {
-    rail: string
-    button: string
-    indicator: string
-  }
->
+import { useVisibleNavGroups } from "@/hooks/app-shell/use-visible-nav-groups"
 
 function IconRailHoverCard({
   title,
@@ -91,34 +53,6 @@ function IconRailHoverCard({
       </HoverCardContent>
     </HoverCard>
   )
-}
-
-function isActivePath(pathname: string, url: string) {
-  return pathname === url
-}
-
-function useVisibleNavGroups(user: AuthUser): Array<NavGroup> {
-  const canManage = canAccessRequestQueue(user.management_permissions)
-  const canAdminister = canAccessAdmin(user.management_permissions)
-
-  return React.useMemo(() => {
-    const visible = visibleApplicationPages(canAdminister, canManage)
-
-    return [
-      {
-        key: "home" as const,
-        items: visible.filter((item) => item.group === "home"),
-      },
-      {
-        key: "manager" as const,
-        items: visible.filter((item) => item.group === "manager"),
-      },
-      {
-        key: "admin" as const,
-        items: visible.filter((item) => item.group === "admin"),
-      },
-    ].filter((group) => group.items.length > 0)
-  }, [canAdminister, canManage])
 }
 
 function IconRailNavItem({

@@ -1,7 +1,7 @@
 import type {
   DraftPrincipal,
   PermissionState,
-} from "@/features/inventory/types/inventory-types"
+} from "@/lib/inventory/inventory-types"
 import {
   Item,
   ItemActions,
@@ -10,9 +10,9 @@ import {
   ItemGroup,
   ItemTitle,
 } from "@workspace/ui/components/item"
-import type { InventoryPermissionSection } from "@/features/inventory/utils/inventory-permissions"
+import type { InventoryPermissionSection } from "@/lib/inventory/inventory-permissions"
 import { PermissionStateControl } from "./permission-state-control"
-import { getPermissionState } from "@/features/inventory/utils/acl-transformers"
+import { getPermissionState } from "@/lib/inventory/acl-transformers"
 
 type PermissionScopeSectionProps = {
   onPermissionChange: (bit: number, state: PermissionState) => void

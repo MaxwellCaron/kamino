@@ -1,13 +1,10 @@
 import { Field, FieldError, FieldLabel } from "@workspace/ui/components/field"
-import {
-  formatFieldError,
-  getFirstIssueMessage,
-} from "@/components/forms/form-errors"
+import { formatFieldError, getFirstIssueMessage } from "@/lib/forms/form-errors"
 import type { ComponentType } from "react"
 import { Input } from "@workspace/ui/components/input"
-import { optionalVmidSchema } from "@/components/vms/vmid-schema"
-import { parseNumberInput } from "@/components/forms/form-values"
-import { validateVMID } from "@/features/vms/api/vm-api"
+import { optionalVmidSchema } from "@/lib/vms/vmid-schema"
+import { parseNumberInput } from "@/lib/forms/form-values"
+import { validateVMID } from "@/lib/vms/vm-api"
 
 export type VMIDFieldProps = {
   FieldComponent: ComponentType<any>

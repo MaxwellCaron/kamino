@@ -4,7 +4,7 @@ import {
   Sorting02Icon,
   Sorting04Icon,
 } from "@hugeicons/core-free-icons"
-import type { AppTableFeatures } from "./data-table-types"
+import type { AppTableFeatures } from "../../lib/data-table-types"
 import { Button } from "@workspace/ui/components/button"
 import { HugeiconsIcon } from "@hugeicons/react"
 import type { IconSvgElement } from "@hugeicons/react"
@@ -34,7 +34,9 @@ export function DataTableColumnHeader<TData extends RowData, TValue>({
       variant={sorted ? "default" : "ghost"}
       onClick={column.getToggleSortingHandler()}
       aria-label={`Sort by ${title}`}
-      className={cn(sorted ? "**:text-primary-foreground" : "**:text-muted-foreground")}
+      className={cn(
+        sorted ? "**:text-primary-foreground" : "**:text-muted-foreground"
+      )}
     >
       <HugeiconsIcon icon={icon} data-icon="inline-start" />
       <span>{title}</span>

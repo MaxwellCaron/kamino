@@ -10,7 +10,7 @@ import {
 } from "@workspace/ui/components/hover-card"
 import { FacehashIcon } from "@workspace/ui/components/facehash"
 import { HugeiconsIcon } from "@hugeicons/react"
-import type { PodCreator } from "@/features/pods/types/pod-types"
+import type { PodCreator } from "@/lib/pods/pod-types"
 import { UserGroupIcon } from "@hugeicons/core-free-icons"
 import { cn } from "@workspace/ui/lib/utils"
 import { useState } from "react"

@@ -6,10 +6,10 @@ import {
   getRequestIcon,
   getRequestStatusClassName,
   getRequestTargetLabel,
-} from "@/features/requests/utils/request-presenters"
-import type { ApiRequestSummary } from "@/features/requests/types/request-types"
-import type { ApiTreeNode } from "@/features/inventory/types/inventory-types"
-import type { AppTableFeatures } from "@/components/data-table/data-table-types"
+} from "@/lib/requests/request-presenters"
+import type { ApiRequestSummary } from "@/lib/requests/request-types"
+import type { ApiTreeNode } from "@/lib/inventory/inventory-types"
+import type { AppTableFeatures } from "@/lib/data-table-types"
 import { ArrowUpRight01Icon } from "@hugeicons/core-free-icons"
 import { Badge } from "@workspace/ui/components/badge"
 import { Button } from "@workspace/ui/components/button"
@@ -18,7 +18,7 @@ import { FacehashIcon } from "@workspace/ui/components/facehash"
 import { HugeiconsIcon } from "@hugeicons/react"
 import { RelativeTimeCard } from "@workspace/ui/components/relative-time-card"
 import { createRowSelectionColumn } from "@/components/data-table/data-table-row-selection-column"
-import { findTreePath } from "@/features/inventory/utils/inventory-tree"
+import { findTreePath } from "@/lib/inventory/inventory-tree"
 
 type RequestColumnsOptions = {
   onOpen: (request: ApiRequestSummary) => void

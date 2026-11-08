@@ -9,37 +9,37 @@ import type {
   ApiPrincipal,
   ApiPrincipalProviderCapabilities,
   CreateUserInput,
-} from "@/features/principals/types/principals-types"
+} from "@/lib/principals/principals-types"
 import {
   AppDialogPrimaryButton,
   AppDialogScrollBody,
-  nestedDialogAnimationClassName,
 } from "@/components/dialogs/app-dialog"
 import {
   buildCreateUsers,
   getDefaultUserFormValues,
   normalizeDescription,
   userSchema,
-} from "@/components/principals/users/user-dialog-utils"
+} from "@/lib/principals/user-dialog-utils"
 import {
   createUser,
   groupsQueryOptions,
   setUserPassword,
   updateUser,
-} from "@/features/principals/api/principals-api"
+} from "@/lib/principals/principals-api"
 import {
   showSingleMutationToast,
   showUnitMutationToast,
 } from "@/components/feedback/mutation-progress-toast"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { BulkCreateResultsSummary } from "@/components/principals/create-results-summary"
-import type { CreateMode } from "@/components/principals/users/user-dialog-utils"
+import type { CreateMode } from "@/lib/principals/user-dialog-utils"
 import { DialogFooter } from "@workspace/ui/components/dialog"
 import { FieldError } from "@workspace/ui/components/field"
 import { PrincipalDialogShell } from "@/components/principals/principal-dialog-shell"
 import { UserDialogCreateForm } from "@/components/principals/users/user-dialog-create-form"
 import { UserDialogEditForm } from "@/components/principals/users/user-dialog-edit-form"
-import { formatPrincipalReference } from "@/components/principals/principal-label"
+import { formatPrincipalReference } from "@/lib/principals/principal-label"
+import { nestedDialogAnimationClassName } from "@/lib/motion/animate"
 import { useForm } from "@tanstack/react-form"
 
 export function UserDialog({

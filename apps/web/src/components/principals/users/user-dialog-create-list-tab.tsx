@@ -6,7 +6,7 @@ import {
   FieldLabel,
 } from "@workspace/ui/components/field"
 import { Textarea } from "@workspace/ui/components/textarea"
-import type { UserFormApi } from "@/components/principals/users/user-dialog-utils"
+import type { UserFormApi } from "@/lib/principals/user-dialog-utils"
 
 export function UserDialogCreateListTab({
   form,

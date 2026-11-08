@@ -12,11 +12,11 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
 } from "@workspace/ui/components/dropdown-menu"
-import type { ApiTreeNodePermissions } from "@/features/inventory/types/inventory-types"
-import { FOLDER_POWER_ACTION_DEFINITIONS } from "@/components/inventory/actions/folder-power-action-definitions"
+import type { ApiTreeNodePermissions } from "@/lib/inventory/inventory-types"
+import { FOLDER_POWER_ACTION_DEFINITIONS } from "@/lib/inventory/actions/folder-power-action-definitions"
 import { HugeiconsIcon } from "@hugeicons/react"
-import type { InventoryPowerAction } from "@/features/inventory/utils/inventory-power-actions"
-import { getFolderCapabilities } from "@/features/inventory/utils/inventory-capabilities"
+import type { InventoryPowerAction } from "@/lib/inventory/actions/inventory-power-actions"
+import { getFolderCapabilities } from "@/lib/inventory/inventory-capabilities"
 
 type FolderCapabilities = ReturnType<typeof getFolderCapabilities>
 

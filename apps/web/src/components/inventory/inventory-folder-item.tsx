@@ -11,7 +11,7 @@ import {
   ItemMedia,
   ItemTitle,
 } from "@workspace/ui/components/item"
-import type { ApiTreeNode } from "@/features/inventory/types/inventory-types"
+import type { ApiTreeNode } from "@/lib/inventory/inventory-types"
 import { Button } from "@workspace/ui/components/button"
 import { HugeiconsIcon } from "@hugeicons/react"
 import { InventoryNodeIcon } from "@/components/inventory/inventory-node-icon"

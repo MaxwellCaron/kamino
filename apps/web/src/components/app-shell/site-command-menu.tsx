@@ -11,20 +11,21 @@ import {
   CommandSeparator,
   CommandShortcut,
 } from "@workspace/ui/components/command"
-import { buildSiteCommandRows, groupLabels } from "./site-command-index"
+import {
+  buildSiteCommandRows,
+  groupLabels,
+} from "../../lib/app-shell/site-command-index"
 import {
   createSiteCommandRangeExtractor,
   estimateSiteCommandRowSize,
   getFirstRowIndex,
   resolveSiteCommandKeyNavigation,
-} from "./site-command-menu-utils"
-
+} from "../../lib/app-shell/site-command-menu-utils"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { HugeiconsIcon } from "@hugeicons/react"
 import { InlineErrorAlert } from "@/components/feedback/inline-error-alert"
-
 import type { KeyboardEvent } from "react"
-import type { SiteCommandResult } from "./site-command-index"
+import type { SiteCommandResult } from "../../lib/app-shell/site-command-index"
 import { Skeleton } from "@workspace/ui/components/skeleton"
 import { Spinner } from "@workspace/ui/components/spinner"
 import { useVirtualizer } from "@tanstack/react-virtual"
@@ -123,7 +124,6 @@ export function SiteCommandMenu({
         listElement.scrollTop = 0
       }
     }
-
   }, [firstCommandId, rowsSignature])
 
   const handleActiveValueChange = useCallback(
@@ -299,11 +299,7 @@ export function SiteCommandMenu({
 
 function SiteCommandMenuSkeleton() {
   return (
-    <div
-      className="flex flex-col gap-3 p-4"
-      role="status"
-      aria-live="polite"
-    >
+    <div className="flex flex-col gap-3 p-4" role="status" aria-live="polite">
       {[0, 1, 2].map((row) => (
         <div key={row} className="flex items-center gap-3">
           <Skeleton className="size-8 shrink-0" />

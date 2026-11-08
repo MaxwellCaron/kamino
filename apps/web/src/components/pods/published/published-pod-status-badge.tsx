@@ -1,0 +1,22 @@
+import { ViewIcon, ViewOffSlashIcon } from "@hugeicons/core-free-icons"
+import { Badge } from "@workspace/ui/components/badge"
+import { HugeiconsIcon } from "@hugeicons/react"
+import type { PodStatus } from "@/lib/pods/pod-types"
+
+export function PublishedPodStatusBadge({ status }: { status: PodStatus }) {
+  if (status === "listed") {
+    return (
+      <Badge variant="default">
+        <HugeiconsIcon icon={ViewIcon} data-icon="inline-start" />
+        Listed
+      </Badge>
+    )
+  }
+
+  return (
+    <Badge variant="outline">
+      <HugeiconsIcon icon={ViewOffSlashIcon} data-icon="inline-start" />
+      Unlisted
+    </Badge>
+  )
+}

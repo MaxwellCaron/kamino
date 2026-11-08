@@ -1,6 +1,6 @@
-import type { ApiTreeNode } from "@/features/inventory/types/inventory-types"
-import { FolderIcon } from "@/components/status/folder-icon"
-import { VmIcon } from "@/components/status/vm-icon"
+import type { ApiTreeNode } from "@/lib/inventory/inventory-types"
+import { FolderIcon } from "@/components/inventory/folder-icon"
+import { VmIcon } from "@/components/vms/vm-icon"
 
 export function InventoryNodeIcon({
   isExpanded,

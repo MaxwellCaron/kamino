@@ -1,0 +1,692 @@
+import type { ApiISO, ApiNode, ApiStorage } from "@/lib/vms/vm-types"
+import { BoltIcon, Settings01Icon } from "@hugeicons/core-free-icons"
+import {
+  Field,
+  FieldDescription,
+  FieldError,
+  FieldGroup,
+  FieldLabel,
+  FieldLegend,
+  FieldSeparator,
+  FieldSet,
+} from "@workspace/ui/components/field"
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectLabel,
+  SelectTrigger,
+  SelectValue,
+} from "@workspace/ui/components/select"
+import {
+  VmHardwareComputeSection,
+  VmHardwareCpuBlock,
+  VmHardwareMemoryBlock,
+  VmHardwareNetworkSection,
+  VmHardwareOperatingSystemSection,
+  VmHardwareStorageSection,
+} from "@/components/vms/hardware/hardware-sections"
+import {
+  biosTypes,
+  cpuTypes,
+  machineTypes,
+  osTypes,
+  scsiControllers,
+} from "@/lib/vms/hardware/hardware-options"
+import {
+  createVmFormOptions,
+  withCreateVmForm,
+} from "@/hooks/vms/use-create-vm-form"
+import { HugeiconsIcon } from "@hugeicons/react"
+import { Input } from "@workspace/ui/components/input"
+import type { NetworkData } from "../../../lib/vms/create/create-vm-step-utils"
+import { VMIDField } from "@/components/vms/vmid-field"
+import { VmHardwareNetworksField } from "@/components/vms/hardware/vm-hardware-networks-field"
+import { applyScopedNetworkToInterfaces } from "@/lib/vms/vm-network-scope"
+import { buildVmHardwareNetworkOptions } from "@/lib/vms/hardware/hardware-section-utils"
+import { formatFieldError } from "../../../lib/vms/create/create-vm-step-utils"
+import { getFirstIssueMessage } from "@/lib/forms/form-errors"
+import { networkInterfaceSchema } from "@/lib/vms/create/create-vm-form"
+import { parseNumberInput } from "@/lib/forms/form-values"
+import { replaceWhitespaceWithHyphen } from "@/lib/forms/sanitize"
+import { useEffect } from "react"
+import { uuid } from "@/lib/uuid"
+import { vmNameSchema } from "@/lib/vms/vm-name"
+
+export const IsoConfigurationFields = withCreateVmForm({
+  ...createVmFormOptions,
+  props: {
+    nodes: [] as Array<ApiNode>,
+    diskStorages: [] as Array<ApiStorage>,
+    isoStorages: [] as Array<ApiStorage>,
+    isos: [] as Array<ApiISO>,
+    networks: undefined as NetworkData | undefined,
+  },
+  render: function Render({
+    form,
+    nodes,
+    diskStorages,
+    isoStorages,
+    isos,
+    networks,
+  }) {
+    const { bridgeOptions, vnetOptions, networkOptions } =
+      buildVmHardwareNetworkOptions(networks ?? {})
+    const scopedNetwork = networks?.scoped_network
+
+    useEffect(() => {
+      if (!scopedNetwork) return
+      const current = form.getFieldValue("networks")
+      const next = applyScopedNetworkToInterfaces(scopedNetwork, current)
+      const needsSync = next.some(
+        (network, index) =>
+          network.bridge !== current[index]?.bridge ||
+          network.vlan_tag !== current[index]?.vlan_tag
+      )
+      if (needsSync) {
+        form.setFieldValue("networks", next)
+      }
+    }, [form, scopedNetwork])
+
+    return (
+      <div className="flex flex-col gap-6">
+        <FieldSet>
+          <FieldLegend className="flex items-center gap-2">
+            <HugeiconsIcon icon={Settings01Icon} className="size-4" />
+            General
+          </FieldLegend>
+          <FieldDescription>
+            Set where the VM should run and how it will be identified.
+          </FieldDescription>
+          <FieldGroup>
+            <form.AppField
+              name="name"
+              validators={{
+                onBlur: ({ value }) =>
+                  getFirstIssueMessage(vmNameSchema.safeParse(value)),
+              }}
+            >
+              {(field) => (
+                <Field
+                  data-invalid={field.state.meta.errors.length > 0 || undefined}
+                >
+                  <FieldLabel htmlFor="iso-name">Name</FieldLabel>
+                  <Input
+                    id="iso-name"
+                    value={field.state.value}
+                    onBlur={field.handleBlur}
+                    onChange={(event) =>
+                      field.handleChange(
+                        replaceWhitespaceWithHyphen(event.target.value)
+                      )
+                    }
+                    placeholder="ubuntu-01"
+                    aria-invalid={
+                      field.state.meta.errors.length > 0 || undefined
+                    }
+                    aria-errormessage={
+                      field.state.meta.errors.length > 0
+                        ? "iso-name-error"
+                        : undefined
+                    }
+                  />
+                  <FieldError id="iso-name-error">
+                    {formatFieldError(field.state.meta.errors[0])}
+                  </FieldError>
+                </Field>
+              )}
+            </form.AppField>
+
+            <div className="grid grid-cols-2 gap-6">
+              <form.AppField name="node">
+                {(field) => (
+                  <Field>
+                    <FieldLabel htmlFor="node">Node</FieldLabel>
+                    <Select
+                      value={field.state.value}
+                      onValueChange={(value) => field.handleChange(value ?? "")}
+                    >
+                      <SelectTrigger
+                        id="node"
+                        aria-invalid={
+                          field.state.meta.errors.length > 0 || undefined
+                        }
+                        aria-errormessage={
+                          field.state.meta.errors.length > 0
+                            ? "iso-node-error"
+                            : undefined
+                        }
+                      >
+                        <SelectValue placeholder="Optimal (Default)" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectGroup>
+                          <SelectLabel>Nodes</SelectLabel>
+                          <SelectItem value="">Optimal (Default)</SelectItem>
+                          {nodes.map((node) => (
+                            <SelectItem key={node.node} value={node.node}>
+                              {node.node}
+                            </SelectItem>
+                          ))}
+                        </SelectGroup>
+                      </SelectContent>
+                    </Select>
+                    <FieldError id="iso-node-error">
+                      {formatFieldError(field.state.meta.errors[0])}
+                    </FieldError>
+                  </Field>
+                )}
+              </form.AppField>
+
+              <VMIDField
+                FieldComponent={form.AppField}
+                fieldName="vmid"
+                inputId="iso-vmid"
+              />
+            </div>
+          </FieldGroup>
+        </FieldSet>
+
+        <FieldSeparator />
+
+        <VmHardwareOperatingSystemSection
+          legendIcon={<HugeiconsIcon icon={BoltIcon} className="size-4" />}
+          description="Select the guest OS type and the ISO that should boot the VM."
+        >
+          <form.AppField name="iso_storage">
+            {(field) => (
+              <Field>
+                <FieldLabel htmlFor="iso-storage">ISO Storage</FieldLabel>
+                <Select
+                  value={field.state.value ?? ""}
+                  onValueChange={(value) => {
+                    field.handleChange(value ?? "")
+                    form.setFieldValue("iso", "")
+                  }}
+                >
+                  <SelectTrigger
+                    id="iso-storage"
+                    aria-invalid={
+                      field.state.meta.errors.length > 0 || undefined
+                    }
+                    aria-errormessage={
+                      field.state.meta.errors.length > 0
+                        ? "iso-storage-error"
+                        : undefined
+                    }
+                  >
+                    <SelectValue placeholder="Select storage for ISOs" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectGroup>
+                      <SelectLabel>ISO Stores</SelectLabel>
+                      {isoStorages.map((storage) => (
+                        <SelectItem
+                          key={storage.storage}
+                          value={storage.storage}
+                        >
+                          {storage.storage}
+                        </SelectItem>
+                      ))}
+                    </SelectGroup>
+                  </SelectContent>
+                </Select>
+                <FieldDescription>
+                  Choose the storage that contains the installation ISO.
+                </FieldDescription>
+                <FieldError id="iso-storage-error">
+                  {formatFieldError(field.state.meta.errors[0])}
+                </FieldError>
+              </Field>
+            )}
+          </form.AppField>
+
+          <form.AppField name="iso">
+            {(field) => (
+              <Field>
+                <FieldLabel htmlFor="iso-image">ISO Image</FieldLabel>
+                <Select
+                  value={field.state.value ?? ""}
+                  disabled={!form.state.values.iso_storage}
+                  onValueChange={(value) => field.handleChange(value ?? "")}
+                >
+                  <SelectTrigger
+                    id="iso-image"
+                    aria-invalid={
+                      field.state.meta.errors.length > 0 || undefined
+                    }
+                    aria-errormessage={
+                      field.state.meta.errors.length > 0
+                        ? "iso-image-error"
+                        : undefined
+                    }
+                  >
+                    <SelectValue placeholder="Select an ISO image" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectGroup>
+                      <SelectLabel>Images</SelectLabel>
+                      {isos.map((iso) => (
+                        <SelectItem key={iso.volid} value={iso.volid}>
+                          {iso.volid}
+                        </SelectItem>
+                      ))}
+                    </SelectGroup>
+                  </SelectContent>
+                </Select>
+                <FieldDescription>
+                  {form.state.values.iso_storage
+                    ? "Choose the ISO image to attach as the install media."
+                    : "Select an ISO storage first to load images."}
+                </FieldDescription>
+                <FieldError id="iso-image-error">
+                  {formatFieldError(field.state.meta.errors[0])}
+                </FieldError>
+              </Field>
+            )}
+          </form.AppField>
+
+          <form.AppField name="ostype">
+            {(field) => (
+              <Field>
+                <FieldLabel htmlFor="iso-os-type">OS Type</FieldLabel>
+                <Select
+                  value={field.state.value}
+                  onValueChange={(value) =>
+                    field.handleChange(value ?? "other")
+                  }
+                >
+                  <SelectTrigger id="iso-os-type">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectGroup>
+                      {osTypes.map((os) => (
+                        <SelectItem key={os.value} value={os.value}>
+                          {os.label}
+                        </SelectItem>
+                      ))}
+                    </SelectGroup>
+                  </SelectContent>
+                </Select>
+              </Field>
+            )}
+          </form.AppField>
+
+          <div className="grid grid-cols-2 gap-6">
+            <form.AppField name="bios">
+              {(field) => (
+                <Field>
+                  <FieldLabel htmlFor="iso-bios">BIOS</FieldLabel>
+                  <Select
+                    value={field.state.value}
+                    onValueChange={(value) =>
+                      field.handleChange(value ?? "seabios")
+                    }
+                  >
+                    <SelectTrigger id="iso-bios">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectGroup>
+                        {biosTypes.map((bios) => (
+                          <SelectItem key={bios.value} value={bios.value}>
+                            {bios.label}
+                          </SelectItem>
+                        ))}
+                      </SelectGroup>
+                    </SelectContent>
+                  </Select>
+                </Field>
+              )}
+            </form.AppField>
+
+            <form.AppField name="machine">
+              {(field) => (
+                <Field>
+                  <FieldLabel htmlFor="iso-machine">Machine Type</FieldLabel>
+                  <Select
+                    value={field.state.value}
+                    onValueChange={(value) => field.handleChange(value ?? "pc")}
+                  >
+                    <SelectTrigger id="iso-machine">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectGroup>
+                        {machineTypes.map((machine) => (
+                          <SelectItem key={machine.value} value={machine.value}>
+                            {machine.label}
+                          </SelectItem>
+                        ))}
+                      </SelectGroup>
+                    </SelectContent>
+                  </Select>
+                </Field>
+              )}
+            </form.AppField>
+          </div>
+
+          <form.AppField name="scsi">
+            {(field) => (
+              <Field>
+                <FieldLabel htmlFor="iso-scsi">SCSI Controller</FieldLabel>
+                <Select
+                  value={field.state.value}
+                  onValueChange={(value) =>
+                    field.handleChange(value ?? "virtio-scsi-single")
+                  }
+                >
+                  <SelectTrigger id="iso-scsi">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectGroup>
+                      {scsiControllers.map((controller) => (
+                        <SelectItem
+                          key={controller.value}
+                          value={controller.value}
+                        >
+                          {controller.label}
+                        </SelectItem>
+                      ))}
+                    </SelectGroup>
+                  </SelectContent>
+                </Select>
+              </Field>
+            )}
+          </form.AppField>
+        </VmHardwareOperatingSystemSection>
+
+        <VmHardwareComputeSection description="Configure the virtual CPU, firmware, and memory profile.">
+          <VmHardwareCpuBlock>
+            <div className="grid grid-cols-2 gap-6">
+              <form.AppField name="sockets">
+                {(field) => (
+                  <Field
+                    data-invalid={
+                      field.state.meta.errors.length > 0 || undefined
+                    }
+                  >
+                    <FieldLabel htmlFor="iso-sockets">Sockets</FieldLabel>
+                    <Input
+                      id="iso-sockets"
+                      type="number"
+                      min={1}
+                      value={field.state.value}
+                      onBlur={field.handleBlur}
+                      onChange={(event) =>
+                        field.handleChange(
+                          parseNumberInput(event.target.value, 1)
+                        )
+                      }
+                      aria-invalid={
+                        field.state.meta.errors.length > 0 || undefined
+                      }
+                      aria-errormessage={
+                        field.state.meta.errors.length > 0
+                          ? "iso-sockets-error"
+                          : undefined
+                      }
+                    />
+                    <FieldError id="iso-sockets-error">
+                      {formatFieldError(field.state.meta.errors[0])}
+                    </FieldError>
+                  </Field>
+                )}
+              </form.AppField>
+
+              <form.AppField name="cores">
+                {(field) => (
+                  <Field
+                    data-invalid={
+                      field.state.meta.errors.length > 0 || undefined
+                    }
+                  >
+                    <FieldLabel htmlFor="iso-cores">Cores</FieldLabel>
+                    <Input
+                      id="iso-cores"
+                      type="number"
+                      min={1}
+                      value={field.state.value}
+                      onBlur={field.handleBlur}
+                      onChange={(event) =>
+                        field.handleChange(
+                          parseNumberInput(event.target.value, 1)
+                        )
+                      }
+                      aria-invalid={
+                        field.state.meta.errors.length > 0 || undefined
+                      }
+                      aria-errormessage={
+                        field.state.meta.errors.length > 0
+                          ? "iso-cores-error"
+                          : undefined
+                      }
+                    />
+                    <FieldError id="iso-cores-error">
+                      {formatFieldError(field.state.meta.errors[0])}
+                    </FieldError>
+                  </Field>
+                )}
+              </form.AppField>
+            </div>
+
+            <form.AppField name="cpu_type">
+              {(field) => (
+                <Field>
+                  <FieldLabel htmlFor="iso-cpu-type">CPU Type</FieldLabel>
+                  <Select
+                    value={field.state.value}
+                    onValueChange={(value) =>
+                      field.handleChange(value ?? "x86-64-v2-AES")
+                    }
+                  >
+                    <SelectTrigger id="iso-cpu-type">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectGroup>
+                        {cpuTypes.map((type) => (
+                          <SelectItem key={type.value} value={type.value}>
+                            {type.label}
+                          </SelectItem>
+                        ))}
+                      </SelectGroup>
+                    </SelectContent>
+                  </Select>
+                </Field>
+              )}
+            </form.AppField>
+          </VmHardwareCpuBlock>
+
+          <VmHardwareMemoryBlock balloonDescription='Set balloon to "0" to disable'>
+            <div className="grid grid-cols-2 gap-6">
+              <form.AppField name="memory">
+                {(field) => (
+                  <Field
+                    data-invalid={
+                      field.state.meta.errors.length > 0 || undefined
+                    }
+                  >
+                    <FieldLabel htmlFor="iso-memory">Capacity (GB)</FieldLabel>
+                    <Input
+                      id="iso-memory"
+                      type="number"
+                      min={1}
+                      step={1}
+                      value={field.state.value}
+                      onBlur={field.handleBlur}
+                      onChange={(event) =>
+                        field.handleChange(
+                          parseNumberInput(event.target.value, 2)
+                        )
+                      }
+                      aria-invalid={
+                        field.state.meta.errors.length > 0 || undefined
+                      }
+                      aria-errormessage={
+                        field.state.meta.errors.length > 0
+                          ? "iso-memory-error"
+                          : undefined
+                      }
+                    />
+                    <FieldError id="iso-memory-error">
+                      {formatFieldError(field.state.meta.errors[0])}
+                    </FieldError>
+                  </Field>
+                )}
+              </form.AppField>
+
+              <form.AppField name="balloon">
+                {(field) => (
+                  <Field
+                    data-invalid={
+                      field.state.meta.errors.length > 0 || undefined
+                    }
+                  >
+                    <FieldLabel htmlFor="iso-balloon">Balloon (GB)</FieldLabel>
+                    <Input
+                      id="iso-balloon"
+                      type="number"
+                      min={0}
+                      step={1}
+                      value={field.state.value}
+                      onBlur={field.handleBlur}
+                      onChange={(event) =>
+                        field.handleChange(
+                          parseNumberInput(event.target.value, 0)
+                        )
+                      }
+                      aria-invalid={
+                        field.state.meta.errors.length > 0 || undefined
+                      }
+                      aria-errormessage={
+                        field.state.meta.errors.length > 0
+                          ? "iso-balloon-error"
+                          : undefined
+                      }
+                    />
+                    <FieldError id="iso-balloon-error">
+                      {formatFieldError(field.state.meta.errors[0])}
+                    </FieldError>
+                  </Field>
+                )}
+              </form.AppField>
+            </div>
+          </VmHardwareMemoryBlock>
+        </VmHardwareComputeSection>
+
+        <VmHardwareStorageSection>
+          <form.AppField name="storage">
+            {(field) => (
+              <Field>
+                <FieldLabel htmlFor="iso-disk-storage">Disk</FieldLabel>
+                <Select
+                  value={field.state.value ?? ""}
+                  onValueChange={(value) => field.handleChange(value ?? "")}
+                >
+                  <SelectTrigger
+                    id="iso-disk-storage"
+                    aria-invalid={
+                      field.state.meta.errors.length > 0 || undefined
+                    }
+                    aria-errormessage={
+                      field.state.meta.errors.length > 0
+                        ? "iso-disk-storage-error"
+                        : undefined
+                    }
+                  >
+                    <SelectValue placeholder="Select disk" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectGroup>
+                      <SelectLabel>Storage Targets</SelectLabel>
+                      {diskStorages.map((storage) => (
+                        <SelectItem
+                          key={storage.storage}
+                          value={storage.storage}
+                        >
+                          {storage.storage}
+                        </SelectItem>
+                      ))}
+                    </SelectGroup>
+                  </SelectContent>
+                </Select>
+                <FieldError id="iso-disk-storage-error">
+                  {formatFieldError(field.state.meta.errors[0])}
+                </FieldError>
+              </Field>
+            )}
+          </form.AppField>
+
+          <form.AppField name="disk_size">
+            {(field) => (
+              <Field
+                data-invalid={field.state.meta.errors.length > 0 || undefined}
+              >
+                <FieldLabel htmlFor="iso-disk-size">Capacity (GB)</FieldLabel>
+                <Input
+                  id="iso-disk-size"
+                  type="number"
+                  min={1}
+                  value={field.state.value}
+                  onBlur={field.handleBlur}
+                  onChange={(event) =>
+                    field.handleChange(parseNumberInput(event.target.value, 32))
+                  }
+                  aria-invalid={field.state.meta.errors.length > 0 || undefined}
+                  aria-errormessage={
+                    field.state.meta.errors.length > 0
+                      ? "iso-disk-size-error"
+                      : undefined
+                  }
+                />
+                <FieldError id="iso-disk-size-error">
+                  {formatFieldError(field.state.meta.errors[0])}
+                </FieldError>
+              </Field>
+            )}
+          </form.AppField>
+        </VmHardwareStorageSection>
+
+        <VmHardwareNetworkSection>
+          <VmHardwareNetworksField
+            form={form}
+            bridgeOptions={bridgeOptions}
+            vnetOptions={vnetOptions}
+            networkOptions={networkOptions}
+            fieldIdPrefix="network"
+            resolveCardTitle={(_, index) => `net${index}`}
+            resolveCardDescription={() =>
+              "Configure connectivity for this interface."
+            }
+            createNetworkValue={() =>
+              scopedNetwork
+                ? {
+                    id: uuid(),
+                    bridge: scopedNetwork.bridge,
+                    model: "virtio",
+                    vlan_tag: scopedNetwork.vlan_tag,
+                    firewall: true,
+                  }
+                : {
+                    id: uuid(),
+                    bridge: "vmbr0",
+                    model: "virtio",
+                    firewall: true,
+                  }
+            }
+            validateBridge={(value) =>
+              getFirstIssueMessage(
+                networkInterfaceSchema.shape.bridge.safeParse(value)
+              )
+            }
+            scopedNetwork={scopedNetwork}
+          />
+        </VmHardwareNetworkSection>
+      </div>
+    )
+  },
+})

@@ -1,7 +1,7 @@
 import type {
   AppFieldComponent,
   AppSubscribeComponent,
-} from "@/components/sdn/vnet-form-fields"
+} from "@/lib/forms/form-components"
 import {
   Field,
   FieldContent,
@@ -23,17 +23,14 @@ import {
   namePrefixSchema,
   quantitySchema,
   validateBaseTag,
-} from "@/components/sdn/vnet-dialog-utils"
+} from "@/lib/sdn/vnet-dialog-utils"
 import {
   VNetBooleanFields,
   VNetZoneField,
   VNetZonesUnavailableState,
 } from "@/components/sdn/vnet-form-fields"
-import {
-  formatFieldError,
-  isTouchedInvalid,
-} from "@/components/forms/form-errors"
-import type { ApiSDNZone } from "@/features/sdn/types/sdn-types"
+import { formatFieldError, isTouchedInvalid } from "@/lib/forms/form-errors"
+import type { ApiSDNZone } from "@/lib/sdn/sdn-types"
 import { Input } from "@workspace/ui/components/input"
 
 function PrefixTextField({

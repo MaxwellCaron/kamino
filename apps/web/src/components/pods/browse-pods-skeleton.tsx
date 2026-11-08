@@ -8,13 +8,8 @@ import {
   cutoutCardSurfaceClassName,
 } from "@workspace/ui/components/cutout-card"
 import { Skeleton } from "@workspace/ui/components/skeleton"
+import { browsePodsGridClassName } from "@/lib/pods/browse-pods-layout"
 import { cn } from "@workspace/ui/lib/utils"
-
-export const browsePodsGridClassName =
-  "grid grid-cols-1 gap-6 lg:grid-cols-2 xl:grid-cols-3 xl:gap-12"
-
-export const browsePodsCarouselItemClassName =
-  "w-[min(100%,23.6875rem)] shrink-0"
 
 export function BrowsePodsGridSkeleton() {
   return (

@@ -1,6 +1,6 @@
 import { act, fireEvent, screen } from "@testing-library/react"
 import { describe, expect, it, vi } from "vitest"
-import type { AppTableFeatures } from "./data-table-types"
+import type { AppTableFeatures } from "../../lib/data-table-types"
 import type { ColumnDef } from "@tanstack/react-table"
 import { DataTable } from "./data-table"
 import { DataTableColumnHeader } from "./data-table-column-header"
@@ -8,7 +8,7 @@ import { IdentificationIcon } from "@hugeicons/core-free-icons"
 import { createRowSelectionColumn } from "./data-table-row-selection-column"
 import { renderWithQueryClient } from "@/test/test-utils"
 
-vi.mock("@/components/loading-transition", () => ({
+vi.mock("@/lib/motion/loading-transition", () => ({
   loadingTransition: {},
 }))
 

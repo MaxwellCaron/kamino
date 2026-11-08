@@ -5,7 +5,7 @@ import {
   ChevronsRightIcon,
 } from "@hugeicons/core-free-icons"
 import type { ReactTable, RowData } from "@tanstack/react-table"
-import type { AppTableFeatures } from "./data-table-types"
+import type { AppTableFeatures } from "../../lib/data-table-types"
 import { Button } from "@workspace/ui/components/button"
 import { HugeiconsIcon } from "@hugeicons/react"
 
@@ -29,8 +29,7 @@ export function DataTablePagination<TData extends RowData>({
         <div />
       )}
       <div className="flex w-25 items-center justify-center text-sm font-medium">
-        Page {table.state.pagination.pageIndex + 1} of{" "}
-        {table.getPageCount()}
+        Page {table.state.pagination.pageIndex + 1} of {table.getPageCount()}
       </div>
       <div className="flex items-center gap-2">
         <Button

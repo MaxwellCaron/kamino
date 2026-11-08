@@ -1,7 +1,7 @@
-import { ProxmoxSyncPage } from "@/features/proxmox-sync/components/proxmox-sync-page"
+import { ProxmoxSyncPage } from "@/components/proxmox-sync/proxmox-sync-page"
 import { createFileRoute } from "@tanstack/react-router"
-import { pageTitle } from "@/features/shared/utils/page-title"
-import { proxmoxSyncPreviewQueryOptions } from "@/features/proxmox-sync/api/proxmox-sync-api"
+import { pageTitle } from "@/lib/app-shell/page-title"
+import { proxmoxSyncPreviewQueryOptions } from "@/lib/proxmox-sync-api"
 
 export const Route = createFileRoute("/_dashboard/admin/proxmox-sync")({
   staticData: {

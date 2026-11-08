@@ -5,8 +5,9 @@ import (
 	"errors"
 
 	"github.com/MaxwellCaron/kamino/database"
+	"github.com/MaxwellCaron/kamino/internal/inventory/poolmapping"
 	"github.com/MaxwellCaron/kamino/internal/names"
-	"github.com/MaxwellCaron/kamino/internal/proxmox"
+	"github.com/MaxwellCaron/kamino/internal/proxmox/poolpath"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
@@ -101,10 +102,10 @@ func (s *Service) EnsureFolderPathWithDescription(ctx context.Context, path []st
 		return uuid.Nil, err
 	}
 
-	rootID := proxmox.FindManagedRootFolderID(rows)
+	rootID := poolmapping.FindManagedRootFolderID(rows)
 	created := false
 	if rootID == nil {
-		id, err := q.CreateRootFolder(ctx, proxmox.RootFolderName)
+		id, err := q.CreateRootFolder(ctx, poolmapping.RootFolderName)
 		if err != nil {
 			return uuid.Nil, err
 		}
@@ -204,7 +205,7 @@ func (s *Service) FindFolderPath(ctx context.Context, path []string) (uuid.UUID,
 		return uuid.Nil, false, err
 	}
 
-	rootID := proxmox.FindManagedRootFolderID(rows)
+	rootID := poolmapping.FindManagedRootFolderID(rows)
 	if rootID == nil {
 		return uuid.Nil, false, nil
 	}
@@ -297,7 +298,7 @@ func (s *Service) ResolveFolderPlacement(ctx context.Context, id uuid.UUID) (Fol
 	return FolderPlacement{
 		FolderID: id,
 		Path:     path,
-		PoolID:   proxmox.EncodePoolPath(path),
+		PoolID:   poolpath.Encode(path),
 	}, nil
 }
 

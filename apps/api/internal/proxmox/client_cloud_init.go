@@ -7,8 +7,6 @@ import (
 	"strconv"
 	"strings"
 	"time"
-
-	"github.com/MaxwellCaron/kamino/internal/routerconfig"
 )
 
 func (c *Client) GetLXCNetworks(ctx context.Context, node string, vmid int) ([]VMHardwareNetwork, error) {
@@ -176,10 +174,10 @@ func (c *Client) SetVMCloudInitCustom(
 	if storage == "" {
 		return fmt.Errorf("storage is required")
 	}
-	if err := routerconfig.ValidateCloudInitSnippetFilename(userFile); err != nil {
+	if err := ValidateCloudInitSnippetFilename(userFile); err != nil {
 		return fmt.Errorf("invalid user cloud-init snippet filename: %w", err)
 	}
-	if err := routerconfig.ValidateCloudInitSnippetFilename(networkFile); err != nil {
+	if err := ValidateCloudInitSnippetFilename(networkFile); err != nil {
 		return fmt.Errorf("invalid network cloud-init snippet filename: %w", err)
 	}
 

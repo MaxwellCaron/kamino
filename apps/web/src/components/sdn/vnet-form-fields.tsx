@@ -20,21 +20,18 @@ import {
   validateTag,
   vnetIdSchema,
   zoneSchema,
-} from "@/components/sdn/vnet-dialog-utils"
+} from "@/lib/sdn/vnet-dialog-utils"
 import {
   formatFieldError,
   getFirstIssueMessage,
   isTouchedInvalid,
-} from "@/components/forms/form-errors"
-import type { ApiSDNZone } from "@/features/sdn/types/sdn-types"
+} from "@/lib/forms/form-errors"
+import type { ApiSDNZone } from "@/lib/sdn/sdn-types"
 import { AppEmptyState } from "@/components/feedback/app-empty-state"
+import type { AppFieldComponent } from "@/lib/forms/form-components"
 import { Checkbox } from "@workspace/ui/components/checkbox"
-import type { ComponentType } from "react"
 import { Globe02Icon } from "@hugeicons/core-free-icons"
 import { Input } from "@workspace/ui/components/input"
-
-export type AppFieldComponent = ComponentType<any>
-export type AppSubscribeComponent = ComponentType<any>
 
 export function VNetNameField({
   FieldComponent,

@@ -5,29 +5,29 @@ import {
 import type {
   FolderPowerTargets,
   InventoryPowerAction,
-} from "@/features/inventory/utils/inventory-power-actions"
+} from "@/lib/inventory/actions/inventory-power-actions"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
-import type { ApiTreeNode } from "@/features/inventory/types/inventory-types"
+import type { ApiTreeNode } from "@/lib/inventory/inventory-types"
 import { Delete01Icon } from "@hugeicons/core-free-icons"
-import { FOLDER_POWER_ACTION_DEFINITIONS } from "@/components/inventory/actions/folder-power-action-definitions"
+import { FOLDER_POWER_ACTION_DEFINITIONS } from "@/lib/inventory/actions/folder-power-action-definitions"
 import { FolderMenuItems } from "@/components/inventory/actions/folder-menu-items"
 import { InventoryDeleteConfirmItems } from "@/components/inventory/inventory-delete-confirm-items"
-import type { InventoryDialogsContextValue } from "@/components/inventory/inventory-dialogs-context"
+import type { InventoryDialogsContextValue } from "@/lib/inventory/inventory-dialogs-context"
 import { TemplateMenuItems } from "@/components/inventory/actions/template-menu-items"
-import { VmIcon } from "@/components/status/vm-icon"
+import { VmIcon } from "@/components/vms/vm-icon"
 import { VmMenuItems } from "@/components/inventory/actions/vm-menu-items"
-import { createInventoryDeleteItems } from "@/features/inventory/utils/inventory-delete-items"
-import { findInventoryTreeNode } from "@/features/inventory/utils/inventory-tree"
-import { formatVmReference } from "@/features/shared/utils/format"
-import { getFolderCapabilities } from "@/features/inventory/utils/inventory-capabilities"
-import { inventoryTreeQueryOptions } from "@/features/inventory/api/inventory-api"
-import { runInventoryPowerAction } from "@/features/inventory/utils/inventory-power-actions"
+import { createInventoryDeleteItems } from "@/components/inventory/actions/inventory-delete-items"
+import { createInventoryPowerActionToastOptions } from "@/lib/inventory/actions/inventory-power-actions"
+import { findInventoryTreeNode } from "@/lib/inventory/inventory-tree"
+import { formatVmReference } from "@/lib/vms/vm-reference"
+import { getFolderCapabilities } from "@/lib/inventory/inventory-capabilities"
+import { inventoryTreeQueryOptions } from "@/lib/inventory/inventory-api"
 import { showUnitMutationToast } from "@/components/feedback/mutation-progress-toast"
 import { toast } from "sonner"
-import { useDeleteFolder } from "@/features/inventory/hooks/use-inventory-actions"
-import { useInventoryDialogs } from "@/components/inventory/inventory-dialogs-context"
-import { useInventoryFavorites } from "@/features/inventory/hooks/use-inventory-favorites"
-import { vmStatusQueryOptions } from "@/features/vms/api/vm-api"
+import { useDeleteFolder } from "@/hooks/inventory/use-inventory-actions"
+import { useInventoryDialogs } from "@/hooks/inventory/use-inventory-dialogs"
+import { useInventoryFavorites } from "@/hooks/inventory/use-inventory-favorites"
+import { vmStatusQueryOptions } from "@/lib/vms/vm-api"
 
 export function InventoryNodeMenuBody({
   itemId,
@@ -135,7 +135,12 @@ export function InventoryNodeMenuBody({
       actionLabel: definition.label,
       variant: definition.dialogVariant,
       onConfirm: () => {
-        runInventoryPowerAction({ queryClient, action, targets })
+        const toastOptions = createInventoryPowerActionToastOptions({
+          queryClient,
+          action,
+          targets,
+        })
+        if (toastOptions) showUnitMutationToast(toastOptions)
       },
     })
   }

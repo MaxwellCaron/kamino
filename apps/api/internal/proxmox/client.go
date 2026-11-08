@@ -121,6 +121,11 @@ func (e *apiStatusError) Error() string { return e.message }
 
 func (e *apiStatusError) Unwrap() error { return e.cause }
 
+func IsNotFound(err error) bool {
+	var statusErr *apiStatusError
+	return errors.As(err, &statusErr) && statusErr.statusCode == http.StatusNotFound
+}
+
 func unexpectedStatusErrorWithBody(statusCode int, path string, body string) error {
 	detail := strings.TrimSpace(body)
 	if detail == "" {

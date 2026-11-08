@@ -1,7 +1,7 @@
 import type {
   CreateMode,
   UserFormApi,
-} from "@/components/principals/users/user-dialog-utils"
+} from "@/lib/principals/user-dialog-utils"
 import type { Dispatch, SetStateAction } from "react"
 import { FieldGroup } from "@workspace/ui/components/field"
 import { TabsContent } from "@workspace/ui/components/tabs"

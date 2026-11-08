@@ -1,7 +1,7 @@
-import { AuditPage } from "@/features/audit/components/audit-page"
-import { actionEventsQueryOptions } from "@/features/audit/api/audit-api"
+import { AuditPage } from "@/components/audit/audit-page"
+import { actionEventsQueryOptions } from "@/lib/audit/audit-api"
 import { createFileRoute } from "@tanstack/react-router"
-import { pageTitle } from "@/features/shared/utils/page-title"
+import { pageTitle } from "@/lib/app-shell/page-title"
 
 export const Route = createFileRoute("/_dashboard/admin/audit")({
   staticData: {
