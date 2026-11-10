@@ -31,12 +31,10 @@ type PublishPodPendingStatus = Extract<
   PublishPodSubmitStatus,
   "publishing" | "updating"
 >
-type PublishPodFormState = "form" | PublishPodSubmitStatus
-type PublishPodSubmitState = {
-  state: PublishPodFormState
-  savedPodSlug: string | null
-  error: string | null
-}
+type PublishPodSubmitState =
+  | { state: "form" | PublishPodPendingStatus; savedPodSlug: null; error: null }
+  | { state: "success"; savedPodSlug: string; error: null }
+  | { state: "error"; savedPodSlug: null; error: string }
 type PublishPodSubmitOptions = {
   progressId: string
 }
@@ -76,7 +74,6 @@ export function PublishPodEditor({
   )
   const [submission, setSubmission] =
     React.useState<PublishPodSubmission | null>(null)
-  const submitCompletedRef = React.useRef(false)
   const onSubmitRef = React.useRef(onSubmit)
   const submitState = submitStatus.state
   const savedPodSlug = submitStatus.savedPodSlug
@@ -92,54 +89,34 @@ export function PublishPodEditor({
   }, [onSubmit])
 
   const handleValidatedSubmit = React.useCallback(
-    (values: PublishPodFormValues) => {
+    async (values: PublishPodFormValues) => {
       const nextProgressId = uuid()
-      let submitPromise: Promise<PublishPodSubmitResult>
-
       setSubmission({ progressId: nextProgressId, values })
-      submitCompletedRef.current = false
-
-      try {
-        submitPromise = Promise.resolve(
-          onSubmitRef.current(values, { progressId: nextProgressId })
-        )
-      } catch (error) {
-        setSubmitStatus({
-          state: "error",
-          savedPodSlug: null,
-          error: getErrorMessage(error),
-        })
-        return
-      }
-
       setSubmitStatus({
         state: pendingSubmitState,
         savedPodSlug: null,
         error: null,
       })
-      void submitPromise
-        .then((result) => {
-          if (pendingSubmitState === "updating") {
-            setSubmitStatus({
-              state: "success",
-              savedPodSlug: result.slug,
-              error: null,
-            })
-            return
-          }
-          submitCompletedRef.current = true
-          setSubmitStatus((current) => ({
-            ...current,
-            savedPodSlug: result.slug,
-          }))
+
+      try {
+        const result = await onSubmitRef.current(values, {
+          progressId: nextProgressId,
         })
-        .catch((error) => {
-          setSubmitStatus({
-            state: "error",
-            savedPodSlug: null,
-            error: getErrorMessage(error),
-          })
+        setSubmitStatus({
+          state: "success",
+          savedPodSlug: result.slug,
+          error: null,
         })
+      } catch (error) {
+        setSubmitStatus({
+          state: "error",
+          savedPodSlug: null,
+          error:
+            error instanceof Error
+              ? error.message
+              : "Failed to save published pod.",
+        })
+      }
     },
     [pendingSubmitState]
   )
@@ -170,36 +147,8 @@ export function PublishPodEditor({
     )
   )
 
-  const resolvedSubmitStatus = React.useMemo(() => {
-    if (submitState !== "publishing" && submitState !== "updating") {
-      return submitStatus
-    }
-
-    if (publishProgress?.state === "error") {
-      return {
-        state: "error" as const,
-        savedPodSlug: null,
-        error: publishProgress.message,
-      }
-    }
-
-    if (submitCompletedRef.current && publishProgress?.state === "success") {
-      return {
-        state: "success" as const,
-        savedPodSlug,
-        error: null,
-      }
-    }
-
-    return submitStatus
-  }, [publishProgress, savedPodSlug, submitState, submitStatus])
-
-  const resolvedSubmitState = resolvedSubmitStatus.state
-  const resolvedSavedPodSlug = resolvedSubmitStatus.savedPodSlug
-  const resolvedSubmitError = resolvedSubmitStatus.error
   const hasUnsavedChanges =
-    !isDefaultValue &&
-    (resolvedSubmitState === "form" || resolvedSubmitState === "error")
+    !isDefaultValue && (submitState === "form" || submitState === "error")
   useUnsavedChangesWarning(hasUnsavedChanges)
 
   const principalOptions = React.useMemo(
@@ -249,7 +198,7 @@ export function PublishPodEditor({
       savedPodSlug: null,
       error: null,
     })
-    submitCompletedRef.current = false
+    setSubmission(null)
   }, [])
 
   const handleValidateStep = React.useCallback(
@@ -257,17 +206,16 @@ export function PublishPodEditor({
     [form, step]
   )
 
-  if (resolvedSubmitState !== "form") {
+  if (submitState !== "form") {
     return (
       <div className="@container/main relative flex flex-1 flex-col">
         <PublishPodSubmitState
-          state={resolvedSubmitState}
-          error={resolvedSubmitError}
+          state={submitState}
+          error={submitStatus.error}
           onBackToForm={handleBackToForm}
-          podSlug={resolvedSavedPodSlug}
+          podSlug={savedPodSlug}
           progress={
-            resolvedSubmitState === "publishing" ||
-            resolvedSubmitState === "updating"
+            submitState === "publishing" || submitState === "updating"
               ? publishProgress
               : undefined
           }
@@ -309,10 +257,4 @@ export function PublishPodEditor({
       )}
     </div>
   )
-}
-
-function getErrorMessage(error: unknown) {
-  return error instanceof Error
-    ? error.message
-    : "Failed to save published pod."
 }

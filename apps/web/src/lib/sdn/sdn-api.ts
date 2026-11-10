@@ -105,13 +105,18 @@ export async function updateVNet(
     alias?: string
     vlanaware?: boolean
     isolate_ports?: boolean
-  }
+  },
+  options?: { apply?: boolean }
 ): Promise<void> {
-  await apiVoid(`/api/v1/sdn/vnets/${vnet}`, "update VNet", {
-    method: "PUT",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(params),
-  })
+  await apiVoid(
+    `/api/v1/sdn/vnets/${vnet}${applySearchParam(options)}`,
+    "update VNet",
+    {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(params),
+    }
+  )
 }
 
 export async function deleteVNet(

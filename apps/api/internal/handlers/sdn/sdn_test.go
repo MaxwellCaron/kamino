@@ -3,9 +3,16 @@ package sdn
 import (
 	"context"
 	"errors"
+	"net/http"
+	"net/http/httptest"
 	"testing"
 
+	"github.com/MaxwellCaron/kamino/internal/audit"
+	"github.com/MaxwellCaron/kamino/internal/authorization"
+	"github.com/MaxwellCaron/kamino/internal/handlertest"
 	"github.com/MaxwellCaron/kamino/internal/proxmox"
+	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 )
 
 type fakeSDNVNetCreator struct {
@@ -178,4 +185,89 @@ func (f *fakeSDNVNetCreator) CreateVNet(_ context.Context, params map[string]str
 func (f *fakeSDNVNetCreator) ApplySDN(context.Context) error {
 	f.applyCalls++
 	return nil
+}
+
+type sdnPermissionDB struct {
+	pgx.Tx
+	allowed bool
+}
+
+func (db *sdnPermissionDB) Query(context.Context, string, ...any) (pgx.Rows, error) {
+	return &sdnPermissionRows{available: db.allowed}, nil
+}
+
+func (db *sdnPermissionDB) QueryRow(context.Context, string, ...any) pgx.Row {
+	return sdnAuditRow{}
+}
+
+type sdnAuditRow struct{}
+
+func (sdnAuditRow) Scan(...any) error { return nil }
+
+type sdnPermissionRows struct {
+	pgx.Rows
+	available bool
+}
+
+func (r *sdnPermissionRows) Next() bool {
+	available := r.available
+	r.available = false
+	return available
+}
+func (r *sdnPermissionRows) Scan(dest ...any) error {
+	*dest[0].(*string) = string(authorization.ManagementPermissionAdministrator)
+	return nil
+}
+func (r *sdnPermissionRows) Err() error { return nil }
+func (r *sdnPermissionRows) Close()     {}
+
+func TestUpdateVNetApplyStages(t *testing.T) {
+	for _, tc := range []struct {
+		name        string
+		query       string
+		saveFails   bool
+		forbidden   bool
+		wantStatus  int
+		wantUpdates int
+		wantApplies int
+	}{
+		{name: "default applies", wantStatus: http.StatusOK, wantUpdates: 1, wantApplies: 1},
+		{name: "staged edit skips apply", query: "?apply=false", wantStatus: http.StatusOK, wantUpdates: 1},
+		{name: "explicit apply", query: "?apply=true", wantStatus: http.StatusOK, wantUpdates: 1, wantApplies: 1},
+		{name: "failed save skips apply", saveFails: true, wantStatus: http.StatusBadGateway, wantUpdates: 1},
+		{name: "nonadmin cannot stage", query: "?apply=false", forbidden: true, wantStatus: http.StatusForbidden},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			updates, applies := 0, 0
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if r.Method != http.MethodPut {
+					t.Errorf("unexpected method: %s", r.Method)
+				}
+				switch r.URL.Path {
+				case "/api2/json/cluster/sdn/vnets/lab1":
+					updates++
+					if tc.saveFails {
+						http.Error(w, "save failed", http.StatusBadGateway)
+						return
+					}
+				case "/api2/json/cluster/sdn":
+					applies++
+
+				default:
+					t.Errorf("unexpected path: %s", r.URL.Path)
+				}
+				w.Header().Set("Content-Type", "application/json")
+				_, _ = w.Write([]byte(`{"data":null}`))
+			}))
+			defer server.Close()
+			db := &sdnPermissionDB{allowed: !tc.forbidden}
+			handler := &SDNHandler{PX: proxmox.NewHTTPTestClient(server), Authz: authorization.NewService(db, nil), Audit: audit.NewService(db)}
+			router := handlertest.NewEngine(http.MethodPut, "/api/v1/sdn/vnets/:vnet", uuid.New(), handler.UpdateVNet)
+			response := handlertest.DoJSONRequest(router, http.MethodPut, "/api/v1/sdn/vnets/lab1"+tc.query, `{"zone":"zone1","tag":12}`)
+			handlertest.AssertStatus(t, response, tc.wantStatus)
+			if updates != tc.wantUpdates || applies != tc.wantApplies {
+				t.Fatalf("updates/applies = %d/%d, want %d/%d", updates, applies, tc.wantUpdates, tc.wantApplies)
+			}
+		})
+	}
 }

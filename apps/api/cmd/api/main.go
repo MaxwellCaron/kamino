@@ -319,8 +319,8 @@ func main() {
 	)
 	requestsHandler := &requestshttp.RequestsHandler{Service: requestService}
 
-	if fenced, err := requestService.FailStaleExecutingRequests(context.Background()); err != nil {
-		log.Printf("Stale executing request recovery failed: %v", err)
+	if fenced, err := requestService.RecoverInterruptedRequests(context.Background()); err != nil {
+		log.Printf("Interrupted request recovery failed: %v", err)
 	} else if len(fenced) > 0 {
 		log.Printf("Recovered %d stranded executing request(s): %v", len(fenced), fenced)
 	}

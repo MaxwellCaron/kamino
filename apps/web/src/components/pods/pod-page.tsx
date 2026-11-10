@@ -23,19 +23,9 @@ export function PodPage({
   const queryClient = useQueryClient()
   const [cloneDialogMode, setCloneDialogMode] =
     useState<CloneDialogMode | null>(null)
-  const [localClonedPodState, setLocalClonedPodState] = useState<{
-    podId: string
-    clonedPod: ClonedPod | null
-  } | null>(null)
-  const localClonedPod =
-    localClonedPodState?.podId === pod.id
-      ? localClonedPodState.clonedPod
-      : (clonedPod ?? null)
-
-  const isPreview = localClonedPod == null
+  const isPreview = clonedPod == null
   const setClonedPod = useCallback(
     (next: ClonedPod | null) => {
-      setLocalClonedPodState({ podId: pod.id, clonedPod: next })
       queryClient.setQueryData(clonedPodQueryOptions(pod.slug).queryKey, next)
       if (next == null) {
         queryClient.invalidateQueries({
@@ -43,7 +33,7 @@ export function PodPage({
         })
       }
     },
-    [pod.id, pod.slug, queryClient]
+    [pod.slug, queryClient]
   )
 
   return (
@@ -57,10 +47,10 @@ export function PodPage({
           />
 
           <div className="mx-auto flex w-full max-w-7xl flex-col gap-6 px-4 py-4 md:py-6 lg:px-6">
-            {localClonedPod && (
+            {clonedPod && (
               <PodCloneCard
                 pod={pod}
-                clonedPod={localClonedPod}
+                clonedPod={clonedPod}
                 onReclone={() => setCloneDialogMode("reclone")}
                 onClonedPodChange={setClonedPod}
               />
@@ -68,9 +58,9 @@ export function PodPage({
             {pod.tasks.length > 0 && (
               <PodTasks
                 tasks={pod.tasks}
-                clonedPodId={localClonedPod?.id}
-                taskStates={localClonedPod?.task_states ?? null}
-                questionAnswers={localClonedPod?.question_answers ?? null}
+                clonedPodId={clonedPod?.id}
+                taskStates={clonedPod?.task_states ?? null}
+                questionAnswers={clonedPod?.question_answers ?? null}
                 questionsDisabled={isPreview}
                 onClonedPodChange={setClonedPod}
               />
@@ -87,7 +77,7 @@ export function PodPage({
             pod={pod}
             username={username}
             clonedPodId={
-              cloneDialogMode === "reclone" ? localClonedPod?.id : undefined
+              cloneDialogMode === "reclone" ? clonedPod?.id : undefined
             }
             onCloned={setClonedPod}
           />

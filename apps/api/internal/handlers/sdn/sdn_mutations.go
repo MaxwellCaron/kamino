@@ -121,8 +121,10 @@ func (h *SDNHandler) UpdateVNet(c *gin.Context) {
 		return
 	}
 
-	if err := h.PX.ApplySDN(ctx); err != nil {
-		log.Printf("SDN apply after update VNet failed: %v", err)
+	if shouldApplySDN(c) {
+		if err := h.PX.ApplySDN(ctx); err != nil {
+			log.Printf("SDN apply after update VNet failed: %v", err)
+		}
 	}
 
 	h.Audit.RecordSuccess(ctx, audit.EventParams{

@@ -186,7 +186,7 @@ func (q *Queries) DenyRequest(ctx context.Context, arg DenyRequestParams) (DenyR
 	return i, err
 }
 
-const listStaleExecutingRequests = `-- name: ListStaleExecutingRequests :many
+const listExecutingRequests = `-- name: ListExecutingRequests :many
 SELECT
     id,
     family,
@@ -203,13 +203,11 @@ SELECT
     updated_at
 FROM requests
 WHERE status = 'executing'
-  AND execution_started_at IS NOT NULL
-  AND execution_started_at < $1
 ORDER BY execution_started_at ASC, id ASC
 `
 
-func (q *Queries) ListStaleExecutingRequests(ctx context.Context, executionStartedAt pgtype.Timestamptz) ([]Requests, error) {
-	rows, err := q.db.Query(ctx, listStaleExecutingRequests, executionStartedAt)
+func (q *Queries) ListExecutingRequests(ctx context.Context) ([]Requests, error) {
+	rows, err := q.db.Query(ctx, listExecutingRequests)
 	if err != nil {
 		return nil, err
 	}

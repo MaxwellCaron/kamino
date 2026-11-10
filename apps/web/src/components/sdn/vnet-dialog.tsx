@@ -4,17 +4,19 @@ import {
   PencilEdit01Icon,
   RegexIcon,
 } from "@hugeicons/core-free-icons"
-import type {
-  ApiSDNZone,
-  ApiVNet,
-  CreateVNetInput,
-} from "@/lib/sdn/sdn-types"
+import type { ApiSDNZone, ApiVNet, CreateVNetInput } from "@/lib/sdn/sdn-types"
 import {
   AppDialog,
   AppDialogHeaderTabs,
   AppDialogPrimaryButton,
   AppDialogScrollBody,
 } from "@/components/dialogs/app-dialog"
+import {
+  SDN_APPLY_ITEM_ID,
+  getSDNApplyProgressItem,
+  getVNetUpdateUnit,
+  reportSDNApply,
+} from "@/lib/sdn/vnet-mutations"
 import { Tabs, TabsContent, TabsTrigger } from "@workspace/ui/components/tabs"
 import type {
   VNetCreateMode,
@@ -47,37 +49,8 @@ import { EditVNetForm } from "@/components/sdn/edit-vnet-form"
 import { FieldError } from "@workspace/ui/components/field"
 import { HugeiconsIcon } from "@hugeicons/react"
 import { InlineErrorAlert } from "@/components/feedback/inline-error-alert"
-import type { MutationItemUpdate } from "@/lib/mutation-progress-toast"
 import { PreloadOverlay } from "@/components/feedback/loading-overlay"
 import { useForm } from "@tanstack/react-form"
-
-const SDN_APPLY_ITEM_ID = "sdn-apply"
-
-function getErrorMessage(error: unknown) {
-  return error instanceof Error ? error.message : "Failed"
-}
-
-function getSDNApplyProgressItem() {
-  return {
-    id: SDN_APPLY_ITEM_ID,
-    name: "SDN Apply",
-    successDescription: "Applied",
-    retry: applySDN,
-  }
-}
-
-async function reportSDNApply(report: (update: MutationItemUpdate) => void) {
-  try {
-    await applySDN()
-    report({ id: SDN_APPLY_ITEM_ID, status: "done" })
-  } catch (error) {
-    report({
-      id: SDN_APPLY_ITEM_ID,
-      status: "error",
-      error: getErrorMessage(error),
-    })
-  }
-}
 
 function VNetCreateFields({
   FieldComponent,
@@ -274,13 +247,17 @@ function VNetDialogForm({
       if (!isEdit) return
 
       const tag = values.tag.trim() ? parseInt(values.tag, 10) : undefined
-      await updateVNet(vnet.vnet, {
-        zone: values.zone,
-        tag,
-        alias: values.alias || undefined,
-        vlanaware: values.vlanAware,
-        isolate_ports: values.isolatePorts,
-      })
+      await updateVNet(
+        vnet.vnet,
+        {
+          zone: values.zone,
+          tag,
+          alias: values.alias || undefined,
+          vlanaware: values.vlanAware,
+          isolate_ports: values.isolatePorts,
+        },
+        { apply: false }
+      )
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["sdn", "vnets"] })
@@ -295,11 +272,11 @@ function VNetDialogForm({
 
       if (isEdit) {
         onOpenChange(false)
-        showSingleMutationToast({
+        showUnitMutationToast({
           title: "Updating VNet",
-          name: value.vnet,
-          promise: () => mutation.mutateAsync(value),
-          successDescription: "Updated",
+          units: [
+            getVNetUpdateUnit(value.vnet, () => mutation.mutateAsync(value)),
+          ],
         })
         return
       }
