@@ -6,15 +6,11 @@ import { useChartHover } from "./chart-context"
 import { useChartLegendHover } from "./chart-legend-hover"
 
 interface SeriesHoverDimProps {
-  /** Skip the dim entirely. */
   enabled?: boolean
-  /** Opacity to fade to while the chart is being hovered. */
   dimOpacity?: number
-  /** Tween duration in seconds. */
   durationSec?: number
   /** Series index for multi-series legend hover dimming. */
   seriesIndex?: number
-  /** Stable chart visuals — area fill, stroke line, dashed tail, etc. */
   children: ReactNode
 }
 

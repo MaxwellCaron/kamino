@@ -31,19 +31,15 @@ export interface PieCenterProps {
     isHovered: boolean
     data: { label: string; value: number; color?: string; fill?: string }
   }) => ReactNode
-  /** Additional class name for the container */
   className?: string
   /** Class name for the value text. Default: "text-2xl font-bold" */
   valueClassName?: string
   /** Class name for the label text. Default: "text-xs" */
   labelClassName?: string
-  /** Prefix to show before the number (e.g., "$") */
   prefix?: string
-  /** Suffix to show after the number (e.g., "%") */
   suffix?: string
 }
 
-// Default format options
 const defaultFormatOptions: NumberFlowFormat = {
   notation: "standard",
   maximumFractionDigits: 0,
@@ -76,16 +72,12 @@ export function PieCenter({
   const displayLabel = hoveredData ? hoveredData.label : defaultLabel
   const isHovered = hoveredIndex !== null
 
-  // Calculate center area size based on inner radius
-  // Leave some padding so text doesn't touch the inner edge
   const centerSize = innerRadius * 2 - 16
 
-  // Don't render if there's no inner radius (solid pie, not donut)
   if (innerRadius <= 0) {
     return null
   }
 
-  // If custom render function is provided, use it
   if (children) {
     return (
       <div

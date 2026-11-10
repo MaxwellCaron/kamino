@@ -91,7 +91,6 @@ func findSegment(profile Profile, key string) (Segment, bool) {
 
 func copyProfile(profile Profile) Profile {
 	copied := profile
-	copied.RequiredVNets = append([]string(nil), profile.RequiredVNets...)
 	copied.RouterInterfaces = append([]Interface(nil), profile.RouterInterfaces...)
 	copied.Segments = append([]Segment(nil), profile.Segments...)
 	if profile.PrefixNAT != nil {

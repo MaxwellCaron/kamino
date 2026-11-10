@@ -26,7 +26,6 @@ func guestPath(gt GuestType, node string, vmid int, suffix string) string {
 	return fmt.Sprintf("/api2/json/nodes/%s/%s/%d%s", node, gt, vmid, suffix)
 }
 
-// Client talks to the Proxmox VE API.
 type Client struct {
 	baseURL            string
 	tokenID            string
@@ -79,15 +78,12 @@ func (c *Client) SetSharedStorageNames(names []string) {
 	c.sharedStorageNames = parseSharedStorageNames(names)
 }
 
-// BaseURL returns the Proxmox API base URL.
 func (c *Client) BaseURL() string { return c.baseURL }
 
-// AuthHeader returns the Authorization header value for Proxmox API requests.
 func (c *Client) AuthHeader() string {
 	return fmt.Sprintf("PVEAPIToken=%s=%s", c.tokenID, c.secret)
 }
 
-// Insecure returns whether TLS verification is disabled.
 func (c *Client) Insecure() bool { return c.insecure }
 
 func (c *Client) isAllowedNode(node string) bool {
@@ -109,7 +105,7 @@ func (c *Client) requireAllowedNode(node string) error {
 func unexpectedStatusError(resp *http.Response, path string) error {
 	body, err := io.ReadAll(io.LimitReader(resp.Body, 4096))
 	if err != nil {
-		return fmt.Errorf("unexpected status %d for %s (reading response body: %w)", resp.StatusCode, path, err)
+		return &apiStatusError{statusCode: resp.StatusCode, message: fmt.Sprintf("unexpected status %d for %s (reading response body: %v)", resp.StatusCode, path, err), cause: err}
 	}
 
 	return unexpectedStatusErrorWithBody(resp.StatusCode, path, string(body))
@@ -118,9 +114,17 @@ func unexpectedStatusError(resp *http.Response, path string) error {
 type apiStatusError struct {
 	statusCode int
 	message    string
+	cause      error
 }
 
 func (e *apiStatusError) Error() string { return e.message }
+
+func (e *apiStatusError) Unwrap() error { return e.cause }
+
+func IsNotFound(err error) bool {
+	var statusErr *apiStatusError
+	return errors.As(err, &statusErr) && statusErr.statusCode == http.StatusNotFound
+}
 
 func unexpectedStatusErrorWithBody(statusCode int, path string, body string) error {
 	detail := strings.TrimSpace(body)
@@ -155,114 +159,69 @@ func (c *Client) filterVMs(vms []VM) []VM {
 }
 
 func (c *Client) get(ctx context.Context, path string, result any) error {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, c.baseURL+path, nil)
-	if err != nil {
-		return fmt.Errorf("creating request: %w", err)
-	}
-	req.Header.Set("Authorization", c.AuthHeader())
-
-	resp, err := c.httpClient.Do(req)
-	if err != nil {
-		return fmt.Errorf("executing request: %w", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return unexpectedStatusError(resp, path)
-	}
-
-	if err := json.NewDecoder(resp.Body).Decode(result); err != nil {
-		return fmt.Errorf("decoding response: %w", err)
-	}
-	return nil
+	return c.request(ctx, http.MethodGet, path, nil, result)
 }
 
 func (c *Client) post(ctx context.Context, path string, formData map[string]string, result any) error {
-	form := url.Values{}
-	for k, v := range formData {
-		form.Set(k, v)
-	}
-
-	return c.postValues(ctx, path, form, result)
+	return c.postValues(ctx, path, formValues(formData), result)
 }
 
 func (c *Client) postValues(ctx context.Context, path string, form url.Values, result any) error {
 	if form == nil {
 		form = url.Values{}
 	}
-
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.baseURL+path, strings.NewReader(form.Encode()))
-	if err != nil {
-		return fmt.Errorf("creating request: %w", err)
-	}
-	req.Header.Set("Authorization", c.AuthHeader())
-	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-
-	resp, err := c.httpClient.Do(req)
-	if err != nil {
-		return fmt.Errorf("executing request: %w", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return unexpectedStatusError(resp, path)
-	}
-
-	if err := json.NewDecoder(resp.Body).Decode(result); err != nil {
-		return fmt.Errorf("decoding response: %w", err)
-	}
-	return nil
+	return c.request(ctx, http.MethodPost, path, form, result)
 }
 
-// GetPools returns all resource pools from Proxmox.
 func (c *Client) put(ctx context.Context, path string, formData map[string]string, result any) error {
-	form := url.Values{}
-	for k, v := range formData {
-		form.Set(k, v)
-	}
-
-	req, err := http.NewRequestWithContext(ctx, http.MethodPut, c.baseURL+path, strings.NewReader(form.Encode()))
-	if err != nil {
-		return fmt.Errorf("creating request: %w", err)
-	}
-	req.Header.Set("Authorization", c.AuthHeader())
-	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-
-	resp, err := c.httpClient.Do(req)
-	if err != nil {
-		return fmt.Errorf("executing request: %w", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return unexpectedStatusError(resp, path)
-	}
-
-	if result != nil {
-		if err := json.NewDecoder(resp.Body).Decode(result); err != nil {
-			return fmt.Errorf("decoding response: %w", err)
-		}
-	}
-	return nil
+	return c.request(ctx, http.MethodPut, path, formValues(formData), result)
 }
 
 func (c *Client) delete(ctx context.Context, path string, result any) error {
-	req, err := http.NewRequestWithContext(ctx, http.MethodDelete, c.baseURL+path, nil)
+	return c.request(ctx, http.MethodDelete, path, nil, result)
+}
+
+func formValues(values map[string]string) url.Values {
+	form := url.Values{}
+	for key, value := range values {
+		form.Set(key, value)
+	}
+	return form
+}
+
+func (c *Client) request(ctx context.Context, method, path string, form url.Values, result any) error {
+	req, err := c.newRequest(ctx, method, path, form)
 	if err != nil {
-		return fmt.Errorf("creating request: %w", err)
+		return err
 	}
 	req.Header.Set("Authorization", c.AuthHeader())
+	return c.do(req, result)
+}
 
+func (c *Client) newRequest(ctx context.Context, method, path string, form url.Values) (*http.Request, error) {
+	var body io.Reader
+	if form != nil {
+		body = strings.NewReader(form.Encode())
+	}
+	req, err := http.NewRequestWithContext(ctx, method, c.baseURL+path, body)
+	if err != nil {
+		return nil, fmt.Errorf("creating request: %w", err)
+	}
+	if form != nil {
+		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	}
+	return req, nil
+}
+
+func (c *Client) do(req *http.Request, result any) error {
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
 		return fmt.Errorf("executing request: %w", err)
 	}
 	defer resp.Body.Close()
-
 	if resp.StatusCode != http.StatusOK {
-		return unexpectedStatusError(resp, path)
+		return unexpectedStatusError(resp, req.URL.RequestURI())
 	}
-
 	if result != nil {
 		if err := json.NewDecoder(resp.Body).Decode(result); err != nil {
 			return fmt.Errorf("decoding response: %w", err)

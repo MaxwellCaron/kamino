@@ -14,7 +14,6 @@ import { useDelayedTooltipData } from "./use-delayed-tooltip-data"
 export interface HeatmapTooltipProps {
   /** Custom contribution line (bottom section). Default: `N contribution(s)`. */
   formatLabel?: (count: number, date: Date) => string
-  /** Custom class name */
   className?: string
   /** Inline styles for the tooltip panel (background, blur, etc.). */
   panelStyle?: React.CSSProperties

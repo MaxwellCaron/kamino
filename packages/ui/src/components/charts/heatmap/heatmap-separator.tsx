@@ -14,7 +14,6 @@ import { cn } from "@workspace/ui/lib/utils";
 import { createPortal } from "react-dom";
 import { useHeatmap } from "./heatmap-context";
 
-/** Marker for reliably identifying {@link HeatmapSeparator} in chart child trees. */
 export const HEATMAP_SEPARATOR_MARKER = "__isHeatmapSeparator" as const;
 
 export interface HeatmapSeparatorProps {
@@ -29,7 +28,6 @@ export interface HeatmapSeparatorProps {
    * Default: `"every"`.
    */
   groupBy?: "every" | "quarter";
-  /** Additional class name for each separator group. */
   className?: string;
   /**
    * Extra horizontal gap between column groups in pixels (shifts cells apart).
@@ -55,7 +53,6 @@ export interface HeatmapSeparatorProps {
   showLabels?: boolean;
   /** Format quarter group labels. Default: `Q{n}` */
   labelFormat?: (quarter: number, startDate: Date) => string;
-  /** Additional class name for quarter labels */
   labelClassName?: string;
   /** Solid or dashed separator line. Default: `"solid"` */
   strokeStyle?: HeatmapSeparatorStrokeStyle;

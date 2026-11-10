@@ -12,7 +12,7 @@ import (
 	"github.com/MaxwellCaron/kamino/internal/authorization"
 	"github.com/MaxwellCaron/kamino/internal/inventory"
 	"github.com/MaxwellCaron/kamino/internal/names"
-	"github.com/MaxwellCaron/kamino/internal/podnetworks"
+	"github.com/MaxwellCaron/kamino/internal/podnetworkallocation"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -43,7 +43,6 @@ type ProvisionRouterRequest struct {
 	NetworkNumber int32
 }
 
-// Runtime is the coarse seam into handler-owned clone/network/router mechanics.
 type Runtime interface {
 	ResolveProvisionContext(ctx context.Context) (ProvisionContext, error)
 	ProvisionRouter(ctx context.Context, req ProvisionRouterRequest) error
@@ -283,7 +282,7 @@ func (s pgStore) InsertPersonalPod(
 	params database.InsertPersonalPodParams,
 ) (database.InsertPersonalPodRow, error) {
 	var row database.InsertPersonalPodRow
-	err := podnetworks.WithPodNetworkAllocation(ctx, s.pool, func(ctx context.Context, tx pgx.Tx) error {
+	err := podnetworkallocation.WithPodNetworkAllocation(ctx, s.pool, func(ctx context.Context, tx pgx.Tx) error {
 		q := database.New(tx)
 		var err error
 		row, err = q.InsertPersonalPod(ctx, params)
@@ -306,14 +305,6 @@ func (s pgStore) InsertPersonalPod(
 		return nil
 	})
 	return row, err
-}
-
-func personalPodFolderDescription(vnetName string) string {
-	vnetName = strings.TrimSpace(vnetName)
-	return fmt.Sprintf(
-		"To add another VM, choose Create VM from this folder and attach its network interface to VNet %s. You can confirm the VNet from the router VM dashboard.",
-		vnetName,
-	)
 }
 
 func personalPodFolderDescriptionWithTag(vnetName string, vlanTag int32) string {

@@ -37,7 +37,6 @@ import { heatmapLevelCellFillOpacity } from "./heatmap-colors";
 import { transitionWithDelay } from "../motion-utils";
 
 const HEATMAP_INACTIVE_OPACITY = 0.3;
-/** Smooth tween for inactive opacity + scale on hover. */
 const HEATMAP_INACTIVE_TRANSITION = {
   duration: 0.22,
   ease: [0.4, 0, 0.2, 1] as const,
@@ -247,11 +246,9 @@ const HeatmapMotionCell = memo(function HeatmapMotionCell({
   );
   const readyDataOpacity = readyHoverStyle.opacity;
 
-  /** Skip the mount-time fade when a cell renders straight into its resting state. */
   const dataOpacity = useMotionValue(
     !animateCells && isReadyResting ? readyDataOpacity : 0
   );
-  /** Orchestration layer: conceal, static loading base. */
   const shimmerOpacity = useMotionValue(0);
   /** Pulse loop only — kept separate so stagger tweens don't break re-entry. */
   const pulseOpacity = useMotionValue(0);

@@ -1,7 +1,7 @@
-import { GroupsPage } from "@/features/principals/components/groups/groups-page"
+import { GroupsPage } from "@/components/principals/groups/groups-page"
 import { createFileRoute } from "@tanstack/react-router"
-import { pageTitle } from "@/features/shared/utils/page-title"
-import { preloadGroupsPage } from "@/features/principals/api/principal-route-loaders"
+import { pageTitle } from "@/lib/app-shell/page-title"
+import { preloadGroupsPage } from "@/lib/principals/principal-route-loaders"
 
 export const Route = createFileRoute("/_dashboard/admin/principals/groups")({
   staticData: {

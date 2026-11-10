@@ -5,8 +5,6 @@ import (
 	"log"
 )
 
-// Config holds all application configuration
-
 func runInitialSyncs(
 	ctx context.Context,
 	config *Config,

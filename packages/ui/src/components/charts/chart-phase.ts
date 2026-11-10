@@ -4,10 +4,6 @@ export type ChartStatus = "loading" | "ready";
  * shimmer that sweeps across the skeleton. */
 export type LoadingStyle = "pulse" | "sweep";
 
-/**
- * Internal visual lifecycle phase. Forward and reverse transitions add
- * intermediate phases in later stack branches.
- */
 export type ChartPhase =
   | "loading"
   | "exiting"
@@ -20,13 +16,11 @@ export type ChartPhase =
 
 export const DEFAULT_CHART_STATUS: ChartStatus = "ready";
 
-/** Default Y-domain tween when transitioning loading ↔ ready (ms). */
 export const DEFAULT_Y_DOMAIN_TWEEN_MS = 500;
 
 /** Relative domain delta below which Y tween may be skipped (see plan). */
 export const Y_DOMAIN_TWEEN_SKIP_THRESHOLD = 0.02;
 
-/** Resting phase for a given status before transition orchestration runs. */
 export function resolveRestingChartPhase(status: ChartStatus): ChartPhase {
   return status === "loading" ? "loading" : "ready";
 }

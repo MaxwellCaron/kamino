@@ -5,17 +5,14 @@ import {
   createRootRouteWithContext,
 } from "@tanstack/react-router"
 import {
-  RootComponent as RootContent,
-  defaultTheme,
-  themeStorageKey,
-} from "@/components/app-shell/root-layout"
-import {
   ThemeProvider,
   useTheme,
 } from "@workspace/ui/components/theme-provider"
-import { NotFound } from "@/components/not-found"
+import { defaultTheme, themeStorageKey } from "@/lib/app-shell/theme"
+import { NotFound } from "@/components/feedback/not-found"
 import type { QueryClient } from "@tanstack/react-query"
-import { RouteErrorBoundary } from "@/components/route-error"
+import { RootComponent as RootContent } from "@/components/app-shell/root-layout"
+import { RouteErrorBoundary } from "@/components/feedback/route-error"
 import { Toaster } from "sonner"
 import dmSansLatinUrl from "@fontsource-variable/dm-sans/files/dm-sans-latin-wght-normal.woff2?url"
 import { useEffect } from "react"

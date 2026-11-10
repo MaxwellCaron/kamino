@@ -13,6 +13,16 @@ import (
 	"github.com/MaxwellCaron/kamino/internal/auth"
 	"github.com/MaxwellCaron/kamino/internal/authorization"
 	"github.com/MaxwellCaron/kamino/internal/handlers"
+	audithttp "github.com/MaxwellCaron/kamino/internal/handlers/audit"
+	authhttp "github.com/MaxwellCaron/kamino/internal/handlers/auth"
+	inventoryhttp "github.com/MaxwellCaron/kamino/internal/handlers/inventory"
+	podshttp "github.com/MaxwellCaron/kamino/internal/handlers/pods"
+	principalshttp "github.com/MaxwellCaron/kamino/internal/handlers/principals"
+	proxmoxadminhttp "github.com/MaxwellCaron/kamino/internal/handlers/proxmoxadmin"
+	requestshttp "github.com/MaxwellCaron/kamino/internal/handlers/requests"
+	sdnhttp "github.com/MaxwellCaron/kamino/internal/handlers/sdn"
+	streamshttp "github.com/MaxwellCaron/kamino/internal/handlers/streams"
+	vmshttp "github.com/MaxwellCaron/kamino/internal/handlers/vms"
 	"github.com/MaxwellCaron/kamino/internal/inventory"
 	"github.com/MaxwellCaron/kamino/internal/middleware"
 	"github.com/MaxwellCaron/kamino/internal/personalpods"
@@ -28,9 +38,6 @@ import (
 	"github.com/kelseyhightower/envconfig"
 )
 
-// Config holds all application configuration
-
-// init the environment
 func init() {
 	if err := godotenv.Load(); err != nil {
 		log.Println("No .env file found, using environment variables from system")
@@ -163,7 +170,7 @@ func main() {
 	}
 	auditService := audit.NewService(server.DBPool)
 	go auditService.StartRetention(context.Background())
-	inventoryHandler := &handlers.InventoryHandler{
+	inventoryHandler := &inventoryhttp.InventoryHandler{
 		Service:            inventoryService,
 		Notifier:           inventoryNotifier,
 		PX:                 server.ProxmoxClient,
@@ -172,9 +179,9 @@ func main() {
 		PodVMAddressReader: database.New(server.DBPool),
 		NetworkCatalog:     networkCatalog,
 	}
-	vncHandler := handlers.NewVNCHandler(server.ProxmoxClient, config.FrontendURL)
+	vncHandler := vmshttp.NewVNCHandler(server.ProxmoxClient, config.FrontendURL)
 	vncHandler.Authz = authzService
-	consoleHandler := &handlers.ConsoleHandler{
+	consoleHandler := &vmshttp.ConsoleHandler{
 		PX:             server.ProxmoxClient,
 		Authz:          authzService,
 		SPICEProxyHost: config.ProxmoxSPICEProxyHost,
@@ -199,7 +206,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("Invalid VM_TEMPLATES_FOLDER_ITEM_ID: %v", err)
 	}
-	vmHandler := &handlers.VMHandler{
+	vmHandler := &vmshttp.VMHandler{
 		PX:                    server.ProxmoxClient,
 		Importer:              server.ProxmoxImport,
 		Service:               inventoryService,
@@ -215,7 +222,7 @@ func main() {
 	}
 	vmidAllocator := vmidalloc.New(server.ProxmoxClient, database.New(server.DBPool))
 	vmHandler.Allocator = vmidAllocator
-	vmCreateHandler := &handlers.VMCreateHandler{
+	vmCreateHandler := &vmshttp.VMCreateHandler{
 		PX:                    server.ProxmoxClient,
 		Importer:              server.ProxmoxImport,
 		Service:               inventoryService,
@@ -247,7 +254,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("Invalid PERSONAL_PODS_FOLDER_ITEM_ID: %v", err)
 	}
-	podsHandler := &handlers.PodsHandler{
+	podsHandler := &podshttp.PodsHandler{
 		PX:                              server.ProxmoxClient,
 		Importer:                        server.ProxmoxImport,
 		Service:                         inventoryService,
@@ -271,7 +278,7 @@ func main() {
 		PodCloneClaims:                  podCloneClaims,
 		VMActionClaims:                  vmActionClaims,
 	}
-	personalPodRuntime := handlers.NewPersonalPodRuntime(podsHandler)
+	personalPodRuntime := podshttp.NewPersonalPodRuntime(podsHandler)
 	podsHandler.PersonalPods = personalpods.NewService(
 		server.Config.PersonalPodsEnabled,
 		server.DBPool,
@@ -282,22 +289,23 @@ func main() {
 	if err := podsHandler.EnsurePurposeFolderDescriptions(context.Background()); err != nil {
 		log.Printf("Purpose folder description sync failed: %v", err)
 	}
-	sdnHandler := &handlers.SDNHandler{
+	sdnHandler := &sdnhttp.SDNHandler{
 		PX:    server.ProxmoxClient,
 		Authz: authzService,
 		Audit: auditService,
 	}
-	proxmoxSyncHandler := &handlers.ProxmoxSyncHandler{
+	metricsHandler := &proxmoxadminhttp.MetricsHandler{PX: server.ProxmoxClient, Authz: authzService}
+	proxmoxSyncHandler := &proxmoxadminhttp.ProxmoxSyncHandler{
 		Importer: server.ProxmoxImport,
 		Service:  inventoryService,
 		Authz:    authzService,
 		Audit:    auditService,
 	}
-	auditHandler := &handlers.AuditHandler{
+	auditHandler := &audithttp.AuditHandler{
 		Audit: auditService,
 		Authz: authzService,
 	}
-	authzHandler := &handlers.AuthorizationHandler{Authz: authzService, Audit: auditService}
+	authzHandler := &principalshttp.AuthorizationHandler{Authz: authzService, Audit: auditService}
 	requestService := requestqueue.NewService(
 		server.DBPool,
 		authzService,
@@ -309,10 +317,10 @@ func main() {
 		podsHandler.PersonalPods,
 		vmActionClaims,
 	)
-	requestsHandler := &handlers.RequestsHandler{Service: requestService}
+	requestsHandler := &requestshttp.RequestsHandler{Service: requestService}
 
-	if fenced, err := requestService.FailStaleExecutingRequests(context.Background()); err != nil {
-		log.Printf("Stale executing request recovery failed: %v", err)
+	if fenced, err := requestService.RecoverInterruptedRequests(context.Background()); err != nil {
+		log.Printf("Interrupted request recovery failed: %v", err)
 	} else if len(fenced) > 0 {
 		log.Printf("Recovered %d stranded executing request(s): %v", len(fenced), fenced)
 	}
@@ -337,7 +345,8 @@ func main() {
 	}
 	go vmActionClaims.StartRecovery(context.Background())
 
-	eventsHandler := &handlers.EventsHandler{
+	eventsHandler := &streamshttp.EventsHandler{
+		PodProgress:       &podsHandler.Progress,
 		InventoryNotifier: inventoryNotifier,
 		VMNotifier:        vmStatusNotifier,
 		Requests:          requestService,
@@ -354,7 +363,7 @@ func main() {
 	eventsHandler.Sessions = sessionManager
 	vncHandler.Sessions = sessionManager
 
-	authHandler := &handlers.AuthHandler{
+	authHandler := &authhttp.AuthHandler{
 		Auth:          authService,
 		Sessions:      sessionManager,
 		Authenticator: server.PrincipalAuthenticator,
@@ -363,7 +372,7 @@ func main() {
 		CookieSecure:  strings.HasPrefix(server.Config.FrontendURL, "https://"),
 	}
 
-	principalsHandler := &handlers.PrincipalsHandler{
+	principalsHandler := &principalshttp.PrincipalsHandler{
 		Provider:     server.PrincipalProvider,
 		Authz:        authzService,
 		Audit:        auditService,
@@ -399,6 +408,7 @@ func main() {
 		requestsHandler,
 		eventsHandler,
 		proxmoxSyncHandler,
+		metricsHandler,
 		auditHandler,
 	)
 

@@ -1,40 +1,39 @@
 "use client"
 
-import { authSessionQueryOptions, logout } from "@/features/auth/api/auth-api"
 import {
   buildCommandSearchIndex,
   filterIndexedCommands,
   tokenizeCommandQuery,
-} from "./site-command-search"
+} from "../../lib/app-shell/site-command-search"
 import {
   buildDocsCommandsForQuery,
   buildSiteCommands,
-} from "./site-command-index"
+} from "../../lib/app-shell/site-command-index"
 import {
   canAccessAdmin,
   canAccessRequestQueue,
-} from "@/features/auth/utils/management-permissions"
-
+} from "@/lib/auth/management-permissions"
 import {
   groupsQueryOptions,
   usersQueryOptions,
-} from "@/features/principals/api/principals-api"
-
+} from "@/lib/principals/principals-api"
 import {
   podCatalogQueryOptions,
   publishedPodsQueryOptions,
-} from "@/features/pods/api/publish-pod-api"
+} from "@/lib/pods/publish-pod-api"
 import { useCallback, useMemo, useState } from "react"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { useNavigate, useRouter } from "@tanstack/react-router"
-import type { BuildSiteCommandsActions } from "./site-command-index"
+import type { BuildSiteCommandsActions } from "../../lib/app-shell/site-command-index"
 import { SiteCommandMenu } from "./site-command-menu"
-import { inventoryTreeQueryOptions } from "@/features/inventory/api/inventory-api"
-import { requestSummariesQueryOptions } from "@/features/requests/api/requests-api"
+import { authSessionQueryOptions } from "@/lib/auth/auth-queries"
+import { inventoryTreeQueryOptions } from "@/lib/inventory/inventory-api"
+import { logout } from "@/lib/auth/auth-session"
+import { requestSummariesQueryOptions } from "@/lib/requests/requests-api"
 import { toast } from "sonner"
-import { useOptionalInventoryTreeNavigationContext } from "@/features/inventory/components/tree/inventory-tree-context"
+import { useOptionalInventoryTreeNavigationContext } from "@/hooks/inventory/tree/use-inventory-tree-context"
 import { useTheme } from "@workspace/ui/components/theme-provider"
-import { vnetsQueryOptions } from "@/features/sdn/api/sdn-api"
+import { vnetsQueryOptions } from "@/lib/sdn/sdn-api"
 
 type SiteCommandIndexState = {
   canAdminister: boolean

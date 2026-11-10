@@ -1,7 +1,7 @@
-import { UsersPage } from "@/features/principals/components/users/users-page"
+import { UsersPage } from "@/components/principals/users/users-page"
 import { createFileRoute } from "@tanstack/react-router"
-import { pageTitle } from "@/features/shared/utils/page-title"
-import { preloadUsersPage } from "@/features/principals/api/principal-route-loaders"
+import { pageTitle } from "@/lib/app-shell/page-title"
+import { preloadUsersPage } from "@/lib/principals/principal-route-loaders"
 
 export const Route = createFileRoute("/_dashboard/admin/principals/users")({
   staticData: {

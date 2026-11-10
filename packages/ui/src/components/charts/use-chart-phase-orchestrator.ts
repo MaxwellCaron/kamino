@@ -142,7 +142,6 @@ export function useChartPhaseOrchestrator({
     }
   }, [chartPhase, chartStatus, skeletonData, targetData]);
 
-  /** Loading pulse exit finished — tween grid to ready spacing next. */
   const notifyLoadingPulseComplete = useCallback(() => {
     if (phaseRef.current !== "exiting") {
       return;
@@ -150,7 +149,6 @@ export function useChartPhaseOrchestrator({
     setChartPhase("gridTweenReady");
   }, []);
 
-  /** Ready series conceal finished — tween grid to loading spacing next. */
   const notifyRevealConcealComplete = useCallback(() => {
     if (phaseRef.current !== "exitingReady") {
       return;
@@ -158,7 +156,6 @@ export function useChartPhaseOrchestrator({
     setChartPhase("gridTweenLoading");
   }, []);
 
-  /** Grid tween finished — enter the next resting phase. */
   const notifyYDomainTweenComplete = useCallback(() => {
     if (phaseRef.current === "gridTweenLoading") {
       setChartPhase("loading");

@@ -18,7 +18,6 @@ func (c *Client) GetPools(ctx context.Context) ([]Pool, error) {
 	return resp.Data, nil
 }
 
-// GetVMs returns all virtual machines across the cluster.
 func (c *Client) GetVMs(ctx context.Context) ([]VM, error) {
 	var resp apiResponse[[]VM]
 	if err := c.get(ctx, "/api2/json/cluster/resources?type=vm", &resp); err != nil {
@@ -27,7 +26,6 @@ func (c *Client) GetVMs(ctx context.Context) ([]VM, error) {
 	return c.filterVMs(resp.Data), nil
 }
 
-// GetVMRuntimeStatus returns the node-local runtime status for a guest.
 func (c *Client) GetVMRuntimeStatus(ctx context.Context, gt GuestType, node string, vmid int) (string, error) {
 	if err := c.requireAllowedNode(node); err != nil {
 		return "", err
@@ -87,7 +85,6 @@ func (c *Client) WaitForVMRuntimeStatus(ctx context.Context, gt GuestType, node 
 	}
 }
 
-// GetVMConfig returns the raw Proxmox config for a guest.
 func (c *Client) GetVMConfig(ctx context.Context, gt GuestType, node string, vmid int) (map[string]any, error) {
 	if err := c.requireAllowedNode(node); err != nil {
 		return nil, err
@@ -102,7 +99,6 @@ func (c *Client) GetVMConfig(ctx context.Context, gt GuestType, node string, vmi
 	return resp.Data, nil
 }
 
-// GetVMIdentity returns the stable identity metadata for a guest.
 func (c *Client) GetVMIdentity(ctx context.Context, gt GuestType, node string, vmid int) (*VMIdentity, error) {
 	data, err := c.GetVMConfig(ctx, gt, node, vmid)
 	if err != nil {
@@ -129,7 +125,6 @@ func (c *Client) GetVMIdentity(ctx context.Context, gt GuestType, node string, v
 	return identity, nil
 }
 
-// GetVMConfigSummary returns inventory metadata derived from a guest config.
 func (c *Client) GetVMConfigSummary(ctx context.Context, gt GuestType, node string, vmid int) (*VMConfigSummary, error) {
 	data, err := c.GetVMConfig(ctx, gt, node, vmid)
 	if err != nil {

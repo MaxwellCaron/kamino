@@ -13,7 +13,7 @@ import {
   DialogTitle,
 } from "@workspace/ui/components/dialog"
 import { useLayoutEffect, useRef } from "react"
-import { AppActionButton } from "@/components/actions/app-action-button"
+import { AppActionButton } from "@/components/app-action-button"
 import { HugeiconsIcon } from "@hugeicons/react"
 import type { IconSvgElement } from "@hugeicons/react"
 import { TabsList } from "@workspace/ui/components/tabs"
@@ -37,9 +37,6 @@ function Freeze({
 type AppDialogIcon = IconSvgElement
 
 type AppDialogVariant = "default" | "child"
-
-export const nestedDialogAnimationClassName =
-  "top-[calc(50%+1.25rem*var(--nested-dialogs))] scale-[calc(1-0.1*var(--nested-dialogs))] data-[ending-style]:scale-90 data-[ending-style]:opacity-0 data-[nested-dialog-open]:after:absolute data-[nested-dialog-open]:after:inset-0 data-[nested-dialog-open]:after:rounded-[inherit] data-[nested-dialog-open]:after:bg-black/5 data-[starting-style]:scale-90 data-[starting-style]:opacity-0"
 
 type AppAlertDialogHeaderProps = {
   description: ReactNode

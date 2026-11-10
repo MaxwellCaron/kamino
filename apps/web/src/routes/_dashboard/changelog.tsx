@@ -1,6 +1,6 @@
-import { ChangelogPage } from "@/features/changelog/components/changelog-page"
+import { ChangelogPage } from "@/components/changelog-page"
 import { createFileRoute } from "@tanstack/react-router"
-import { pageTitle } from "@/features/shared/utils/page-title"
+import { pageTitle } from "@/lib/app-shell/page-title"
 
 export const Route = createFileRoute("/_dashboard/changelog")({
   staticData: {

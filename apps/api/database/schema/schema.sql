@@ -1,18 +1,9 @@
 BEGIN;
 
--- ----------------------------------------------------------------------------
--- Configurations
--- ----------------------------------------------------------------------------
 ALTER DATABASE kamino SET timezone TO 'UTC';
 
--- ----------------------------------------------------------------------------
--- Extensions
--- ----------------------------------------------------------------------------
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
 
--- ----------------------------------------------------------------------------
--- Enums
--- ----------------------------------------------------------------------------
 CREATE TYPE inventory_item_kind AS ENUM ('folder', 'vm');
 CREATE TYPE inventory_ace_effect AS ENUM ('allow', 'deny');
 CREATE TYPE principal_type AS ENUM ('user', 'group');
@@ -131,13 +122,9 @@ CREATE TABLE principals (
         )
 );
 
--- Prevent duplicate principals within the same provider
 CREATE UNIQUE INDEX ux_principals_provider_external_id
     ON principals (provider_id, external_id);
 
--- ----------------------------------------------------------------------------
--- Reserved / system principals
--- ----------------------------------------------------------------------------
 CREATE TABLE reserved_principals (
     principal_id    UUID PRIMARY KEY REFERENCES principals(id) ON DELETE RESTRICT,
     reserved_key    reserved_principal_key NOT NULL UNIQUE,
@@ -195,9 +182,6 @@ CREATE INDEX ix_auth_sessions_family_id
 CREATE INDEX ix_auth_sessions_expires_at
     ON auth_sessions (expires_at);
 
--- ----------------------------------------------------------------------------
--- Inventory tree (folders + VM references)
--- ----------------------------------------------------------------------------
 CREATE TABLE inventory_items (
     id                   UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     parent_id            UUID NULL REFERENCES inventory_items(id) ON DELETE CASCADE,
@@ -269,7 +253,6 @@ CREATE UNIQUE INDEX ux_proxmox_vms_upstream_uuid_vmid
 
 CREATE INDEX ix_proxmox_vms_vmid
     ON proxmox_vms (vmid);
-
 
 -- ----------------------------------------------------------------------------
 -- VM action claims
@@ -352,9 +335,6 @@ CREATE TABLE management_permission_grants (
 CREATE INDEX ix_management_permission_grants_permission_key
     ON management_permission_grants (permission_key);
 
--- ----------------------------------------------------------------------------
--- Requests
--- ----------------------------------------------------------------------------
 CREATE TABLE requests (
     id                      UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     family                  request_family NOT NULL,
@@ -443,9 +423,6 @@ CREATE TABLE inventory_requests (
 CREATE INDEX ix_inventory_requests_inventory_item_id
     ON inventory_requests (inventory_item_id);
 
--- ----------------------------------------------------------------------------
--- Pod clone targets
--- ----------------------------------------------------------------------------
 CREATE TABLE pod_clone_targets (
     key                          TEXT PRIMARY KEY,
     label                        TEXT NOT NULL,
@@ -494,9 +471,6 @@ CREATE UNIQUE INDEX ux_pod_clone_targets_personal
     ON pod_clone_targets (is_personal)
     WHERE is_personal;
 
--- ----------------------------------------------------------------------------
--- Published pod catalog
--- ----------------------------------------------------------------------------
 CREATE TABLE published_pods (
     id                      UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     title                   TEXT NOT NULL,
@@ -535,9 +509,6 @@ CREATE INDEX ix_published_pods_status_created_at
 CREATE INDEX ix_published_pods_source_folder_id
     ON published_pods (source_folder_id);
 
--- ----------------------------------------------------------------------------
--- Pod clone claims
--- ----------------------------------------------------------------------------
 CREATE TABLE pod_clone_claims (
     pod_id               UUID NOT NULL REFERENCES published_pods(id) ON DELETE CASCADE,
     user_principal_id    UUID NOT NULL REFERENCES principals(id) ON DELETE CASCADE,
@@ -648,9 +619,6 @@ CREATE TABLE published_pod_task_questions (
 CREATE UNIQUE INDEX ux_published_pod_task_questions_order
     ON published_pod_task_questions (task_id, sort_order);
 
--- ----------------------------------------------------------------------------
--- User pod clones and task progress
--- ----------------------------------------------------------------------------
 CREATE TABLE cloned_pods (
     id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     pod_id              UUID NOT NULL REFERENCES published_pods(id) ON DELETE CASCADE,
@@ -849,9 +817,6 @@ CREATE INDEX ix_principal_pod_question_answers_activity
     ON principal_pod_question_answers (principal_id, answered_at DESC)
     WHERE is_correct;
 
--- ----------------------------------------------------------------------------
--- Generic updated_at trigger
--- ----------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION set_updated_at()
 RETURNS trigger
 LANGUAGE plpgsql
@@ -917,9 +882,6 @@ BEFORE UPDATE ON principal_pod_question_answers
 FOR EACH ROW
 EXECUTE FUNCTION set_updated_at();
 
--- ----------------------------------------------------------------------------
--- Validate that parent exists and is a folder
--- ----------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION inventory_validate_parent_folder()
 RETURNS trigger
 LANGUAGE plpgsql
@@ -954,9 +916,6 @@ ON inventory_items
 FOR EACH ROW
 EXECUTE FUNCTION inventory_validate_parent_folder();
 
--- ----------------------------------------------------------------------------
--- Prevent moving an item into itself or moving a folder into its own subtree
--- ----------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION inventory_prevent_cycles()
 RETURNS trigger
 LANGUAGE plpgsql
@@ -1007,9 +966,6 @@ ON inventory_items
 FOR EACH ROW
 EXECUTE FUNCTION inventory_prevent_cycles();
 
--- ----------------------------------------------------------------------------
--- Folder VM/template limits
--- ----------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION inventory_folder_effective_vm_limit(folder_id UUID)
 RETURNS INTEGER
 LANGUAGE sql
@@ -1173,9 +1129,6 @@ ON inventory_items
 FOR EACH ROW
 EXECUTE FUNCTION inventory_validate_kind_change();
 
--- ----------------------------------------------------------------------------
--- Ensure published pod inventory references keep their expected item kinds
--- ----------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION published_pods_validate_source_folder()
 RETURNS trigger
 LANGUAGE plpgsql
@@ -1306,12 +1259,10 @@ BEGIN
         RAISE EXCEPTION 'Member principal does not exist';
     END IF;
 
-    -- If member is a user, no nested-group cycle possible
     IF member_type <> 'group' THEN
         RETURN NEW;
     END IF;
 
-    -- Check whether NEW.group_id is reachable from NEW.member_id
     WITH RECURSIVE nested_groups AS (
         SELECT gm.group_id, gm.member_id
         FROM group_memberships gm
@@ -1345,9 +1296,6 @@ ON group_memberships
 FOR EACH ROW
 EXECUTE FUNCTION group_memberships_prevent_cycles();
 
--- ----------------------------------------------------------------------------
--- Ensure management permission grant rows point to group principals
--- ----------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION management_permission_grants_validate_group()
 RETURNS trigger
 LANGUAGE plpgsql
@@ -1486,9 +1434,6 @@ ON requests
 FOR EACH ROW
 EXECUTE FUNCTION requests_enforce_pending_limit();
 
--- ----------------------------------------------------------------------------
--- Prevent mutating immutable request payload columns after submission
--- ----------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION requests_prevent_payload_mutation()
 RETURNS trigger
 LANGUAGE plpgsql

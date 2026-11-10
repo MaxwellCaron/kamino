@@ -218,16 +218,12 @@ func (q *Queries) GetPendingRequestByRequesterAndKind(ctx context.Context, arg G
 }
 
 const lockRequestRequester = `-- name: LockRequestRequester :one
-
 SELECT id
 FROM principals
 WHERE id = $1
 FOR UPDATE
 `
 
-// ---------------------------------------------------------------------------
-// Request creation
-// ---------------------------------------------------------------------------
 func (q *Queries) LockRequestRequester(ctx context.Context, id uuid.UUID) (uuid.UUID, error) {
 	row := q.db.QueryRow(ctx, lockRequestRequester, id)
 	err := row.Scan(&id)

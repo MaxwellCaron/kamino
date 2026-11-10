@@ -46,7 +46,6 @@ func (q *Queries) DeleteGroupMembership(ctx context.Context, arg DeleteGroupMemb
 }
 
 const deleteGroupMembershipsByProvider = `-- name: DeleteGroupMembershipsByProvider :exec
-
 DELETE FROM group_memberships
 WHERE group_id IN (
     SELECT id FROM principals
@@ -54,9 +53,6 @@ WHERE group_id IN (
 )
 `
 
-// ---------------------------------------------------------------------------
-// Group membership sync queries
-// ---------------------------------------------------------------------------
 func (q *Queries) DeleteGroupMembershipsByProvider(ctx context.Context, providerID uuid.UUID) error {
 	_, err := q.db.Exec(ctx, deleteGroupMembershipsByProvider, providerID)
 	return err
@@ -134,7 +130,6 @@ func (q *Queries) GetAllGroups(ctx context.Context, providerID uuid.UUID) ([]Get
 }
 
 const getAllUsers = `-- name: GetAllUsers :many
-
 SELECT id, external_id, name, full_name, description, created_at, status
 FROM principals
 WHERE provider_id = $1 AND principal_type = 'user'
@@ -151,9 +146,6 @@ type GetAllUsersRow struct {
 	Status      *bool              `json:"status"`
 }
 
-// ---------------------------------------------------------------------------
-// Principal CRUD queries
-// ---------------------------------------------------------------------------
 func (q *Queries) GetAllUsers(ctx context.Context, providerID uuid.UUID) ([]GetAllUsersRow, error) {
 	rows, err := q.db.Query(ctx, getAllUsers, providerID)
 	if err != nil {
@@ -294,16 +286,12 @@ func (q *Queries) GetPrincipalByID(ctx context.Context, id uuid.UUID) (GetPrinci
 }
 
 const getPrincipalProvider = `-- name: GetPrincipalProvider :one
-
 SELECT id
 FROM principal_providers
 WHERE provider_type <> 'system'
 LIMIT 1
 `
 
-// ---------------------------------------------------------------------------
-// Principal provider queries
-// ---------------------------------------------------------------------------
 func (q *Queries) GetPrincipalProvider(ctx context.Context) (uuid.UUID, error) {
 	row := q.db.QueryRow(ctx, getPrincipalProvider)
 	var id uuid.UUID
@@ -598,7 +586,6 @@ func (q *Queries) UpdatePrincipalStatus(ctx context.Context, arg UpdatePrincipal
 }
 
 const upsertPrincipal = `-- name: UpsertPrincipal :one
-
 INSERT INTO principals (provider_id, principal_type, external_id, name)
 VALUES ($1, $2, $3, $4)
 ON CONFLICT (provider_id, external_id)
@@ -613,9 +600,6 @@ type UpsertPrincipalParams struct {
 	Name          *string       `json:"name"`
 }
 
-// ---------------------------------------------------------------------------
-// Principal sync queries
-// ---------------------------------------------------------------------------
 func (q *Queries) UpsertPrincipal(ctx context.Context, arg UpsertPrincipalParams) (uuid.UUID, error) {
 	row := q.db.QueryRow(ctx, upsertPrincipal,
 		arg.ProviderID,

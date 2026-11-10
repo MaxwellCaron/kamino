@@ -1,6 +1,3 @@
--- ---------------------------------------------------------------------------
--- Sync queries
--- ---------------------------------------------------------------------------
 
 -- name: CreateRootFolder :one
 INSERT INTO inventory_items (parent_id, kind, name)
@@ -231,10 +228,6 @@ SET cpu_count = $1,
     memory_mb = $2,
     disk_gb = $3
 WHERE inventory_item_id = $4;
-
--- ---------------------------------------------------------------------------
--- Read queries for API endpoints
--- ---------------------------------------------------------------------------
 
 -- name: UpdateInventoryFolderDetails :exec
 UPDATE inventory_items

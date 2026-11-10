@@ -27,7 +27,6 @@ func (e *ErrRangeExhausted) Error() string {
 	return fmt.Sprintf("no available VMID in range %d–%d", e.Min, e.Max)
 }
 
-// IsRangeExhausted reports whether err is an *ErrRangeExhausted.
 func IsRangeExhausted(err error) bool {
 	var t *ErrRangeExhausted
 	return errors.As(err, &t)

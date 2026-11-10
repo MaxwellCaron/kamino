@@ -1,7 +1,7 @@
-import { DocumentationPage } from "@/features/documentation/components/documentation-page"
+import { DocumentationPage } from "@/components/documentation/documentation-page"
 import { createFileRoute } from "@tanstack/react-router"
-import { pageTitle } from "@/features/shared/utils/page-title"
-import userGuideContent from "@/features/documentation/content/user-guide.md?raw"
+import { pageTitle } from "@/lib/app-shell/page-title"
+import userGuideContent from "@/lib/documentation/content/user-guide.md?raw"
 
 export const Route = createFileRoute("/_dashboard/docs")({
   staticData: {

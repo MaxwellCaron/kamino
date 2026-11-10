@@ -56,7 +56,6 @@ func (c *Client) UpdateGroup(ctx context.Context, dn, name string) error {
 	return nil
 }
 
-// DeleteGroup deletes a group from Active Directory.
 func (c *Client) DeleteGroup(ctx context.Context, dn string) error {
 	conn, err := c.connect(ctx)
 	if err != nil {
@@ -137,7 +136,6 @@ func (c *Client) domainFromBaseDN() string {
 	return strings.Join(domains, ".")
 }
 
-// BaseDN returns the configured search base DN.
 func (c *Client) BaseDN() string {
 	return c.baseDN
 }

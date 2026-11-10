@@ -10,7 +10,6 @@ export type ShimmeringTextProps = Omit<
   ComponentProps<typeof m.span>,
   "children"
 > & {
-  /** The text to render with the shimmering effect. */
   text: string;
   /**
    * Duration in seconds for one shimmer cycle.

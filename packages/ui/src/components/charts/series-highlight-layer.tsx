@@ -6,7 +6,6 @@ import { useChartStable } from "./chart-context";
 import { useHighlightSegment } from "./use-highlight-segment";
 
 interface SeriesHighlightLayerProps {
-  /** Caller already gated `showHighlight && showLine`; this just routes through. */
   enabled: boolean;
   height: number;
   pathRef: RefObject<SVGPathElement | null>;

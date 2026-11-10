@@ -7,6 +7,7 @@ import (
 
 	"github.com/MaxwellCaron/kamino/database"
 	"github.com/MaxwellCaron/kamino/internal/proxmox"
+	"github.com/MaxwellCaron/kamino/internal/vmactions"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 )
@@ -59,7 +60,7 @@ func (s *Service) executeApprovedRequest(
 		if !requestRow.PowerAction.Valid {
 			return ErrRequestMissingPayload
 		}
-		return s.executePowerAction(ctx, target, requestRow.PowerAction.InventoryRequestPowerAction)
+		return s.actions.PowerAction(ctx, target, powerActionForRequest(requestRow.PowerAction.InventoryRequestPowerAction))
 	case RequestKindInventoryVMSnapshotCreate:
 		if requestRow.SnapshotName == nil || strings.TrimSpace(*requestRow.SnapshotName) == "" {
 			return ErrRequestMissingPayload
@@ -75,54 +76,43 @@ func (s *Service) executeApprovedRequest(
 	}
 }
 
-func (s *Service) resolveVMTarget(ctx context.Context, itemID uuid.UUID) (vmTarget, error) {
+func (s *Service) resolveVMTarget(ctx context.Context, itemID uuid.UUID) (vmactions.Target, error) {
 	record, err := s.authz.GetVMRecord(ctx, itemID)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return vmTarget{}, ErrRequestStale
+			return vmactions.Target{}, ErrRequestStale
 		}
-		return vmTarget{}, err
+		return vmactions.Target{}, err
 	}
 
-	identity, err := s.px.GetVMIdentity(ctx, proxmox.GuestType(record.GuestType), record.Node, int(record.Vmid))
+	_, err = proxmox.VerifyVMIdentity(ctx, s.px, proxmox.GuestType(record.GuestType), record.Node, int(record.Vmid), record.UpstreamUUID)
 	if err != nil {
 		switch {
 		case errors.Is(err, proxmox.ErrVMIdentityNotConfigured),
-			errors.Is(err, proxmox.ErrVMIdentityInvalid):
-			return vmTarget{}, ErrRequestStale
+			errors.Is(err, proxmox.ErrVMIdentityInvalid),
+			errors.Is(err, proxmox.ErrVMIdentityMismatch):
+			return vmactions.Target{}, ErrRequestStale
 		default:
-			return vmTarget{}, err
+			return vmactions.Target{}, err
 		}
 	}
-	if identity.UpstreamUUID != record.UpstreamUUID {
-		return vmTarget{}, ErrRequestStale
-	}
 
-	return vmTarget{
-		ItemID:       record.InventoryItemID,
-		Node:         record.Node,
-		VMID:         int(record.Vmid),
-		UpstreamUUID: record.UpstreamUUID,
-		GuestType:    proxmox.GuestType(record.GuestType),
+	return vmactions.Target{
+		ItemID:    record.InventoryItemID,
+		Node:      record.Node,
+		VMID:      int(record.Vmid),
+		GuestType: proxmox.GuestType(record.GuestType),
 	}, nil
-}
-
-func (s *Service) executePowerAction(
-	ctx context.Context,
-	target vmTarget,
-	action database.InventoryRequestPowerAction,
-) error {
-	return s.actions.PowerAction(ctx, toActionTarget(target), powerActionForRequest(action))
 }
 
 func (s *Service) executeCreateSnapshot(
 	ctx context.Context,
-	target vmTarget,
+	target vmactions.Target,
 	snapshotName string,
 ) error {
 	return s.actions.CreateSnapshot(
 		ctx,
-		toActionTarget(target),
+		target,
 		strings.TrimSpace(snapshotName),
 		"",
 		false,
@@ -131,7 +121,7 @@ func (s *Service) executeCreateSnapshot(
 
 func (s *Service) executeRollbackSnapshot(
 	ctx context.Context,
-	target vmTarget,
+	target vmactions.Target,
 	snapshotName string,
 ) error {
 	snapshotName = strings.TrimSpace(snapshotName)
@@ -151,7 +141,7 @@ func (s *Service) executeRollbackSnapshot(
 		return ErrRequestStale
 	}
 
-	return s.actions.RollbackSnapshot(ctx, toActionTarget(target), snapshotName)
+	return s.actions.RollbackSnapshot(ctx, target, snapshotName)
 }
 
 func (s *Service) markExecuted(

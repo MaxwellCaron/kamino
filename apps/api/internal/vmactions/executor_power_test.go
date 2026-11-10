@@ -5,7 +5,6 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
-	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -14,73 +13,71 @@ import (
 )
 
 func TestPowerLimiterBoundsGlobalOverlap(t *testing.T) {
-	var (
-		active  atomic.Int32
-		maxSeen atomic.Int32
-		block   = make(chan struct{})
-	)
+	const workers = 4
+	var active atomic.Int32
+	var maxSeen atomic.Int32
+	started := make(chan struct{}, workers)
+	block := make(chan struct{})
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		switch {
-		case r.Method == http.MethodPost:
+		switch r.Method {
+		case http.MethodPost:
 			writePowerTestAPIResponse(t, w, http.StatusOK, "UPID:node1:task")
-		case r.Method == http.MethodGet:
+		case http.MethodGet:
 			current := active.Add(1)
+			defer active.Add(-1)
 			for {
 				seen := maxSeen.Load()
 				if current <= seen || maxSeen.CompareAndSwap(seen, current) {
 					break
 				}
 			}
-			select {
-			case <-block:
-			case <-time.After(200 * time.Millisecond):
-			}
-			active.Add(-1)
-			writePowerTestAPIResponse(t, w, http.StatusOK, proxmox.TaskStatus{
-				Status:     "stopped",
-				ExitStatus: "OK",
-			})
+			started <- struct{}{}
+			<-block
+			writePowerTestAPIResponse(t, w, http.StatusOK, proxmox.TaskStatus{Status: "stopped", ExitStatus: "OK"})
 		default:
-			t.Fatalf("unexpected request: %s %s", r.Method, r.URL.Path)
+			t.Errorf("unexpected request: %s %s", r.Method, r.URL.Path)
+			http.Error(w, "unexpected request", http.StatusBadRequest)
 		}
 	}))
 	defer server.Close()
-
-	executor := NewExecutor(
-		proxmox.NewHTTPTestClient(server),
-		nil,
-		nil,
-		OperationConfig{Concurrency: 2},
-		PowerConfig{Concurrency: 2, TaskTimeout: time.Minute},
-	)
-	target := Target{Node: "node1", VMID: 101, GuestType: proxmox.GuestQEMU}
-
-	const workers = 4
-	var wg sync.WaitGroup
-	wg.Add(workers)
-	for i := 0; i < workers; i++ {
-		go func() {
-			defer wg.Done()
-			_ = executor.PowerAction(context.Background(), target, PowerActionStart)
-		}()
-	}
-
-	deadline := time.After(300 * time.Millisecond)
-	for {
-		if maxSeen.Load() == 2 {
-			break
-		}
+	defer func() {
 		select {
-		case <-deadline:
-			t.Fatalf("max overlap = %d, want 2", maxSeen.Load())
+		case <-block:
 		default:
-			time.Sleep(5 * time.Millisecond)
+			close(block)
 		}
+	}()
+
+	executor := NewExecutor(proxmox.NewHTTPTestClient(server), nil, nil,
+		OperationConfig{Concurrency: 2}, PowerConfig{Concurrency: 2, TaskTimeout: time.Minute})
+	target := Target{Node: "node1", VMID: 101, GuestType: proxmox.GuestQEMU}
+	done := make(chan error, workers)
+	for range workers {
+		go func() { done <- executor.PowerAction(context.Background(), target, PowerActionStart) }()
 	}
 
+	for range 2 {
+		select {
+		case <-started:
+		case <-time.After(2 * time.Second):
+			t.Fatal("expected two power actions to overlap")
+		}
+	}
 	close(block)
-	wg.Wait()
+	for range workers {
+		select {
+		case err := <-done:
+			if err != nil {
+				t.Fatalf("PowerAction() = %v", err)
+			}
+		case <-time.After(2 * time.Second):
+			t.Fatal("power action did not finish")
+		}
+	}
+	if got := maxSeen.Load(); got != 2 {
+		t.Fatalf("max overlap = %d, want 2", got)
+	}
 }
 
 func TestPowerActionRejectsInvalidActionBeforeAdmission(t *testing.T) {
@@ -106,6 +103,7 @@ func TestPowerActionRejectsInvalidActionBeforeAdmission(t *testing.T) {
 func TestPowerActionQueuedCancellationDoesNotStartTask(t *testing.T) {
 	var startCalls atomic.Int32
 	block := make(chan struct{})
+	started := make(chan struct{}, 2)
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch {
@@ -113,6 +111,7 @@ func TestPowerActionQueuedCancellationDoesNotStartTask(t *testing.T) {
 			startCalls.Add(1)
 			writePowerTestAPIResponse(t, w, http.StatusOK, "UPID:node1:task")
 		case r.Method == http.MethodGet:
+			started <- struct{}{}
 			<-block
 			writePowerTestAPIResponse(t, w, http.StatusOK, proxmox.TaskStatus{
 				Status:     "stopped",
@@ -123,6 +122,13 @@ func TestPowerActionQueuedCancellationDoesNotStartTask(t *testing.T) {
 		}
 	}))
 	defer server.Close()
+	defer func() {
+		select {
+		case <-block:
+		default:
+			close(block)
+		}
+	}()
 
 	executor := NewExecutor(
 		proxmox.NewHTTPTestClient(server),
@@ -133,13 +139,16 @@ func TestPowerActionQueuedCancellationDoesNotStartTask(t *testing.T) {
 	)
 	target := Target{Node: "node1", VMID: 101, GuestType: proxmox.GuestQEMU}
 
-	firstDone := make(chan struct{})
+	firstDone := make(chan error, 1)
 	go func() {
-		_ = executor.PowerAction(context.Background(), target, PowerActionStart)
-		close(firstDone)
+		firstDone <- executor.PowerAction(context.Background(), target, PowerActionStart)
 	}()
 
-	time.Sleep(30 * time.Millisecond)
+	select {
+	case <-started:
+	case <-time.After(2 * time.Second):
+		t.Fatal("first power action did not start polling")
+	}
 
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
@@ -152,65 +161,67 @@ func TestPowerActionQueuedCancellationDoesNotStartTask(t *testing.T) {
 	}
 
 	close(block)
-	<-firstDone
+	select {
+	case err := <-firstDone:
+		if err != nil {
+			t.Fatalf("first power action failed: %v", err)
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("first power action did not finish")
+	}
 }
 
 func TestPowerActionDrainsAcceptedTaskAfterCallerCancellation(t *testing.T) {
-	var waitPolls atomic.Int32
+	polling := make(chan struct{}, 1)
 	block := make(chan struct{})
-
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		switch {
-		case r.Method == http.MethodPost:
+		switch r.Method {
+		case http.MethodPost:
 			writePowerTestAPIResponse(t, w, http.StatusOK, "UPID:node1:task")
-		case r.Method == http.MethodGet:
-			waitPolls.Add(1)
+		case http.MethodGet:
+			polling <- struct{}{}
 			select {
 			case <-block:
-				writePowerTestAPIResponse(t, w, http.StatusOK, proxmox.TaskStatus{
-					Status:     "stopped",
-					ExitStatus: "OK",
-				})
-			case <-time.After(500 * time.Millisecond):
-				writePowerTestAPIResponse(t, w, http.StatusOK, proxmox.TaskStatus{Status: "running"})
+				writePowerTestAPIResponse(t, w, http.StatusOK, proxmox.TaskStatus{Status: "stopped", ExitStatus: "OK"})
+			case <-r.Context().Done():
 			}
 		default:
-			t.Fatalf("unexpected request: %s %s", r.Method, r.URL.Path)
+			t.Errorf("unexpected request: %s %s", r.Method, r.URL.Path)
+			http.Error(w, "unexpected request", http.StatusBadRequest)
 		}
 	}))
 	defer server.Close()
-
-	executor := NewExecutor(
-		proxmox.NewHTTPTestClient(server),
-		nil,
-		nil,
-		OperationConfig{Concurrency: 2},
-		PowerConfig{Concurrency: 2, TaskTimeout: 200 * time.Millisecond},
-	)
-	target := Target{Node: "node1", VMID: 101, GuestType: proxmox.GuestQEMU}
-
-	ctx, cancel := context.WithCancel(context.Background())
-	done := make(chan error, 1)
-	go func() {
-		done <- executor.PowerAction(ctx, target, PowerActionStart)
+	defer func() {
+		select {
+		case <-block:
+		default:
+			close(block)
+		}
 	}()
 
-	time.Sleep(30 * time.Millisecond)
-	cancel()
+	executor := NewExecutor(proxmox.NewHTTPTestClient(server), nil, nil,
+		OperationConfig{Concurrency: 2}, PowerConfig{Concurrency: 1, TaskTimeout: time.Minute})
+	target := Target{Node: "node1", VMID: 101, GuestType: proxmox.GuestQEMU}
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	done := make(chan error, 1)
+	go func() { done <- executor.PowerAction(ctx, target, PowerActionStart) }()
 
 	select {
+	case <-polling:
+	case <-time.After(2 * time.Second):
+		t.Fatal("accepted power task did not start polling")
+	}
+	cancel()
+	close(block)
+	select {
 	case err := <-done:
-		if err == nil {
-			t.Fatal("expected drain to finish with error after caller cancellation or timeout")
+		if err != nil {
+			t.Fatalf("accepted task should complete despite caller cancellation: %v", err)
 		}
 	case <-time.After(2 * time.Second):
 		t.Fatal("accepted task did not drain")
 	}
-
-	if waitPolls.Load() < 1 {
-		t.Fatalf("wait polls = %d, want at least 1", waitPolls.Load())
-	}
-	close(block)
 }
 
 func TestPowerActionTimeoutReleasesSlot(t *testing.T) {
@@ -244,11 +255,9 @@ func TestPowerActionTimeoutReleasesSlot(t *testing.T) {
 	target := Target{Node: "node1", VMID: 101, GuestType: proxmox.GuestQEMU}
 
 	err := executor.PowerAction(context.Background(), target, PowerActionStart)
-	if err == nil {
-		t.Fatal("expected timeout error")
+	if !errors.Is(err, context.DeadlineExceeded) {
+		t.Fatalf("error = %v, want context.DeadlineExceeded", err)
 	}
-
-	time.Sleep(10 * time.Millisecond)
 
 	if err := executor.PowerAction(context.Background(), target, PowerActionStart); err != nil {
 		t.Fatalf("second action after timeout release failed: %v", err)

@@ -6,6 +6,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/MaxwellCaron/kamino/internal/events"
 	"github.com/MaxwellCaron/kamino/internal/proxmox"
 	"golang.org/x/sync/singleflight"
 )
@@ -20,7 +21,6 @@ type Event struct {
 	Timestamp time.Time      `json:"timestamp"`
 }
 
-// VMResources holds live resource metrics for a single VM.
 type VMResources struct {
 	CPU       float64 `json:"cpu"`
 	MaxCPU    int     `json:"maxcpu"`
@@ -40,17 +40,16 @@ type Notifier struct {
 
 	refreshGroup singleflight.Group
 	mu           sync.RWMutex
-	subscribers  map[chan Event]struct{}
+	updates      events.Broadcaster[Event]
 	last         map[int]string
 	resources    map[int]VMResources
 }
 
 func NewNotifier(px *proxmox.Client) *Notifier {
 	return &Notifier{
-		px:          px,
-		subscribers: make(map[chan Event]struct{}),
-		last:        make(map[int]string),
-		resources:   make(map[int]VMResources),
+		px:        px,
+		last:      make(map[int]string),
+		resources: make(map[int]VMResources),
 	}
 }
 
@@ -123,23 +122,6 @@ func (n *Notifier) Current() map[int]string {
 	defer n.mu.RUnlock()
 
 	return cloneStatuses(n.last)
-}
-
-func (n *Notifier) Subscribe() (<-chan Event, func()) {
-	ch := make(chan Event, 16)
-
-	n.mu.Lock()
-	n.subscribers[ch] = struct{}{}
-	n.mu.Unlock()
-
-	return ch, func() {
-		n.mu.Lock()
-		if _, ok := n.subscribers[ch]; ok {
-			delete(n.subscribers, ch)
-			close(ch)
-		}
-		n.mu.Unlock()
-	}
 }
 
 func (n *Notifier) refreshUntil(
@@ -216,20 +198,8 @@ func (n *Notifier) pollAndBroadcast(ctx context.Context) error {
 	}
 	n.mu.Unlock()
 
-	n.broadcast(event)
+	n.updates.Broadcast(event)
 	return nil
-}
-
-func (n *Notifier) broadcast(event Event) {
-	n.mu.RLock()
-	defer n.mu.RUnlock()
-
-	for ch := range n.subscribers {
-		select {
-		case ch <- event:
-		default:
-		}
-	}
 }
 
 func cloneStatuses(statuses map[int]string) map[int]string {
@@ -253,3 +223,5 @@ func statusesEqual(left, right map[int]string) bool {
 
 	return true
 }
+
+func (n *Notifier) Subscribe() (<-chan Event, func()) { return n.updates.Subscribe() }

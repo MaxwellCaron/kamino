@@ -1,5 +1,5 @@
 import type { ColumnDef, RowData } from "@tanstack/react-table"
-import type { AppTableFeatures } from "./data-table-types"
+import type { AppTableFeatures } from "../../lib/data-table-types"
 import { Checkbox } from "@workspace/ui/components/checkbox"
 
 type RowSelectionColumnOptions<TData> = {

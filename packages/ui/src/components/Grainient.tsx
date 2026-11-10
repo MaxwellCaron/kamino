@@ -324,7 +324,6 @@ const Grainient: React.FC<GrainientProps> = ({
       try {
         container.removeChild(canvas)
       } catch {
-        // Ignore
       }
     }
   }, [

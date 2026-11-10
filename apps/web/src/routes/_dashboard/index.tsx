@@ -1,7 +1,7 @@
-import { DashboardHomePage } from "@/features/dashboard/components/dashboard-home-page"
+import { DashboardHomePage } from "@/components/dashboard/dashboard-home-page"
 import { createFileRoute } from "@tanstack/react-router"
-import { pageTitle } from "@/features/shared/utils/page-title"
-import { preloadUserDashboard } from "@/features/dashboard/api/dashboard-route-loaders"
+import { pageTitle } from "@/lib/app-shell/page-title"
+import { preloadUserDashboard } from "@/lib/dashboard/dashboard-route-loaders"
 
 export const Route = createFileRoute("/_dashboard/")({
   loader: ({ context }) => preloadUserDashboard(context.queryClient),

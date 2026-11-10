@@ -13,13 +13,13 @@ import {
 } from "@workspace/ui/components/item"
 import { Fragment } from "react"
 import { HugeiconsIcon } from "@hugeicons/react"
+import type { InventoryVmItemAddress } from "@/lib/inventory/inventory-vm-item"
 import { Link } from "@tanstack/react-router"
-import type { PodNetworkSegmentKind } from "@/features/pods/utils/pod-networking"
 import type { ReactNode } from "react"
 import { Separator } from "@workspace/ui/components/separator"
-import { VmIcon } from "@/components/status/vm-icon"
+import { VmIcon } from "@/components/vms/vm-icon"
 import { cn } from "@workspace/ui/lib/utils"
-import { podNetworkSegments } from "@/features/pods/utils/pod-networking"
+import { podNetworkSegments } from "@/lib/pods/pod-network-presenters"
 
 function formatVmRowMemoryMb(mb: number): string {
   return mb >= 1024 ? `${(mb / 1024).toFixed(1)} GB` : `${mb} MB`
@@ -27,11 +27,6 @@ function formatVmRowMemoryMb(mb: number): string {
 
 function formatVmRowDiskGb(gb: number): string {
   return `${gb.toFixed(1)} GB`
-}
-
-export type InventoryVmItemAddress = {
-  label: PodNetworkSegmentKind
-  address: string
 }
 
 export type InventoryVmItemProps = {

@@ -53,26 +53,7 @@ func convertTreeRowsToVisibleRows(
 ) []database.GetVisibleInventoryItemsForPrincipalRow {
 	result := make([]database.GetVisibleInventoryItemsForPrincipalRow, len(rows))
 	for i, r := range rows {
-		result[i] = database.GetVisibleInventoryItemsForPrincipalRow{
-			ID:                 r.ID,
-			ParentID:           r.ParentID,
-			Kind:               r.Kind,
-			Name:               r.Name,
-			Description:        r.Description,
-			InheritPermissions: r.InheritPermissions,
-			DirectVmLimit:      r.DirectVmLimit,
-			EffectiveVmLimit:   r.EffectiveVmLimit,
-			VmCount:            r.VmCount,
-			Node:               r.Node,
-			Vmid:               r.Vmid,
-			IsTemplate:         r.IsTemplate,
-			Notes:              r.Notes,
-			CpuCount:           r.CpuCount,
-			MemoryMb:           r.MemoryMb,
-			DiskGb:             r.DiskGb,
-			AllowedMask:        r.AllowedMask,
-			DeniedMask:         r.DeniedMask,
-		}
+		result[i] = database.GetVisibleInventoryItemsForPrincipalRow(r)
 	}
 	return result
 }
@@ -94,6 +75,7 @@ func toFullAccessInventoryRows(
 			VmCount:            row.VmCount,
 			Node:               row.Node,
 			Vmid:               row.Vmid,
+			GuestType:          row.GuestType,
 			IsTemplate:         row.IsTemplate,
 			Notes:              row.Notes,
 			CpuCount:           row.CpuCount,
@@ -126,26 +108,7 @@ func (s *Service) GetInventoryItemWithPermissions(
 			return database.GetInventoryItemWithPermissionsRow{}, err
 		}
 
-		return database.GetInventoryItemWithPermissionsRow{
-			ID:                 row.ID,
-			ParentID:           row.ParentID,
-			Kind:               row.Kind,
-			Name:               row.Name,
-			Description:        row.Description,
-			InheritPermissions: row.InheritPermissions,
-			DirectVmLimit:      row.DirectVmLimit,
-			EffectiveVmLimit:   row.EffectiveVmLimit,
-			VmCount:            row.VmCount,
-			Node:               row.Node,
-			Vmid:               row.Vmid,
-			IsTemplate:         row.IsTemplate,
-			Notes:              row.Notes,
-			CpuCount:           row.CpuCount,
-			MemoryMb:           row.MemoryMb,
-			DiskGb:             row.DiskGb,
-			AllowedMask:        int64(authorization.FullAccessMask),
-			DeniedMask:         0,
-		}, nil
+		return fullAccessInventoryItem(row), nil
 	}
 
 	return database.New(s.db).GetInventoryItemWithPermissions(ctx, database.GetInventoryItemWithPermissionsParams{
@@ -172,26 +135,7 @@ func (s *Service) GetInventoryItemsWithPermissions(
 			if err != nil {
 				return nil, err
 			}
-			result[row.ID] = database.GetInventoryItemWithPermissionsRow{
-				ID:                 row.ID,
-				ParentID:           row.ParentID,
-				Kind:               row.Kind,
-				Name:               row.Name,
-				Description:        row.Description,
-				InheritPermissions: row.InheritPermissions,
-				DirectVmLimit:      row.DirectVmLimit,
-				EffectiveVmLimit:   row.EffectiveVmLimit,
-				VmCount:            row.VmCount,
-				Node:               row.Node,
-				Vmid:               row.Vmid,
-				IsTemplate:         row.IsTemplate,
-				Notes:              row.Notes,
-				CpuCount:           row.CpuCount,
-				MemoryMb:           row.MemoryMb,
-				DiskGb:             row.DiskGb,
-				AllowedMask:        int64(authorization.FullAccessMask),
-				DeniedMask:         0,
-			}
+			result[row.ID] = fullAccessInventoryItem(row)
 		}
 		return result, nil
 	}
@@ -204,26 +148,31 @@ func (s *Service) GetInventoryItemsWithPermissions(
 		return nil, err
 	}
 	for _, row := range rows {
-		result[row.ID] = database.GetInventoryItemWithPermissionsRow{
-			ID:                 row.ID,
-			ParentID:           row.ParentID,
-			Kind:               row.Kind,
-			Name:               row.Name,
-			Description:        row.Description,
-			InheritPermissions: row.InheritPermissions,
-			DirectVmLimit:      row.DirectVmLimit,
-			EffectiveVmLimit:   row.EffectiveVmLimit,
-			VmCount:            row.VmCount,
-			Node:               row.Node,
-			Vmid:               row.Vmid,
-			IsTemplate:         row.IsTemplate,
-			Notes:              row.Notes,
-			CpuCount:           row.CpuCount,
-			MemoryMb:           row.MemoryMb,
-			DiskGb:             row.DiskGb,
-			AllowedMask:        row.AllowedMask,
-			DeniedMask:         row.DeniedMask,
-		}
+		result[row.ID] = database.GetInventoryItemWithPermissionsRow(row)
 	}
 	return result, nil
+}
+
+func fullAccessInventoryItem(row database.GetInventoryItemByIDRow) database.GetInventoryItemWithPermissionsRow {
+	return database.GetInventoryItemWithPermissionsRow{
+		ID:                 row.ID,
+		ParentID:           row.ParentID,
+		Kind:               row.Kind,
+		Name:               row.Name,
+		Description:        row.Description,
+		InheritPermissions: row.InheritPermissions,
+		DirectVmLimit:      row.DirectVmLimit,
+		EffectiveVmLimit:   row.EffectiveVmLimit,
+		VmCount:            row.VmCount,
+		Node:               row.Node,
+		Vmid:               row.Vmid,
+		GuestType:          row.GuestType,
+		IsTemplate:         row.IsTemplate,
+		Notes:              row.Notes,
+		CpuCount:           row.CpuCount,
+		MemoryMb:           row.MemoryMb,
+		DiskGb:             row.DiskGb,
+		AllowedMask:        int64(authorization.FullAccessMask),
+		DeniedMask:         0,
+	}
 }

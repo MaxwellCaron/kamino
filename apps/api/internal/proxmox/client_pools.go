@@ -41,7 +41,6 @@ func (c *Client) CreatePool(ctx context.Context, poolID string, comment *string)
 	return c.post(ctx, "/api2/json/pools", payload, &resp)
 }
 
-// UpdatePoolComment updates the comment on an existing Proxmox pool.
 func (c *Client) UpdatePoolComment(ctx context.Context, poolID string, comment *string) error {
 	payload := map[string]string{
 		"poolid": poolID,
@@ -56,7 +55,6 @@ func (c *Client) UpdatePoolComment(ctx context.Context, poolID string, comment *
 	return c.put(ctx, "/api2/json/pools/", payload, &resp)
 }
 
-// DeletePool removes an empty pool that is no longer represented by Kamino inventory.
 func (c *Client) DeletePool(ctx context.Context, poolID string) error {
 	var resp apiResponse[any]
 	return c.delete(ctx, poolEndpoint(poolID), &resp)
@@ -104,7 +102,6 @@ func (c *Client) CreatePoolWithComment(ctx context.Context, poolID string, comme
 	return nil
 }
 
-// AddVMToPool adds a VM to a resource pool.
 func (c *Client) AddVMToPool(ctx context.Context, poolID string, vmid int) error {
 	var resp apiResponse[any]
 	return c.put(ctx, "/api2/json/pools/", map[string]string{
@@ -113,7 +110,6 @@ func (c *Client) AddVMToPool(ctx context.Context, poolID string, vmid int) error
 	}, &resp)
 }
 
-// RemoveVMFromPool removes a VM from a resource pool.
 func (c *Client) RemoveVMFromPool(ctx context.Context, poolID string, vmid int) error {
 	var resp apiResponse[any]
 	return c.put(ctx, "/api2/json/pools/", map[string]string{

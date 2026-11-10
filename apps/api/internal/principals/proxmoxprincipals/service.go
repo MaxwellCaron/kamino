@@ -75,6 +75,9 @@ func (s *Service) Authenticate(
 	username, password string,
 ) (principals.AuthenticatedPrincipal, error) {
 	result, err := s.client.AuthenticateTicket(ctx, username, password, s.defaultRealm)
+	if errors.Is(err, proxmox.ErrInvalidCredentials) {
+		return principals.AuthenticatedPrincipal{}, principals.ErrInvalidCredentials
+	}
 	if err != nil {
 		return principals.AuthenticatedPrincipal{}, err
 	}

@@ -1,8 +1,8 @@
 import { createFileRoute, redirect } from "@tanstack/react-router"
-import { RequestsPage } from "@/features/requests/components/requests-page"
-import { canAccessRequestQueue } from "@/features/auth/utils/management-permissions"
-import { pageTitle } from "@/features/shared/utils/page-title"
-import { preloadRequestsPage } from "@/features/requests/api/requests-route-loaders"
+import { RequestsPage } from "@/components/requests/requests-page"
+import { canAccessRequestQueue } from "@/lib/auth/management-permissions"
+import { pageTitle } from "@/lib/app-shell/page-title"
+import { preloadRequestsPage } from "@/lib/requests/requests-route-loaders"
 
 export const Route = createFileRoute("/_dashboard/manager/requests")({
   staticData: {

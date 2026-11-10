@@ -14,7 +14,6 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
-// fakeSessionRow holds the in-memory state of a single auth_sessions row.
 type fakeSessionRow struct {
 	id                  uuid.UUID
 	principalID         uuid.UUID
@@ -37,10 +36,13 @@ type fakeSessionRow struct {
 // underlying map so RefreshSession/RevokeSession can be exercised end to end
 // without a live database.
 type fakeSessionStore struct {
-	mu       sync.Mutex
-	byHash   map[string]*fakeSessionRow
-	byID     map[uuid.UUID]*fakeSessionRow
-	beginErr error
+	mu        sync.Mutex
+	byHash    map[string]*fakeSessionRow
+	byID      map[uuid.UUID]*fakeSessionRow
+	beginErr  error
+	execErr   error
+	commitErr error
+	lastTx    *fakeSessionTx
 }
 
 func newFakeSessionStore() *fakeSessionStore {
@@ -90,7 +92,8 @@ func (f *fakeSessionStore) BeginTx(_ context.Context, _ pgx.TxOptions) (pgx.Tx, 
 	if f.beginErr != nil {
 		return nil, f.beginErr
 	}
-	return &fakeSessionTx{store: f}, nil
+	f.lastTx = &fakeSessionTx{store: f}
+	return f.lastTx, nil
 }
 
 // fakeSessionTx implements pgx.Tx over fakeSessionStore's in-memory map. It
@@ -109,6 +112,9 @@ func (tx *fakeSessionTx) Begin(_ context.Context) (pgx.Tx, error) {
 }
 
 func (tx *fakeSessionTx) Commit(_ context.Context) error {
+	if tx.store.commitErr != nil {
+		return tx.store.commitErr
+	}
 	tx.committed = true
 	return nil
 }
@@ -151,6 +157,9 @@ func (tx *fakeSessionTx) QueryRow(_ context.Context, sql string, args ...any) pg
 }
 
 func (store *fakeSessionStore) execQuery(sql string, args ...any) (pgconn.CommandTag, error) {
+	if store.execErr != nil {
+		return pgconn.CommandTag{}, store.execErr
+	}
 	store.mu.Lock()
 	defer store.mu.Unlock()
 
