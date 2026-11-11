@@ -1,5 +1,8 @@
+import {
+  clonedPodQueryOptions,
+  podProgressQueryOptions,
+} from "@/lib/pods/clone-pod-api"
 import { PodSlugPage } from "@/components/pods/pod-slug-page"
-import { clonedPodQueryOptions } from "@/lib/pods/clone-pod-api"
 import { createFileRoute } from "@tanstack/react-router"
 import { pageTitle } from "@/lib/app-shell/page-title"
 import { podCatalogEntryQueryOptions } from "@/lib/pods/publish-pod-api"
@@ -12,6 +15,9 @@ export const Route = createFileRoute("/_pods/pods/$podSlug")({
         .catch(() => null),
       context.queryClient
         .ensureQueryData(clonedPodQueryOptions(params.podSlug))
+        .catch(() => null),
+      context.queryClient
+        .ensureQueryData(podProgressQueryOptions(params.podSlug))
         .catch(() => null),
     ])
 

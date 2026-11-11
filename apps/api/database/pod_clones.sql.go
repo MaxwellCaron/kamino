@@ -387,20 +387,20 @@ SELECT DISTINCT ON (cp.pod_id)
     cp.user_principal_id,
     cp.created_at,
     COUNT(DISTINCT question.id)::int AS question_total,
-    COUNT(DISTINCT answer.question_id)
+    COUNT(DISTINCT answer.source_question_id)
         FILTER (WHERE answer.is_correct)::int AS question_answered
 FROM cloned_pods cp
 LEFT JOIN published_pod_tasks task
   ON task.pod_id = cp.pod_id
 LEFT JOIN published_pod_task_questions question
   ON question.task_id = task.id
-LEFT JOIN cloned_pod_question_answers answer
-  ON answer.cloned_pod_id = cp.id
- AND answer.question_id = question.id
-WHERE cp.pod_id = ANY($1::UUID[])
+LEFT JOIN principal_pod_question_answers answer
+  ON answer.principal_id = $1
+ AND answer.source_question_id = question.id
+WHERE cp.pod_id = ANY($2::UUID[])
   AND cp.user_principal_id IN (
       SELECT ep.principal_id::UUID
-      FROM get_user_effective_principals($2) AS ep(principal_id)
+      FROM get_user_effective_principals($1) AS ep(principal_id)
   )
 GROUP BY
     cp.id,
@@ -409,13 +409,13 @@ GROUP BY
     cp.created_at
 ORDER BY
     cp.pod_id,
-    CASE WHEN cp.user_principal_id = $2 THEN 0 ELSE 1 END,
+    CASE WHEN cp.user_principal_id = $1 THEN 0 ELSE 1 END,
     cp.created_at DESC
 `
 
 type ListAccessibleClonedPodSummariesByPodIDsParams struct {
-	Column1     []uuid.UUID `json:"column_1"`
 	PrincipalID uuid.UUID   `json:"principal_id"`
+	Column1     []uuid.UUID `json:"column_1"`
 }
 
 type ListAccessibleClonedPodSummariesByPodIDsRow struct {
@@ -428,7 +428,7 @@ type ListAccessibleClonedPodSummariesByPodIDsRow struct {
 }
 
 func (q *Queries) ListAccessibleClonedPodSummariesByPodIDs(ctx context.Context, arg ListAccessibleClonedPodSummariesByPodIDsParams) ([]ListAccessibleClonedPodSummariesByPodIDsRow, error) {
-	rows, err := q.db.Query(ctx, listAccessibleClonedPodSummariesByPodIDs, arg.Column1, arg.PrincipalID)
+	rows, err := q.db.Query(ctx, listAccessibleClonedPodSummariesByPodIDs, arg.PrincipalID, arg.Column1)
 	if err != nil {
 		return nil, err
 	}
@@ -529,7 +529,7 @@ SELECT
     cp.updated_at,
     COUNT(DISTINCT cpv.inventory_item_id)::int AS vm_count,
     COUNT(DISTINCT question.id)::int AS question_total,
-    COUNT(DISTINCT answer.question_id)
+    COUNT(DISTINCT answer.source_question_id)
         FILTER (WHERE answer.is_correct)::int AS question_answered
 FROM cloned_pods cp
 JOIN principals p
@@ -540,9 +540,9 @@ LEFT JOIN published_pod_tasks task
   ON task.pod_id = cp.pod_id
 LEFT JOIN published_pod_task_questions question
   ON question.task_id = task.id
-LEFT JOIN cloned_pod_question_answers answer
-  ON answer.cloned_pod_id = cp.id
- AND answer.question_id = question.id
+LEFT JOIN principal_pod_question_answers answer
+  ON answer.principal_id = cp.user_principal_id
+ AND answer.source_question_id = question.id
 WHERE cp.pod_id = $1
 GROUP BY
     cp.id,

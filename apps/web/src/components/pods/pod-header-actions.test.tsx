@@ -73,9 +73,6 @@ const clonedPod = {
       inventory: { itemId: "item-visible-beta" },
     },
   ],
-  question_summary: { total: 0, answered: 0, progress: 0 },
-  task_states: [],
-  question_answers: [],
 }
 
 describe("PodHeaderActions", () => {

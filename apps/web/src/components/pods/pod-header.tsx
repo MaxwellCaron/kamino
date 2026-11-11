@@ -4,7 +4,7 @@ import {
   CircularProgressRange,
   CircularProgressTrack,
 } from "@workspace/ui/components/circular-progress"
-import type { ClonedPodQuestionSummary, Pod } from "@/lib/pods/pod-types"
+import type { Pod, PodQuestionSummary } from "@/lib/pods/pod-types"
 import { Button } from "@workspace/ui/components/button"
 import { CopyIcon } from "@hugeicons/core-free-icons"
 import { GrainientBackground } from "@/components/app-shell/grainient-background"
@@ -44,7 +44,7 @@ export function PodHeader({
   onClone,
 }: {
   pod: Pod
-  questionSummary?: ClonedPodQuestionSummary | null
+  questionSummary?: PodQuestionSummary | null
   showClone?: boolean
   onClone?: () => void
 }) {

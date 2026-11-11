@@ -152,22 +152,27 @@ export interface ClonedPod {
   status: ClonedPodStatus
   network: ClonedPodNetwork
   vms: Array<PodVM>
-  question_summary: ClonedPodQuestionSummary
-  task_states: Array<ClonedPodTaskState>
-  question_answers: Array<PodTaskQuestionAnswer>
   power_result?: PodPowerResult
 }
 
-export interface ClonedPodQuestionSummary {
+export interface PodQuestionSummary {
   total: number
   answered: number
   progress: number
 }
 
-export interface ClonedPodTaskState {
+export interface PodTaskState {
   task_id: UUID
   completed: boolean
   completed_at?: string
+}
+
+// Current user's question progress for a pod; independent of any clone.
+// Returned by GET /pods/catalog/:slug/progress.
+export interface PodProgress {
+  question_summary: PodQuestionSummary
+  task_states: Array<PodTaskState>
+  question_answers: Array<PodTaskQuestionAnswer>
 }
 
 export interface PodTask {
@@ -214,6 +219,6 @@ export interface PublishedPodCloneSummary {
   status: ClonedPodStatus
   network: ClonedPodNetwork
   vm_count: number
-  question_summary: ClonedPodQuestionSummary
+  question_summary: PodQuestionSummary
   power_result?: PodPowerResult
 }

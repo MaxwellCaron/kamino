@@ -112,20 +112,22 @@ export function DashboardCurrentClonedPodCard({
                       <ClonedPodStatusBadge status={entry.clonedPod.status} />
                     </ItemTitle>
                     <ItemDescription>{entry.pod.description}</ItemDescription>
-                    <div className="flex w-full flex-col gap-2 pt-4">
-                      <div className="flex items-center justify-between gap-2 text-sm">
-                        <span className="text-muted-foreground">
-                          Questions answered
-                        </span>
-                        <span className="text-muted-foreground">
-                          {entry.clonedPod.question_summary.answered} /{" "}
-                          {entry.clonedPod.question_summary.total}
-                        </span>
+                    {entry.questionSummary.total > 0 && (
+                      <div className="flex w-full flex-col gap-2 pt-4">
+                        <div className="flex items-center justify-between gap-2 text-sm">
+                          <span className="text-muted-foreground">
+                            Questions answered
+                          </span>
+                          <span className="text-muted-foreground">
+                            {entry.questionSummary.answered} /{" "}
+                            {entry.questionSummary.total}
+                          </span>
+                        </div>
+                        <ProgressPills
+                          progress={entry.questionSummary.progress}
+                        />
                       </div>
-                      <ProgressPills
-                        progress={entry.clonedPod.question_summary.progress}
-                      />
-                    </div>
+                    )}
                   </ItemContent>
                 </Item>
               </m.div>

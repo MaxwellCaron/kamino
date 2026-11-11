@@ -763,29 +763,7 @@ CREATE TABLE cloned_pod_vms (
         CHECK (host_octet IS NULL OR host_octet BETWEEN 2 AND 254)
 );
 
-CREATE TABLE cloned_pod_task_states (
-    cloned_pod_id   UUID NOT NULL REFERENCES cloned_pods(id) ON DELETE CASCADE,
-    task_id         UUID NOT NULL REFERENCES published_pod_tasks(id) ON DELETE CASCADE,
-    completed       BOOLEAN NOT NULL DEFAULT false,
-    completed_at    TIMESTAMPTZ NULL,
-    created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
-    updated_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
-    PRIMARY KEY (cloned_pod_id, task_id),
-    CONSTRAINT cloned_pod_task_states_completed_at_matches_state
-        CHECK ((completed AND completed_at IS NOT NULL) OR (NOT completed AND completed_at IS NULL))
-);
-
-CREATE TABLE cloned_pod_question_answers (
-    cloned_pod_id   UUID NOT NULL REFERENCES cloned_pods(id) ON DELETE CASCADE,
-    question_id     UUID NOT NULL REFERENCES published_pod_task_questions(id) ON DELETE CASCADE,
-    answer          TEXT NOT NULL,
-    is_correct      BOOLEAN NOT NULL DEFAULT false,
-    answered_at     TIMESTAMPTZ NOT NULL DEFAULT now(),
-    PRIMARY KEY (cloned_pod_id, question_id),
-    CONSTRAINT cloned_pod_question_answers_answer_not_empty
-        CHECK (length(trim(answer)) > 0 AND length(answer) <= 256)
-);
-
+-- Question progress is principal-scoped and independent of any clone.
 CREATE TABLE principal_pod_question_answers (
     principal_id        UUID NOT NULL REFERENCES principals(id) ON DELETE RESTRICT,
     source_pod_id       UUID NOT NULL,
@@ -869,11 +847,6 @@ EXECUTE FUNCTION set_updated_at();
 
 CREATE TRIGGER trg_pod_network_allocations_set_updated_at
 BEFORE UPDATE ON pod_network_allocations
-FOR EACH ROW
-EXECUTE FUNCTION set_updated_at();
-
-CREATE TRIGGER trg_cloned_pod_task_states_set_updated_at
-BEFORE UPDATE ON cloned_pod_task_states
 FOR EACH ROW
 EXECUTE FUNCTION set_updated_at();
 

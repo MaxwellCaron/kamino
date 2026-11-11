@@ -3,11 +3,9 @@ package pods
 import (
 	"context"
 	"fmt"
-	"net/http"
 	"strings"
 
 	"github.com/MaxwellCaron/kamino/database"
-	"github.com/MaxwellCaron/kamino/internal/handlers/httpx"
 	"github.com/MaxwellCaron/kamino/internal/proxmox"
 	"github.com/MaxwellCaron/kamino/internal/proxmox/vmstatus"
 	"github.com/google/uuid"
@@ -89,47 +87,6 @@ func aggregateClonedPodRuntimeStatusByClone(
 	return result
 }
 
-func (h *PodsHandler) cloneTaskQuestionCounts(
-	ctx context.Context,
-	podID uuid.UUID,
-) ([]database.ListPublishedPodTasksByPodIDsRow, map[uuid.UUID]int, *httpx.RequestError) {
-	q := database.New(h.DB)
-	tasks, err := q.ListPublishedPodTasksByPodIDs(ctx, []uuid.UUID{podID})
-	if err != nil {
-		return nil, nil, &httpx.RequestError{
-			Status:      http.StatusInternalServerError,
-			UserMessage: "failed to load pod tasks",
-			Operation:   "load published pod tasks for clone",
-			Err:         err,
-		}
-	}
-
-	taskIDs := make([]uuid.UUID, 0, len(tasks))
-	for _, task := range tasks {
-		taskIDs = append(taskIDs, task.ID)
-	}
-
-	counts := make(map[uuid.UUID]int, len(tasks))
-	if len(taskIDs) == 0 {
-		return tasks, counts, nil
-	}
-
-	questions, err := q.ListPublishedPodQuestionsByTaskIDs(ctx, taskIDs)
-	if err != nil {
-		return nil, nil, &httpx.RequestError{
-			Status:      http.StatusInternalServerError,
-			UserMessage: "failed to load pod questions",
-			Operation:   "load published pod questions for clone",
-			Err:         err,
-		}
-	}
-	for _, question := range questions {
-		counts[question.TaskID]++
-	}
-
-	return tasks, counts, nil
-}
-
 func (h *PodsHandler) hydrateClonedPod(
 	ctx context.Context,
 	q *database.Queries,
@@ -139,38 +96,6 @@ func (h *PodsHandler) hydrateClonedPod(
 	vms, status, err := h.hydrateClonedPodVMs(ctx, q, principalID, clone.ID)
 	if err != nil {
 		return clonedPodResponse{}, err
-	}
-
-	taskStates, err := q.ListClonedPodTaskStates(ctx, clone.ID)
-	if err != nil {
-		return clonedPodResponse{}, err
-	}
-	questionSummary, err := q.GetClonedPodQuestionSummary(ctx, clone.ID)
-	if err != nil {
-		return clonedPodResponse{}, err
-	}
-	answers, err := q.ListClonedPodQuestionAnswers(ctx, clone.ID)
-	if err != nil {
-		return clonedPodResponse{}, err
-	}
-
-	taskStateResponses := make([]clonedPodTaskStateResponse, 0, len(taskStates))
-	for _, row := range taskStates {
-		taskStateResponses = append(taskStateResponses, clonedPodTaskStateResponse{
-			TaskID:      row.TaskID,
-			Completed:   row.Completed,
-			CompletedAt: httpx.OptionalTime(row.CompletedAt),
-		})
-	}
-
-	answerResponses := make([]clonedPodQuestionAnswerResponse, 0, len(answers))
-	for _, row := range answers {
-		answerResponses = append(answerResponses, clonedPodQuestionAnswerResponse{
-			QuestionID: row.QuestionID,
-			Answer:     row.Answer,
-			IsCorrect:  row.IsCorrect,
-			AnsweredAt: pgTime(row.AnsweredAt),
-		})
 	}
 
 	principals, err := q.ListPrincipalDetailsByIDs(ctx, []uuid.UUID{clone.UserPrincipalID})
@@ -195,12 +120,6 @@ func (h *PodsHandler) hydrateClonedPod(
 		Status:   status,
 		Network:  network,
 		VMs:      vms,
-		QuestionSummary: newPodQuestionSummaryResponse(
-			questionSummary.QuestionTotal,
-			questionSummary.QuestionAnswered,
-		),
-		TaskStates:      taskStateResponses,
-		QuestionAnswers: answerResponses,
 	}, nil
 }
 

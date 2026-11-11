@@ -341,11 +341,6 @@ func (h *PodsHandler) recordClonedPodDetails(
 	clone database.ClonedPods,
 	results []clonePublishedVMResult,
 ) *httpx.RequestError {
-	taskRows, questionCounts, reqErr := h.cloneTaskQuestionCounts(ctx, clone.PodID)
-	if reqErr != nil {
-		return reqErr
-	}
-
 	tx, err := h.DB.Begin(ctx)
 	if err != nil {
 		return &httpx.RequestError{
@@ -370,21 +365,6 @@ func (h *PodsHandler) recordClonedPodDetails(
 				Status:      http.StatusInternalServerError,
 				UserMessage: "failed to record cloned pod VMs",
 				Operation:   "insert cloned pod VM",
-				Err:         err,
-			}
-		}
-	}
-
-	for _, task := range taskRows {
-		if err := q.InsertClonedPodTaskState(ctx, database.InsertClonedPodTaskStateParams{
-			ClonedPodID: clone.ID,
-			TaskID:      task.ID,
-			Completed:   questionCounts[task.ID] == 0,
-		}); err != nil {
-			return &httpx.RequestError{
-				Status:      http.StatusInternalServerError,
-				UserMessage: "failed to record cloned pod task progress",
-				Operation:   "insert cloned pod task state",
 				Err:         err,
 			}
 		}

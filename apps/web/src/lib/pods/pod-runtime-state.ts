@@ -1,8 +1,8 @@
 import type {
-  ClonedPodQuestionSummary,
-  ClonedPodTaskState,
+  PodQuestionSummary,
   PodTask,
   PodTaskQuestionAnswer,
+  PodTaskState,
   UUID,
 } from "@/lib/pods/pod-types"
 
@@ -12,23 +12,17 @@ export function createQuestionAnswerMap(answers: Array<PodTaskQuestionAnswer>) {
   )
 }
 
-export function createTaskStateMap(taskStates: Array<ClonedPodTaskState>) {
-  return new Map<UUID, ClonedPodTaskState>(
+export function createTaskStateMap(taskStates: Array<PodTaskState>) {
+  return new Map<UUID, PodTaskState>(
     taskStates.map((taskState) => [taskState.task_id, taskState])
   )
 }
 
 export function createQuestionSummary(
   tasks: Array<PodTask>,
-  answers: Array<Pick<PodTaskQuestionAnswer, "question_id" | "is_correct">> | null
-): ClonedPodQuestionSummary {
-  const correctQuestionIds = new Set<UUID>()
-  for (const answer of answers ?? []) {
-    if (answer.is_correct) {
-      correctQuestionIds.add(answer.question_id)
-    }
-  }
-
+  answers: Array<PodTaskQuestionAnswer> | null
+): PodQuestionSummary {
+  const answersByQuestionId = answers ? createQuestionAnswerMap(answers) : null
   const questionIds = new Set<UUID>()
 
   for (const task of tasks) {
@@ -39,7 +33,7 @@ export function createQuestionSummary(
 
   let answered = 0
   for (const questionId of questionIds) {
-    if (correctQuestionIds.has(questionId)) {
+    if (answersByQuestionId?.get(questionId)?.is_correct === true) {
       answered++
     }
   }

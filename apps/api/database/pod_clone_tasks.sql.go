@@ -12,59 +12,6 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
-const countIncorrectOrUnansweredTaskQuestions = `-- name: CountIncorrectOrUnansweredTaskQuestions :one
-SELECT COUNT(*)::BIGINT
-FROM published_pod_task_questions q
-WHERE q.task_id = $2
-  AND NOT EXISTS (
-      SELECT 1
-      FROM cloned_pod_question_answers answer
-      WHERE answer.cloned_pod_id = $1
-        AND answer.question_id = q.id
-        AND answer.is_correct = true
-  )
-`
-
-type CountIncorrectOrUnansweredTaskQuestionsParams struct {
-	ClonedPodID uuid.UUID `json:"cloned_pod_id"`
-	TaskID      uuid.UUID `json:"task_id"`
-}
-
-func (q *Queries) CountIncorrectOrUnansweredTaskQuestions(ctx context.Context, arg CountIncorrectOrUnansweredTaskQuestionsParams) (int64, error) {
-	row := q.db.QueryRow(ctx, countIncorrectOrUnansweredTaskQuestions, arg.ClonedPodID, arg.TaskID)
-	var column_1 int64
-	err := row.Scan(&column_1)
-	return column_1, err
-}
-
-const getClonedPodQuestionSummary = `-- name: GetClonedPodQuestionSummary :one
-SELECT
-    COUNT(DISTINCT question.id)::int AS question_total,
-    COUNT(DISTINCT answer.question_id)
-        FILTER (WHERE answer.is_correct)::int AS question_answered
-FROM cloned_pods cp
-LEFT JOIN published_pod_tasks task
-  ON task.pod_id = cp.pod_id
-LEFT JOIN published_pod_task_questions question
-  ON question.task_id = task.id
-LEFT JOIN cloned_pod_question_answers answer
-  ON answer.cloned_pod_id = cp.id
- AND answer.question_id = question.id
-WHERE cp.id = $1
-`
-
-type GetClonedPodQuestionSummaryRow struct {
-	QuestionTotal    int32 `json:"question_total"`
-	QuestionAnswered int32 `json:"question_answered"`
-}
-
-func (q *Queries) GetClonedPodQuestionSummary(ctx context.Context, id uuid.UUID) (GetClonedPodQuestionSummaryRow, error) {
-	row := q.db.QueryRow(ctx, getClonedPodQuestionSummary, id)
-	var i GetClonedPodQuestionSummaryRow
-	err := row.Scan(&i.QuestionTotal, &i.QuestionAnswered)
-	return i, err
-}
-
 const getQuestionForClonedPod = `-- name: GetQuestionForClonedPod :one
 SELECT
     q.id,
@@ -118,113 +65,6 @@ func (q *Queries) GetQuestionForClonedPod(ctx context.Context, arg GetQuestionFo
 	return i, err
 }
 
-const insertClonedPodTaskState = `-- name: InsertClonedPodTaskState :exec
-INSERT INTO cloned_pod_task_states (
-    cloned_pod_id,
-    task_id,
-    completed,
-    completed_at
-) VALUES (
-    $1,
-    $2,
-    $3,
-    CASE WHEN $3 THEN now() ELSE NULL END
-)
-ON CONFLICT (cloned_pod_id, task_id) DO NOTHING
-`
-
-type InsertClonedPodTaskStateParams struct {
-	ClonedPodID uuid.UUID `json:"cloned_pod_id"`
-	TaskID      uuid.UUID `json:"task_id"`
-	Completed   bool      `json:"completed"`
-}
-
-func (q *Queries) InsertClonedPodTaskState(ctx context.Context, arg InsertClonedPodTaskStateParams) error {
-	_, err := q.db.Exec(ctx, insertClonedPodTaskState, arg.ClonedPodID, arg.TaskID, arg.Completed)
-	return err
-}
-
-const listClonedPodQuestionAnswers = `-- name: ListClonedPodQuestionAnswers :many
-SELECT
-    question_id,
-    answer,
-    is_correct,
-    answered_at
-FROM cloned_pod_question_answers
-WHERE cloned_pod_id = $1
-ORDER BY answered_at ASC
-`
-
-type ListClonedPodQuestionAnswersRow struct {
-	QuestionID uuid.UUID          `json:"question_id"`
-	Answer     string             `json:"answer"`
-	IsCorrect  bool               `json:"is_correct"`
-	AnsweredAt pgtype.Timestamptz `json:"answered_at"`
-}
-
-func (q *Queries) ListClonedPodQuestionAnswers(ctx context.Context, clonedPodID uuid.UUID) ([]ListClonedPodQuestionAnswersRow, error) {
-	rows, err := q.db.Query(ctx, listClonedPodQuestionAnswers, clonedPodID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []ListClonedPodQuestionAnswersRow
-	for rows.Next() {
-		var i ListClonedPodQuestionAnswersRow
-		if err := rows.Scan(
-			&i.QuestionID,
-			&i.Answer,
-			&i.IsCorrect,
-			&i.AnsweredAt,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const listClonedPodTaskStates = `-- name: ListClonedPodTaskStates :many
-SELECT
-    state.task_id,
-    state.completed,
-    state.completed_at
-FROM cloned_pod_task_states state
-JOIN published_pod_tasks task
-  ON task.id = state.task_id
-WHERE state.cloned_pod_id = $1
-ORDER BY task.sort_order ASC
-`
-
-type ListClonedPodTaskStatesRow struct {
-	TaskID      uuid.UUID          `json:"task_id"`
-	Completed   bool               `json:"completed"`
-	CompletedAt pgtype.Timestamptz `json:"completed_at"`
-}
-
-func (q *Queries) ListClonedPodTaskStates(ctx context.Context, clonedPodID uuid.UUID) ([]ListClonedPodTaskStatesRow, error) {
-	rows, err := q.db.Query(ctx, listClonedPodTaskStates, clonedPodID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []ListClonedPodTaskStatesRow
-	for rows.Next() {
-		var i ListClonedPodTaskStatesRow
-		if err := rows.Scan(&i.TaskID, &i.Completed, &i.CompletedAt); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
 const listPrincipalCorrectPodQuestionAnswers = `-- name: ListPrincipalCorrectPodQuestionAnswers :many
 SELECT
     source_pod_id,
@@ -262,141 +102,61 @@ func (q *Queries) ListPrincipalCorrectPodQuestionAnswers(ctx context.Context, pr
 	return items, nil
 }
 
-const refreshClonedPodTaskStatesForPublishedPod = `-- name: RefreshClonedPodTaskStatesForPublishedPod :exec
-WITH task_completion AS (
-    SELECT
-        cp.id AS cloned_pod_id,
-        t.id AS task_id,
-        NOT EXISTS (
-            SELECT 1
-            FROM published_pod_task_questions q
-            WHERE q.task_id = t.id
-              AND NOT EXISTS (
-                  SELECT 1
-                  FROM cloned_pod_question_answers answer
-                  WHERE answer.cloned_pod_id = cp.id
-                    AND answer.question_id = q.id
-                    AND answer.is_correct = true
-              )
-        ) AS completed
-    FROM cloned_pods cp
-    JOIN published_pod_tasks t
-      ON t.pod_id = cp.pod_id
-    WHERE cp.pod_id = $1
-)
-INSERT INTO cloned_pod_task_states (
-    cloned_pod_id,
-    task_id,
-    completed,
-    completed_at
-)
+const listPrincipalPodQuestionAnswers = `-- name: ListPrincipalPodQuestionAnswers :many
 SELECT
-    cloned_pod_id,
-    task_id,
-    completed,
-    CASE WHEN completed THEN now() ELSE NULL END
-FROM task_completion
-ON CONFLICT (cloned_pod_id, task_id) DO UPDATE
-SET completed = EXCLUDED.completed,
-    completed_at = CASE
-        WHEN EXCLUDED.completed AND cloned_pod_task_states.completed THEN cloned_pod_task_states.completed_at
-        WHEN EXCLUDED.completed THEN now()
-        ELSE NULL
-    END
+    question.id AS question_id,
+    saved.answer,
+    saved.is_correct,
+    saved.answered_at
+FROM principal_pod_question_answers saved
+JOIN published_pod_task_questions question
+  ON question.id = saved.source_question_id
+JOIN published_pod_tasks task
+  ON task.id = question.task_id
+WHERE saved.principal_id = $1
+  AND task.pod_id = $2
+ORDER BY saved.answered_at ASC
 `
 
-func (q *Queries) RefreshClonedPodTaskStatesForPublishedPod(ctx context.Context, podID uuid.UUID) error {
-	_, err := q.db.Exec(ctx, refreshClonedPodTaskStatesForPublishedPod, podID)
-	return err
+type ListPrincipalPodQuestionAnswersParams struct {
+	PrincipalID uuid.UUID `json:"principal_id"`
+	PodID       uuid.UUID `json:"pod_id"`
 }
 
-const setClonedPodTaskCompleted = `-- name: SetClonedPodTaskCompleted :exec
-INSERT INTO cloned_pod_task_states (
-    cloned_pod_id,
-    task_id,
-    completed,
-    completed_at
-) VALUES (
-    $1,
-    $2,
-    $3,
-    CASE WHEN $3::BOOLEAN THEN now() ELSE NULL END
-)
-ON CONFLICT (cloned_pod_id, task_id) DO UPDATE
-SET completed = EXCLUDED.completed,
-    completed_at = CASE
-        WHEN EXCLUDED.completed THEN COALESCE(cloned_pod_task_states.completed_at, now())
-        ELSE NULL
-    END
-`
-
-type SetClonedPodTaskCompletedParams struct {
-	ClonedPodID uuid.UUID `json:"cloned_pod_id"`
-	TaskID      uuid.UUID `json:"task_id"`
-	Completed   bool      `json:"completed"`
-}
-
-func (q *Queries) SetClonedPodTaskCompleted(ctx context.Context, arg SetClonedPodTaskCompletedParams) error {
-	_, err := q.db.Exec(ctx, setClonedPodTaskCompleted, arg.ClonedPodID, arg.TaskID, arg.Completed)
-	return err
-}
-
-const upsertClonedPodQuestionAnswer = `-- name: UpsertClonedPodQuestionAnswer :one
-INSERT INTO cloned_pod_question_answers (
-    cloned_pod_id,
-    question_id,
-    answer,
-    is_correct
-) VALUES ($1, $2, $3, $4)
-ON CONFLICT (cloned_pod_id, question_id) DO UPDATE
-SET answer = CASE
-        WHEN cloned_pod_question_answers.is_correct THEN cloned_pod_question_answers.answer
-        ELSE EXCLUDED.answer
-    END,
-    is_correct = cloned_pod_question_answers.is_correct OR EXCLUDED.is_correct,
-    answered_at = CASE
-        WHEN cloned_pod_question_answers.is_correct THEN cloned_pod_question_answers.answered_at
-        ELSE now()
-    END
-RETURNING
-    question_id,
-    answer,
-    is_correct,
-    answered_at
-`
-
-type UpsertClonedPodQuestionAnswerParams struct {
-	ClonedPodID uuid.UUID `json:"cloned_pod_id"`
-	QuestionID  uuid.UUID `json:"question_id"`
-	Answer      string    `json:"answer"`
-	IsCorrect   bool      `json:"is_correct"`
-}
-
-type UpsertClonedPodQuestionAnswerRow struct {
+type ListPrincipalPodQuestionAnswersRow struct {
 	QuestionID uuid.UUID          `json:"question_id"`
 	Answer     string             `json:"answer"`
 	IsCorrect  bool               `json:"is_correct"`
 	AnsweredAt pgtype.Timestamptz `json:"answered_at"`
 }
 
-func (q *Queries) UpsertClonedPodQuestionAnswer(ctx context.Context, arg UpsertClonedPodQuestionAnswerParams) (UpsertClonedPodQuestionAnswerRow, error) {
-	row := q.db.QueryRow(ctx, upsertClonedPodQuestionAnswer,
-		arg.ClonedPodID,
-		arg.QuestionID,
-		arg.Answer,
-		arg.IsCorrect,
-	)
-	var i UpsertClonedPodQuestionAnswerRow
-	err := row.Scan(
-		&i.QuestionID,
-		&i.Answer,
-		&i.IsCorrect,
-		&i.AnsweredAt,
-	)
-	return i, err
+// Answers for questions that no longer exist in the pod are skipped.
+func (q *Queries) ListPrincipalPodQuestionAnswers(ctx context.Context, arg ListPrincipalPodQuestionAnswersParams) ([]ListPrincipalPodQuestionAnswersRow, error) {
+	rows, err := q.db.Query(ctx, listPrincipalPodQuestionAnswers, arg.PrincipalID, arg.PodID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListPrincipalPodQuestionAnswersRow
+	for rows.Next() {
+		var i ListPrincipalPodQuestionAnswersRow
+		if err := rows.Scan(
+			&i.QuestionID,
+			&i.Answer,
+			&i.IsCorrect,
+			&i.AnsweredAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
-const upsertPrincipalPodQuestionAnswer = `-- name: UpsertPrincipalPodQuestionAnswer :one
+const upsertPrincipalPodQuestionAnswer = `-- name: UpsertPrincipalPodQuestionAnswer :exec
 INSERT INTO principal_pod_question_answers (
     principal_id,
     source_pod_id,
@@ -408,8 +168,7 @@ INSERT INTO principal_pod_question_answers (
     task_title,
     question_title,
     answer,
-    is_correct,
-    answered_at
+    is_correct
 ) VALUES (
     $1,
     $2,
@@ -421,8 +180,7 @@ INSERT INTO principal_pod_question_answers (
     $8,
     $9,
     $10,
-    $11,
-    $12
+    $11
 )
 ON CONFLICT (principal_id, source_pod_id, source_question_id) DO UPDATE
 SET
@@ -438,39 +196,26 @@ SET
     is_correct = principal_pod_question_answers.is_correct OR EXCLUDED.is_correct,
     answered_at = CASE
         WHEN principal_pod_question_answers.is_correct THEN principal_pod_question_answers.answered_at
-        ELSE EXCLUDED.answered_at
+        ELSE now()
     END
-RETURNING
-    source_pod_id,
-    source_question_id,
-    is_correct,
-    answered_at
 `
 
 type UpsertPrincipalPodQuestionAnswerParams struct {
-	PrincipalID      uuid.UUID          `json:"principal_id"`
-	SourcePodID      uuid.UUID          `json:"source_pod_id"`
-	SourceTaskID     uuid.UUID          `json:"source_task_id"`
-	SourceQuestionID uuid.UUID          `json:"source_question_id"`
-	LastClonedPodID  *uuid.UUID         `json:"last_cloned_pod_id"`
-	PodSlug          string             `json:"pod_slug"`
-	PodTitle         string             `json:"pod_title"`
-	TaskTitle        string             `json:"task_title"`
-	QuestionTitle    string             `json:"question_title"`
-	Answer           string             `json:"answer"`
-	IsCorrect        bool               `json:"is_correct"`
-	AnsweredAt       pgtype.Timestamptz `json:"answered_at"`
+	PrincipalID      uuid.UUID  `json:"principal_id"`
+	SourcePodID      uuid.UUID  `json:"source_pod_id"`
+	SourceTaskID     uuid.UUID  `json:"source_task_id"`
+	SourceQuestionID uuid.UUID  `json:"source_question_id"`
+	LastClonedPodID  *uuid.UUID `json:"last_cloned_pod_id"`
+	PodSlug          string     `json:"pod_slug"`
+	PodTitle         string     `json:"pod_title"`
+	TaskTitle        string     `json:"task_title"`
+	QuestionTitle    string     `json:"question_title"`
+	Answer           string     `json:"answer"`
+	IsCorrect        bool       `json:"is_correct"`
 }
 
-type UpsertPrincipalPodQuestionAnswerRow struct {
-	SourcePodID      uuid.UUID          `json:"source_pod_id"`
-	SourceQuestionID uuid.UUID          `json:"source_question_id"`
-	IsCorrect        bool               `json:"is_correct"`
-	AnsweredAt       pgtype.Timestamptz `json:"answered_at"`
-}
-
-func (q *Queries) UpsertPrincipalPodQuestionAnswer(ctx context.Context, arg UpsertPrincipalPodQuestionAnswerParams) (UpsertPrincipalPodQuestionAnswerRow, error) {
-	row := q.db.QueryRow(ctx, upsertPrincipalPodQuestionAnswer,
+func (q *Queries) UpsertPrincipalPodQuestionAnswer(ctx context.Context, arg UpsertPrincipalPodQuestionAnswerParams) error {
+	_, err := q.db.Exec(ctx, upsertPrincipalPodQuestionAnswer,
 		arg.PrincipalID,
 		arg.SourcePodID,
 		arg.SourceTaskID,
@@ -482,14 +227,6 @@ func (q *Queries) UpsertPrincipalPodQuestionAnswer(ctx context.Context, arg Upse
 		arg.QuestionTitle,
 		arg.Answer,
 		arg.IsCorrect,
-		arg.AnsweredAt,
 	)
-	var i UpsertPrincipalPodQuestionAnswerRow
-	err := row.Scan(
-		&i.SourcePodID,
-		&i.SourceQuestionID,
-		&i.IsCorrect,
-		&i.AnsweredAt,
-	)
-	return i, err
+	return err
 }

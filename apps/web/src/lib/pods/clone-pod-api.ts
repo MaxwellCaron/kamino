@@ -1,8 +1,9 @@
 import type {
   ClonedPod,
-  ClonedPodQuestionSummary,
   ClonedPodStatus,
+  PodProgress,
   PodQuestionActivityAnswer,
+  PodQuestionSummary,
 } from "@/lib/pods/pod-types"
 import { apiJson, apiVoid } from "@/lib/api/api-json"
 import { shouldRetryApiQuery } from "@/lib/api/api-error"
@@ -13,7 +14,7 @@ export type CatalogCloneSummary = {
     pod_id: string
     cloned_at: string
     status: ClonedPodStatus
-    question_summary: ClonedPodQuestionSummary
+    question_summary: PodQuestionSummary
   }
   pod: {
     id: string
@@ -49,6 +50,19 @@ export function clonedPodQueryOptions(podSlug?: string) {
       apiJson<ClonedPod | null>(
         `/api/v1/pods/catalog/${podSlug}/clone`,
         "fetch cloned pod"
+      ),
+    enabled: !!podSlug,
+    retry: shouldRetryApiQuery,
+  }
+}
+
+export function podProgressQueryOptions(podSlug?: string) {
+  return {
+    queryKey: ["pods", "catalog", podSlug, "progress"] as const,
+    queryFn: (): Promise<PodProgress> =>
+      apiJson<PodProgress>(
+        `/api/v1/pods/catalog/${podSlug}/progress`,
+        "fetch pod progress"
       ),
     enabled: !!podSlug,
     retry: shouldRetryApiQuery,
@@ -139,8 +153,8 @@ export async function answerClonedPodQuestion(params: {
   clonedPodId: string
   questionId: string
   answer: string
-}): Promise<ClonedPod> {
-  return apiJson<ClonedPod>(
+}): Promise<PodProgress> {
+  return apiJson<PodProgress>(
     `/api/v1/pods/clones/${params.clonedPodId}/questions/${params.questionId}`,
     "save answer",
     {

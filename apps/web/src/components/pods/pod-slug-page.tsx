@@ -1,6 +1,9 @@
+import {
+  clonedPodQueryOptions,
+  podProgressQueryOptions,
+} from "@/lib/pods/clone-pod-api"
 import { getRouteApi, notFound } from "@tanstack/react-router"
 import { PodPage } from "@/components/pods/pod-page"
-import { clonedPodQueryOptions } from "@/lib/pods/clone-pod-api"
 import { isApiErrorStatus } from "@/lib/api/api-error"
 import { podCatalogEntryQueryOptions } from "@/lib/pods/publish-pod-api"
 import { useQuery } from "@tanstack/react-query"
@@ -21,8 +24,14 @@ export function PodSlugPage() {
     isError: isClonedPodError,
     isLoading: isClonedPodLoading,
   } = useQuery(clonedPodQueryOptions(podSlug))
+  const {
+    data: progress,
+    error: progressError,
+    isError: isProgressError,
+    isLoading: isProgressLoading,
+  } = useQuery(podProgressQueryOptions(podSlug))
 
-  const isPreloading = isPodLoading || isClonedPodLoading
+  const isPreloading = isPodLoading || isClonedPodLoading || isProgressLoading
   if (isPodError) {
     if (isApiErrorStatus(podError, 404)) {
       throw notFound()
@@ -41,11 +50,20 @@ export function PodSlugPage() {
     throw clonedPodError
   }
 
+  if (isProgressError) {
+    throw progressError
+  }
+
   const clonedPod = clonedPodData ?? null
   return (
     <div className="relative flex h-full flex-1 flex-col">
-      {!isPreloading && pod && (
-        <PodPage pod={pod} clonedPod={clonedPod} username={user.username} />
+      {!isPreloading && pod && progress && (
+        <PodPage
+          pod={pod}
+          clonedPod={clonedPod}
+          progress={progress}
+          username={user.username}
+        />
       )}
     </div>
   )

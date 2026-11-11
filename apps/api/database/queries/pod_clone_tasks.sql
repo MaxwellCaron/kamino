@@ -1,53 +1,3 @@
--- name: InsertClonedPodTaskState :exec
-INSERT INTO cloned_pod_task_states (
-    cloned_pod_id,
-    task_id,
-    completed,
-    completed_at
-) VALUES (
-    $1,
-    $2,
-    $3,
-    CASE WHEN $3 THEN now() ELSE NULL END
-)
-ON CONFLICT (cloned_pod_id, task_id) DO NOTHING;
-
--- name: ListClonedPodTaskStates :many
-SELECT
-    state.task_id,
-    state.completed,
-    state.completed_at
-FROM cloned_pod_task_states state
-JOIN published_pod_tasks task
-  ON task.id = state.task_id
-WHERE state.cloned_pod_id = $1
-ORDER BY task.sort_order ASC;
-
--- name: GetClonedPodQuestionSummary :one
-SELECT
-    COUNT(DISTINCT question.id)::int AS question_total,
-    COUNT(DISTINCT answer.question_id)
-        FILTER (WHERE answer.is_correct)::int AS question_answered
-FROM cloned_pods cp
-LEFT JOIN published_pod_tasks task
-  ON task.pod_id = cp.pod_id
-LEFT JOIN published_pod_task_questions question
-  ON question.task_id = task.id
-LEFT JOIN cloned_pod_question_answers answer
-  ON answer.cloned_pod_id = cp.id
- AND answer.question_id = question.id
-WHERE cp.id = $1;
-
--- name: ListClonedPodQuestionAnswers :many
-SELECT
-    question_id,
-    answer,
-    is_correct,
-    answered_at
-FROM cloned_pod_question_answers
-WHERE cloned_pod_id = $1
-ORDER BY answered_at ASC;
-
 -- name: GetQuestionForClonedPod :one
 SELECT
     q.id,
@@ -68,30 +18,7 @@ JOIN cloned_pods cp
 WHERE cp.id = sqlc.arg(cloned_pod_id)
   AND q.id = sqlc.arg(question_id);
 
--- name: UpsertClonedPodQuestionAnswer :one
-INSERT INTO cloned_pod_question_answers (
-    cloned_pod_id,
-    question_id,
-    answer,
-    is_correct
-) VALUES ($1, $2, $3, $4)
-ON CONFLICT (cloned_pod_id, question_id) DO UPDATE
-SET answer = CASE
-        WHEN cloned_pod_question_answers.is_correct THEN cloned_pod_question_answers.answer
-        ELSE EXCLUDED.answer
-    END,
-    is_correct = cloned_pod_question_answers.is_correct OR EXCLUDED.is_correct,
-    answered_at = CASE
-        WHEN cloned_pod_question_answers.is_correct THEN cloned_pod_question_answers.answered_at
-        ELSE now()
-    END
-RETURNING
-    question_id,
-    answer,
-    is_correct,
-    answered_at;
-
--- name: UpsertPrincipalPodQuestionAnswer :one
+-- name: UpsertPrincipalPodQuestionAnswer :exec
 INSERT INTO principal_pod_question_answers (
     principal_id,
     source_pod_id,
@@ -103,8 +30,7 @@ INSERT INTO principal_pod_question_answers (
     task_title,
     question_title,
     answer,
-    is_correct,
-    answered_at
+    is_correct
 ) VALUES (
     sqlc.arg(principal_id),
     sqlc.arg(source_pod_id),
@@ -116,8 +42,7 @@ INSERT INTO principal_pod_question_answers (
     sqlc.arg(task_title),
     sqlc.arg(question_title),
     sqlc.arg(answer),
-    sqlc.arg(is_correct),
-    sqlc.arg(answered_at)
+    sqlc.arg(is_correct)
 )
 ON CONFLICT (principal_id, source_pod_id, source_question_id) DO UPDATE
 SET
@@ -133,13 +58,24 @@ SET
     is_correct = principal_pod_question_answers.is_correct OR EXCLUDED.is_correct,
     answered_at = CASE
         WHEN principal_pod_question_answers.is_correct THEN principal_pod_question_answers.answered_at
-        ELSE EXCLUDED.answered_at
-    END
-RETURNING
-    source_pod_id,
-    source_question_id,
-    is_correct,
-    answered_at;
+        ELSE now()
+    END;
+
+-- name: ListPrincipalPodQuestionAnswers :many
+-- Answers for questions that no longer exist in the pod are skipped.
+SELECT
+    question.id AS question_id,
+    saved.answer,
+    saved.is_correct,
+    saved.answered_at
+FROM principal_pod_question_answers saved
+JOIN published_pod_task_questions question
+  ON question.id = saved.source_question_id
+JOIN published_pod_tasks task
+  ON task.id = question.task_id
+WHERE saved.principal_id = sqlc.arg(principal_id)
+  AND task.pod_id = sqlc.arg(pod_id)
+ORDER BY saved.answered_at ASC;
 
 -- name: ListPrincipalCorrectPodQuestionAnswers :many
 SELECT
@@ -150,76 +86,3 @@ FROM principal_pod_question_answers
 WHERE principal_id = $1
   AND is_correct = true
 ORDER BY answered_at ASC, source_pod_id ASC, source_question_id ASC;
-
--- name: CountIncorrectOrUnansweredTaskQuestions :one
-SELECT COUNT(*)::BIGINT
-FROM published_pod_task_questions q
-WHERE q.task_id = $2
-  AND NOT EXISTS (
-      SELECT 1
-      FROM cloned_pod_question_answers answer
-      WHERE answer.cloned_pod_id = $1
-        AND answer.question_id = q.id
-        AND answer.is_correct = true
-  );
-
--- name: SetClonedPodTaskCompleted :exec
-INSERT INTO cloned_pod_task_states (
-    cloned_pod_id,
-    task_id,
-    completed,
-    completed_at
-) VALUES (
-    sqlc.arg(cloned_pod_id),
-    sqlc.arg(task_id),
-    sqlc.arg(completed),
-    CASE WHEN sqlc.arg(completed)::BOOLEAN THEN now() ELSE NULL END
-)
-ON CONFLICT (cloned_pod_id, task_id) DO UPDATE
-SET completed = EXCLUDED.completed,
-    completed_at = CASE
-        WHEN EXCLUDED.completed THEN COALESCE(cloned_pod_task_states.completed_at, now())
-        ELSE NULL
-    END;
-
--- name: RefreshClonedPodTaskStatesForPublishedPod :exec
-WITH task_completion AS (
-    SELECT
-        cp.id AS cloned_pod_id,
-        t.id AS task_id,
-        NOT EXISTS (
-            SELECT 1
-            FROM published_pod_task_questions q
-            WHERE q.task_id = t.id
-              AND NOT EXISTS (
-                  SELECT 1
-                  FROM cloned_pod_question_answers answer
-                  WHERE answer.cloned_pod_id = cp.id
-                    AND answer.question_id = q.id
-                    AND answer.is_correct = true
-              )
-        ) AS completed
-    FROM cloned_pods cp
-    JOIN published_pod_tasks t
-      ON t.pod_id = cp.pod_id
-    WHERE cp.pod_id = $1
-)
-INSERT INTO cloned_pod_task_states (
-    cloned_pod_id,
-    task_id,
-    completed,
-    completed_at
-)
-SELECT
-    cloned_pod_id,
-    task_id,
-    completed,
-    CASE WHEN completed THEN now() ELSE NULL END
-FROM task_completion
-ON CONFLICT (cloned_pod_id, task_id) DO UPDATE
-SET completed = EXCLUDED.completed,
-    completed_at = CASE
-        WHEN EXCLUDED.completed AND cloned_pod_task_states.completed THEN cloned_pod_task_states.completed_at
-        WHEN EXCLUDED.completed THEN now()
-        ELSE NULL
-    END;
