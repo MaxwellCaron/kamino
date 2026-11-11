@@ -1,13 +1,17 @@
 import type { ClonedPod, Pod } from "@/lib/pods/pod-types"
-import { useCallback, useState } from "react"
+import {
+  clonedPodQueryOptions,
+  podQuestionActivityQueryOptions,
+} from "@/lib/pods/clone-pod-api"
+import { useCallback, useMemo, useState } from "react"
+import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { ClonePodDialog } from "@/components/pods/clone/clone-pod-dialog"
 import { InventoryDialogsProvider } from "@/components/inventory/inventory-dialogs-provider"
 import { PodCloneCard } from "@/components/pods/pod-clone-card"
 import { PodHeader } from "@/components/pods/pod-header"
 import { PodTasks } from "@/components/pods/pod-tasks"
-import { clonedPodQueryOptions } from "@/lib/pods/clone-pod-api"
+import { createQuestionSummary } from "@/lib/pods/pod-runtime-state"
 import { podCatalogEntryQueryOptions } from "@/lib/pods/publish-pod-api"
-import { useQueryClient } from "@tanstack/react-query"
 
 type CloneDialogMode = "clone" | "reclone"
 
@@ -24,6 +28,30 @@ export function PodPage({
   const [cloneDialogMode, setCloneDialogMode] =
     useState<CloneDialogMode | null>(null)
   const isPreview = clonedPod == null
+  const { data: questionActivity } = useQuery({
+    ...podQuestionActivityQueryOptions(),
+    enabled: isPreview && pod.tasks.length > 0,
+  })
+  const questionSummary = useMemo(() => {
+    if (pod.tasks.length === 0) {
+      return null
+    }
+    if (clonedPod) {
+      return clonedPod.question_summary
+    }
+    if (!questionActivity) {
+      return null
+    }
+    return createQuestionSummary(
+      pod.tasks,
+      questionActivity
+        .filter((activity) => activity.pod_id === pod.id)
+        .map((activity) => ({
+          question_id: activity.question_id,
+          is_correct: true,
+        }))
+    )
+  }, [pod, clonedPod, questionActivity])
   const setClonedPod = useCallback(
     (next: ClonedPod | null) => {
       queryClient.setQueryData(clonedPodQueryOptions(pod.slug).queryKey, next)
@@ -42,6 +70,7 @@ export function PodPage({
         <div className="@container/main flex flex-1 flex-col">
           <PodHeader
             pod={pod}
+            questionSummary={questionSummary}
             showClone={isPreview}
             onClone={() => setCloneDialogMode("clone")}
           />

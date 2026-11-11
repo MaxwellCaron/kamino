@@ -20,9 +20,15 @@ export function createTaskStateMap(taskStates: Array<ClonedPodTaskState>) {
 
 export function createQuestionSummary(
   tasks: Array<PodTask>,
-  answers: Array<PodTaskQuestionAnswer> | null
+  answers: Array<Pick<PodTaskQuestionAnswer, "question_id" | "is_correct">> | null
 ): ClonedPodQuestionSummary {
-  const answersByQuestionId = answers ? createQuestionAnswerMap(answers) : null
+  const correctQuestionIds = new Set<UUID>()
+  for (const answer of answers ?? []) {
+    if (answer.is_correct) {
+      correctQuestionIds.add(answer.question_id)
+    }
+  }
+
   const questionIds = new Set<UUID>()
 
   for (const task of tasks) {
@@ -33,7 +39,7 @@ export function createQuestionSummary(
 
   let answered = 0
   for (const questionId of questionIds) {
-    if (answersByQuestionId?.get(questionId)?.is_correct === true) {
+    if (correctQuestionIds.has(questionId)) {
       answered++
     }
   }
