@@ -18,7 +18,7 @@ import {
   CardTitle,
 } from "@workspace/ui/components/card"
 import type {
-  PodProgress,
+  Pod,
   PodTask,
   PodTaskQuestionAnswer,
   PodTaskState,
@@ -35,19 +35,19 @@ import { PodTaskQuestions } from "@/components/pods/pod-task-questions"
 import { cn } from "@workspace/ui/lib/utils"
 
 export function PodTasks({
+  pod,
   tasks,
   clonedPodId,
   taskStates,
   questionAnswers,
   questionsDisabled = false,
-  onAnswered,
 }: {
+  pod: Pick<Pod, "id" | "slug">
   tasks: Array<PodTask>
   clonedPodId?: string
   taskStates: Array<PodTaskState> | null
   questionAnswers: Array<PodTaskQuestionAnswer> | null
   questionsDisabled?: boolean
-  onAnswered?: (progress: PodProgress) => void
 }) {
   const defaultValue = tasks[0] ? [tasks[0].id] : []
   const taskStatesByTaskId = taskStates ? createTaskStateMap(taskStates) : null
@@ -139,11 +139,11 @@ export function PodTasks({
 
                     {task.questions && task.questions.length > 0 && (
                       <PodTaskQuestions
+                        pod={pod}
                         questions={task.questions}
                         clonedPodId={clonedPodId}
                         answersByQuestionId={answersByQuestionId}
                         disabled={questionsDisabled}
-                        onAnswered={onAnswered}
                       />
                     )}
                   </div>

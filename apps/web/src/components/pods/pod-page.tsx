@@ -1,20 +1,12 @@
 import type { ClonedPod, Pod, PodProgress } from "@/lib/pods/pod-types"
-import {
-  catalogCloneSummariesQueryOptions,
-  clonedPodQueryOptions,
-  podProgressQueryOptions,
-  podQuestionActivityQueryOptions,
-} from "@/lib/pods/clone-pod-api"
-import {
-  podCatalogEntryQueryOptions,
-  publishedPodClonesQueryOptions,
-} from "@/lib/pods/publish-pod-api"
 import { useCallback, useState } from "react"
 import { ClonePodDialog } from "@/components/pods/clone/clone-pod-dialog"
 import { InventoryDialogsProvider } from "@/components/inventory/inventory-dialogs-provider"
 import { PodCloneCard } from "@/components/pods/pod-clone-card"
 import { PodHeader } from "@/components/pods/pod-header"
 import { PodTasks } from "@/components/pods/pod-tasks"
+import { clonedPodQueryOptions } from "@/lib/pods/clone-pod-api"
+import { podCatalogEntryQueryOptions } from "@/lib/pods/publish-pod-api"
 import { useQueryClient } from "@tanstack/react-query"
 
 type CloneDialogMode = "clone" | "reclone"
@@ -45,23 +37,6 @@ export function PodPage({
     },
     [pod.slug, queryClient]
   )
-  const setProgress = useCallback(
-    (next: PodProgress) => {
-      queryClient.setQueryData(podProgressQueryOptions(pod.slug).queryKey, next)
-      void Promise.all([
-        queryClient.invalidateQueries({
-          queryKey: catalogCloneSummariesQueryOptions().queryKey,
-        }),
-        queryClient.invalidateQueries({
-          queryKey: publishedPodClonesQueryOptions(pod.id).queryKey,
-        }),
-        queryClient.invalidateQueries({
-          queryKey: podQuestionActivityQueryOptions().queryKey,
-        }),
-      ])
-    },
-    [pod.id, pod.slug, queryClient]
-  )
 
   return (
     <InventoryDialogsProvider>
@@ -85,12 +60,12 @@ export function PodPage({
             )}
             {pod.tasks.length > 0 && (
               <PodTasks
+                pod={pod}
                 tasks={pod.tasks}
                 clonedPodId={clonedPod?.id}
                 taskStates={progress.task_states}
                 questionAnswers={progress.question_answers}
                 questionsDisabled={isPreview}
-                onAnswered={setProgress}
               />
             )}
           </div>

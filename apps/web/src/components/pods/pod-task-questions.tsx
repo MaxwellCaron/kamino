@@ -14,7 +14,7 @@ import {
   FieldLabel,
 } from "@workspace/ui/components/field"
 import type {
-  PodProgress,
+  Pod,
   PodTaskQuestion,
   PodTaskQuestionAnswer,
   UUID,
@@ -24,22 +24,21 @@ import { AppDialogContent } from "@/components/dialogs/app-dialog"
 import { Button } from "@workspace/ui/components/button"
 import { HugeiconsIcon } from "@hugeicons/react"
 import { Input } from "@workspace/ui/components/input"
-import { answerClonedPodQuestion } from "@/lib/pods/clone-pod-api"
-import { useMutation } from "@tanstack/react-query"
+import { useAnswerPodQuestion } from "@/hooks/pods/use-answer-pod-question"
 import { useState } from "react"
 
 export function PodTaskQuestions({
+  pod,
   questions,
   clonedPodId,
   answersByQuestionId,
   disabled = false,
-  onAnswered,
 }: {
+  pod: Pick<Pod, "id" | "slug">
   questions: Array<PodTaskQuestion>
   clonedPodId?: string
   answersByQuestionId: Map<UUID, PodTaskQuestionAnswer> | null
   disabled?: boolean
-  onAnswered?: (progress: PodProgress) => void
 }) {
   return (
     <Card className="bg-muted/50">
@@ -60,12 +59,12 @@ export function PodTaskQuestions({
             return (
               <PodTaskQuestionField
                 key={question.id}
+                pod={pod}
                 question={question}
                 questionNumber={questionIndex + 1}
                 clonedPodId={clonedPodId}
                 answer={answer}
                 disabled={disabled}
-                onAnswered={onAnswered}
               />
             )
           })}
@@ -140,29 +139,26 @@ function getQuestionValue(
 }
 
 function PodTaskQuestionField({
+  pod,
   question,
   questionNumber,
   clonedPodId,
   answer,
   disabled,
-  onAnswered,
 }: {
+  pod: Pick<Pod, "id" | "slug">
   question: PodTaskQuestion
   questionNumber: number
   clonedPodId?: string
   answer?: PodTaskQuestionAnswer
   disabled: boolean
-  onAnswered?: (progress: PodProgress) => void
 }) {
   const [draft, setDraft] = useState<{
     answer: string | undefined
     value: string
   } | null>(null)
   const value = getQuestionValue(draft, answer)
-  const mutation = useMutation({
-    mutationFn: answerClonedPodQuestion,
-    onSuccess: (progress) => onAnswered?.(progress),
-  })
+  const mutation = useAnswerPodQuestion(pod)
   const answerSubmitted = answer != null
   const answerIsCorrect = answer?.is_correct === true
   const answerIsIncorrect = answerSubmitted && !answerIsCorrect
