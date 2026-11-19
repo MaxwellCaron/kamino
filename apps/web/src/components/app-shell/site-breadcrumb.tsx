@@ -1,7 +1,7 @@
 import type {
   AppBreadcrumb,
   AppBreadcrumbLoaderData,
-} from "./site-breadcrumb-data"
+} from "../../lib/app-shell/site-breadcrumb-data"
 import {
   Breadcrumb,
   BreadcrumbEllipsis,

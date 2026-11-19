@@ -1,7 +1,6 @@
 import { act, render, screen } from "@testing-library/react"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import { RelativeTimeCard } from "./relative-time-card"
-import { formatRelativeTime } from "./relative-time-schedule"
 
 describe("RelativeTimeCard", () => {
   beforeEach(() => {
@@ -28,40 +27,30 @@ describe("RelativeTimeCard", () => {
 
   it("updates relative seconds on second boundaries", () => {
     const date = new Date("2026-08-10T11:59:50.000Z")
-    const nextNow = new Date("2026-08-10T12:00:01.000Z")
 
     render(<RelativeTimeCard date={date} display="relative" />)
 
-    expect(screen.getByRole("time")).toHaveTextContent(
-      formatRelativeTime(date, new Date())
-    )
+    expect(screen.getByRole("time")).toHaveTextContent("10 seconds ago")
 
     act(() => {
       vi.advanceTimersByTime(1000)
     })
 
-    expect(screen.getByRole("time")).toHaveTextContent(
-      formatRelativeTime(date, nextNow)
-    )
+    expect(screen.getByRole("time")).toHaveTextContent("11 seconds ago")
   })
 
   it("updates relative hours on hour boundaries", () => {
     const date = new Date("2026-08-10T10:00:00.000Z")
-    const nextNow = new Date("2026-08-10T13:00:00.000Z")
 
     render(<RelativeTimeCard date={date} display="relative" />)
 
-    expect(screen.getByRole("time")).toHaveTextContent(
-      formatRelativeTime(date, new Date())
-    )
+    expect(screen.getByRole("time")).toHaveTextContent("2 hours ago")
 
     act(() => {
       vi.advanceTimersByTime(3_600_000)
     })
 
-    expect(screen.getByRole("time")).toHaveTextContent(
-      formatRelativeTime(date, nextNow)
-    )
+    expect(screen.getByRole("time")).toHaveTextContent("3 hours ago")
   })
 
   it("stops scheduling after seven days", () => {
@@ -72,7 +61,7 @@ describe("RelativeTimeCard", () => {
 
     expect(setTimeoutSpy).not.toHaveBeenCalled()
     expect(screen.getByRole("time")).toHaveTextContent(
-      formatRelativeTime(date, new Date())
+      date.toLocaleDateString()
     )
   })
 
@@ -84,27 +73,27 @@ describe("RelativeTimeCard", () => {
       <RelativeTimeCard date={initialDate} display="relative" />
     )
 
-    expect(screen.getByRole("time")).toHaveTextContent(
-      formatRelativeTime(initialDate, new Date())
-    )
+    expect(screen.getByRole("time")).toHaveTextContent("10 seconds ago")
 
     rerender(<RelativeTimeCard date={nextDate} display="relative" />)
 
-    expect(screen.getByRole("time")).toHaveTextContent(
-      formatRelativeTime(nextDate, new Date())
-    )
+    expect(screen.getByRole("time")).toHaveTextContent("20 seconds ago")
+    act(() => {
+      vi.advanceTimersByTime(1000)
+    })
+    expect(screen.getByRole("time")).toHaveTextContent("21 seconds ago")
   })
 
   it("clears timers on unmount", () => {
-    const clearTimeoutSpy = vi.spyOn(window, "clearTimeout")
     const date = new Date("2026-08-10T11:59:50.000Z")
 
     const { unmount } = render(
       <RelativeTimeCard date={date} display="relative" />
     )
 
+    expect(vi.getTimerCount()).toBeGreaterThan(0)
     unmount()
 
-    expect(clearTimeoutSpy).toHaveBeenCalled()
+    expect(vi.getTimerCount()).toBe(0)
   })
 })

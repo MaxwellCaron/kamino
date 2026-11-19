@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"slices"
 	"time"
+
+	"github.com/MaxwellCaron/kamino/internal/proxmox/poolpath"
 )
 
 const poolMembershipRestoreTimeout = 15 * time.Second
@@ -15,7 +17,7 @@ func (c *Client) EnsurePool(ctx context.Context, poolID string, path []string) e
 		return nil
 	}
 	if len(path) == 0 {
-		path = decodePoolPath(poolID)
+		path = poolpath.Decode(poolID)
 	}
 
 	pools, err := c.GetPools(ctx)
@@ -25,7 +27,7 @@ func (c *Client) EnsurePool(ctx context.Context, poolID string, path []string) e
 
 	for i := range path {
 		currentPath := path[:i+1]
-		currentPoolID := EncodePoolPath(currentPath)
+		currentPoolID := poolpath.Encode(currentPath)
 		if slices.ContainsFunc(pools, func(pool Pool) bool {
 			return pool.PoolID == currentPoolID
 		}) {

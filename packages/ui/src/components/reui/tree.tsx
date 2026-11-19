@@ -77,11 +77,9 @@ function Tree({
       : {}
   const mergedProps = { ...props, ...containerProps }
 
-  // Extract style from mergedProps to merge with our custom styles
   const { style: propStyle, ref: treeRef, ...otherProps } = mergedProps
   const composedRef = useComposedRefs(ref, treeRef)
 
-  // Merge styles
   const mergedStyle = {
     ...propStyle,
     "--tree-indent": `${indent}px`,
@@ -126,10 +124,8 @@ function TreeItem<T = any>({
   const itemProps = typeof item.getProps === "function" ? item.getProps() : {}
   const mergedProps = mergeProps<"button">(itemProps, { ...props, children })
 
-  // Extract style from mergedProps to merge with our custom styles
   const { style: propStyle, ...otherProps } = mergedProps
 
-  // Merge styles
   const mergedStyle = {
     ...propStyle,
     "--tree-padding": `${item.getItemMeta().level * indent}px`,

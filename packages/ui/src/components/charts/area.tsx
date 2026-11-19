@@ -205,7 +205,6 @@ export function Area({
     showLoadingPulse,
   ])
 
-  // Unique IDs for this area
   const uniqueId = useId()
   const gradientId = `area-gradient-${dataKey}-${uniqueId}`
   const strokeGradientId = `area-stroke-gradient-${dataKey}-${uniqueId}`
@@ -216,7 +215,6 @@ export function Area({
   const showAreaFill = isPatternFill || fillOpacity > 0
   const areaFill = isPatternFill ? fill : `url(#${gradientId})`
 
-  // Resolved stroke color (defaults to fill; pattern URLs need a real color)
   const resolvedStroke =
     stroke || (isPatternFill ? chartCssVars.linePrimary : fill)
 
@@ -291,8 +289,6 @@ export function Area({
     </>
   )
 
-  // Sweep style owns all loading modes (loop + the exit/enter transitions),
-  // drawing its own silhouette; the pulse covers the default style.
   const sweepLoading =
     showLoadingPulse && innerWidth > 0 && loadingStyle === "sweep"
   const pulseLoading = showLoadingPulse && innerWidth > 0 && !sweepLoading
@@ -327,7 +323,6 @@ export function Area({
         )}
       </SeriesHoverDim>
 
-      {/* Highlight segment on hover — isolated hover subscriber. */}
       <SeriesHighlightLayer
         enabled={highlightEnabled}
         height={innerHeight}

@@ -114,7 +114,7 @@ RETURNING
     created_at,
     updated_at;
 
--- name: ListStaleExecutingRequests :many
+-- name: ListExecutingRequests :many
 SELECT
     id,
     family,
@@ -131,6 +131,4 @@ SELECT
     updated_at
 FROM requests
 WHERE status = 'executing'
-  AND execution_started_at IS NOT NULL
-  AND execution_started_at < $1
 ORDER BY execution_started_at ASC, id ASC;

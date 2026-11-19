@@ -1,6 +1,6 @@
 import { createFileRoute, redirect } from "@tanstack/react-router"
-import { AdminLayout } from "@/features/admin/components/admin-layout"
-import { canAccessAdmin } from "@/features/auth/utils/management-permissions"
+import { AdminLayout } from "@/components/admin/admin-layout"
+import { canAccessAdmin } from "@/lib/auth/management-permissions"
 
 export const Route = createFileRoute("/_dashboard/admin")({
   staticData: {

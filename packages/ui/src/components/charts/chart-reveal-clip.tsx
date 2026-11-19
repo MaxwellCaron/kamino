@@ -56,8 +56,6 @@ export function ChartRevealClip({
   }
 
   if (mode === "conceal") {
-    // Mirror the LTR reveal: advance the clip's left edge rightward while width
-    // shrinks (same geometry as `LineLoadingPulseStroke` exit half-cycle).
     const rightEdge = -padding + paddedWidth;
 
     return (

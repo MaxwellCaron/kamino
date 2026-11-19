@@ -58,7 +58,6 @@ function readHeatmapSeparatorConfig(
   };
 }
 
-/** Reads the first {@link HeatmapSeparator} child for separator config. */
 export function resolveHeatmapSeparatorConfig(
   children: ReactNode,
   chartSeparators?: HeatmapSeparatorParsedConfig | null
@@ -116,7 +115,6 @@ function normalizeHeatmapSeparatorConfig(
   };
 }
 
-/** Merges chart prop and child-derived config, then resolves column indices from data. */
 export function resolveHeatmapSeparatorConfigWithData(
   children: ReactNode,
   columns: Array<HeatmapColumn>,

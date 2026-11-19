@@ -15,13 +15,11 @@ type apiResponse[T any] struct {
 	Data T `json:"data"`
 }
 
-// Pool represents a Proxmox resource pool.
 type Pool struct {
 	PoolID  string `json:"poolid"`
 	Comment string `json:"comment"`
 }
 
-// VM represents a virtual machine from the Proxmox cluster resources API.
 type VM struct {
 	VMID      int     `json:"vmid"`
 	Name      string  `json:"name"`
@@ -43,7 +41,6 @@ type VM struct {
 	Template  int     `json:"template"`
 }
 
-// IsTemplate returns true if the VM is a Proxmox template.
 func (v VM) IsTemplate() bool { return v.Template == 1 }
 
 type GuestType string
@@ -60,7 +57,6 @@ func GuestTypeFromVMType(t string) GuestType {
 	return GuestQEMU
 }
 
-// Node represents a cluster node from the Proxmox API.
 type Node struct {
 	Node   string  `json:"node"`
 	Status string  `json:"status"`
@@ -70,7 +66,6 @@ type Node struct {
 	MaxMem int64   `json:"maxmem"`
 }
 
-// Storage represents a storage resource from the Proxmox API.
 type Storage struct {
 	Storage string `json:"storage"`
 	Type    string `json:"type"`
@@ -87,7 +82,6 @@ type StorageWithClassification struct {
 	KaminoExcluded bool `json:"kamino_excluded"`
 }
 
-// ISOContent represents an ISO file in a storage.
 type ISOContent struct {
 	Volid  string `json:"volid"`
 	Format string `json:"format"`
@@ -99,7 +93,6 @@ type StorageContent struct {
 	Size  int64  `json:"size"`
 }
 
-// VNet represents a Software Defined Network virtual network.
 type VNet struct {
 	Type         string  `json:"type,omitempty"`
 	VNet         string  `json:"vnet"`
@@ -110,13 +103,11 @@ type VNet struct {
 	IsolatePorts intBool `json:"isolate-ports,omitempty"`
 }
 
-// SDNZone represents a Software Defined Network zone.
 type SDNZone struct {
 	Zone string `json:"zone"`
 	Type string `json:"type,omitempty"`
 }
 
-// NetworkBridge represents a network bridge on a Proxmox node.
 type NetworkBridge struct {
 	Iface    string `json:"iface"`
 	Type     string `json:"type"`
@@ -124,7 +115,6 @@ type NetworkBridge struct {
 	Comments string `json:"comments,omitempty"`
 }
 
-// Snapshot represents a VM snapshot from the Proxmox API.
 type Snapshot struct {
 	Name        string  `json:"name"`
 	Description string  `json:"description"`

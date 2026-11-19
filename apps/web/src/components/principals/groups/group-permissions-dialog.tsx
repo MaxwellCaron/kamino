@@ -1,0 +1,397 @@
+import {
+  Alert,
+  AlertAction,
+  AlertDescription,
+  AlertTitle,
+} from "@workspace/ui/components/alert"
+import {
+  Alert01Icon,
+  LockPasswordIcon,
+  ReloadIcon,
+  ShieldKeyIcon,
+  UserSettings01Icon,
+} from "@hugeicons/core-free-icons"
+import type {
+  ApiManagementPermissionDefinition,
+  ApiManagementPermissionSection,
+  ManagementPermissionKey,
+} from "@/lib/auth/management-permissions"
+import {
+  AppDialog,
+  AppDialogPrimaryButton,
+  AppDialogScrollBody,
+} from "@/components/dialogs/app-dialog"
+import {
+  Empty,
+  EmptyDescription,
+  EmptyHeader,
+  EmptyMedia,
+  EmptyTitle,
+} from "@workspace/ui/components/empty"
+import {
+  Field,
+  FieldContent,
+  FieldDescription,
+  FieldError,
+  FieldGroup,
+  FieldLabel,
+  FieldSet,
+  FieldTitle,
+} from "@workspace/ui/components/field"
+import {
+  RadioGroup,
+  RadioGroupItem,
+} from "@workspace/ui/components/radio-group"
+import {
+  groupManagementAclQueryOptions,
+  updateGroupManagementAcl,
+} from "@/lib/principals/principals-api"
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
+import type { ApiPrincipal } from "@/lib/principals/principals-types"
+import { Badge } from "@workspace/ui/components/badge"
+import { Button } from "@workspace/ui/components/button"
+import { DialogFooter } from "@workspace/ui/components/dialog"
+import { HugeiconsIcon } from "@hugeicons/react"
+import { ManagementPermissionKeys } from "@/lib/auth/management-permissions"
+import { PreloadOverlay } from "@/components/feedback/loading-overlay"
+import React from "react"
+import { showSingleMutationToast } from "@/components/feedback/mutation-progress-toast"
+import { useForm } from "@tanstack/react-form"
+import { useSelector } from "@tanstack/react-store"
+
+function getGroupLabel(group: ApiPrincipal) {
+  return group.name ?? group.external_id
+}
+
+function flattenDefinitions(
+  sections: Array<ApiManagementPermissionSection>
+): Array<ApiManagementPermissionDefinition> {
+  return sections.flatMap((section) => section.permissions)
+}
+
+function getRoleDefinitions(
+  sections: Array<ApiManagementPermissionSection>
+): Array<ApiManagementPermissionDefinition> {
+  const byKey = new Map(
+    flattenDefinitions(sections).map((definition) => [
+      definition.key,
+      definition,
+    ])
+  )
+
+  return [
+    byKey.get(ManagementPermissionKeys.manager) ?? {
+      key: ManagementPermissionKeys.manager,
+      label: "Manager",
+      description: "Can review and determine outcomes of request queue items.",
+      dangerous: false,
+      bootstrap_only: false,
+    },
+    byKey.get(ManagementPermissionKeys.administrator) ?? {
+      key: ManagementPermissionKeys.administrator,
+      label: "Administrator",
+      description:
+        "Full management access, including administration surfaces and management role assignment.",
+      dangerous: true,
+      bootstrap_only: true,
+    },
+  ]
+}
+
+function directRoleFromGrants(
+  grants: Array<ManagementPermissionKey>
+): ManagementPermissionKey | "" {
+  if (grants.includes(ManagementPermissionKeys.administrator)) {
+    return ManagementPermissionKeys.administrator
+  }
+  if (grants.includes(ManagementPermissionKeys.manager)) {
+    return ManagementPermissionKeys.manager
+  }
+
+  return ""
+}
+
+type RoleFormValues = {
+  role: ManagementPermissionKey | ""
+}
+
+function GroupPermissionsForm({
+  group,
+  initialRole,
+  roleDefinitions,
+  canEditBootstrapOnly,
+  immutable,
+  controlsDisabled,
+  onOpenChange,
+}: {
+  group: ApiPrincipal
+  initialRole: ManagementPermissionKey | ""
+  roleDefinitions: Array<ApiManagementPermissionDefinition>
+  canEditBootstrapOnly: boolean
+  immutable: boolean
+  controlsDisabled: boolean
+  onOpenChange: (open: boolean) => void
+}) {
+  const queryClient = useQueryClient()
+  const baselineRoleRef = React.useRef(initialRole)
+
+  const updateRole = useMutation({
+    mutationFn: (role: ManagementPermissionKey | "") =>
+      updateGroupManagementAcl(group.id, role ? [role] : []),
+    onSuccess: () =>
+      queryClient.invalidateQueries({
+        queryKey: ["principals", "groups", group.id, "management-access"],
+      }),
+  })
+
+  const form = useForm({
+    defaultValues: {
+      role: initialRole,
+    } satisfies RoleFormValues,
+    onSubmit: ({ value }) => {
+      onOpenChange(false)
+      showSingleMutationToast({
+        title: "Updating management role",
+        name: getGroupLabel(group),
+        promise: () => updateRole.mutateAsync(value.role),
+        successDescription: "Role updated",
+      })
+    },
+  })
+
+  const [, forceRerender] = React.useReducer((tick: number) => tick + 1, 0)
+  const serverChanged = initialRole !== baselineRoleRef.current
+
+  const handleReload = () => {
+    form.reset({ role: initialRole })
+    baselineRoleRef.current = initialRole
+    forceRerender()
+  }
+
+  const selectedRole = useSelector(form.store, (state) => state.values.role)
+  const hasChanges = selectedRole !== baselineRoleRef.current
+
+  return (
+    <form
+      action={() => {
+        void form.handleSubmit()
+      }}
+    >
+      <AppDialogScrollBody>
+        <div className="flex flex-col">
+          {serverChanged && (
+            <Alert className="mb-3">
+              <HugeiconsIcon icon={Alert01Icon} />
+              <AlertTitle>Management role changed</AlertTitle>
+              <AlertDescription>
+                The management role changed on the server while you were
+                editing.
+              </AlertDescription>
+              <AlertAction>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={handleReload}
+                >
+                  <HugeiconsIcon icon={ReloadIcon} data-icon="inline-start" />
+                  Reload
+                </Button>
+              </AlertAction>
+            </Alert>
+          )}
+          {immutable ? (
+            <Alert className="mb-3">
+              <HugeiconsIcon icon={ShieldKeyIcon} />
+              <AlertTitle>Protected bootstrap group</AlertTitle>
+              <AlertDescription>
+                This group stays administrator-owned and cannot be edited here.
+              </AlertDescription>
+            </Alert>
+          ) : !canEditBootstrapOnly ? (
+            <Alert className="mb-3">
+              <HugeiconsIcon icon={UserSettings01Icon} />
+              <AlertTitle>Administrator role is restricted</AlertTitle>
+              <AlertDescription>
+                You can assign the manager role here, but administrator remains
+                reserved for the bootstrap admin group.
+              </AlertDescription>
+            </Alert>
+          ) : null}
+          <FieldGroup className="w-full">
+            <form.Field name="role">
+              {(field) => {
+                const isInvalid =
+                  field.state.meta.isTouched && !field.state.meta.isValid
+
+                return (
+                  <FieldSet>
+                    <RadioGroup
+                      aria-label="Management role"
+                      name={field.name}
+                      value={field.state.value}
+                      onValueChange={(value) =>
+                        field.handleChange(
+                          value as ManagementPermissionKey | ""
+                        )
+                      }
+                      disabled={controlsDisabled || immutable}
+                      className="gap-3"
+                    >
+                      <FieldLabel htmlFor="role-none">
+                        <Field
+                          orientation="horizontal"
+                          data-invalid={isInvalid}
+                        >
+                          <FieldContent className="cursor-pointer">
+                            <FieldTitle>None</FieldTitle>
+                            <FieldDescription>
+                              Standard operations. No special management
+                              permissions.
+                            </FieldDescription>
+                          </FieldContent>
+                          <RadioGroupItem
+                            value=""
+                            id="role-none"
+                            aria-invalid={isInvalid}
+                          />
+                        </Field>
+                      </FieldLabel>
+
+                      {roleDefinitions.map((role) => {
+                        const roleDisabled =
+                          role.bootstrap_only && !canEditBootstrapOnly
+
+                        return (
+                          <FieldLabel
+                            key={role.key}
+                            htmlFor={`role-${role.key}`}
+                          >
+                            <Field
+                              orientation="horizontal"
+                              data-invalid={isInvalid}
+                            >
+                              <FieldContent className="cursor-pointer">
+                                <div className="flex flex-wrap items-center gap-2">
+                                  <FieldTitle>{role.label}</FieldTitle>
+                                  {role.dangerous && (
+                                    <Badge variant="destructive">
+                                      Dangerous
+                                    </Badge>
+                                  )}
+                                </div>
+                                <FieldDescription>
+                                  {role.description}
+                                </FieldDescription>
+                              </FieldContent>
+                              <RadioGroupItem
+                                value={role.key}
+                                id={`role-${role.key}`}
+                                disabled={roleDisabled}
+                                aria-invalid={isInvalid}
+                              />
+                            </Field>
+                          </FieldLabel>
+                        )
+                      })}
+                    </RadioGroup>
+                    {isInvalid && (
+                      <FieldError errors={field.state.meta.errors} />
+                    )}
+                  </FieldSet>
+                )
+              }}
+            </form.Field>
+          </FieldGroup>
+        </div>
+      </AppDialogScrollBody>
+
+      <DialogFooter>
+        <AppDialogPrimaryButton
+          disabled={controlsDisabled || immutable || !hasChanges}
+          pending={updateRole.isPending}
+        >
+          Save
+        </AppDialogPrimaryButton>
+      </DialogFooter>
+    </form>
+  )
+}
+
+export function GroupPermissionsDialog({
+  group,
+  open,
+  onOpenChange,
+}: {
+  group: ApiPrincipal
+  open: boolean
+  onOpenChange: (open: boolean) => void
+}) {
+  const [editorVersion, setEditorVersion] = React.useState(0)
+  const {
+    data: access,
+    error: accessError,
+    isError: isAccessError,
+    isLoading: isAccessLoading,
+  } = useQuery({
+    ...groupManagementAclQueryOptions(group.id),
+    enabled: open,
+  })
+
+  const roleDefinitions = React.useMemo(
+    () => getRoleDefinitions(access?.sections ?? []),
+    [access?.sections]
+  )
+  const immutable = access?.immutable ?? false
+  const canEditBootstrapOnly = access?.can_edit_bootstrap_only ?? false
+  const controlsDisabled = isAccessLoading || isAccessError
+  const initialRole = React.useMemo(
+    () => directRoleFromGrants(access?.grants ?? []),
+    [access?.grants]
+  )
+
+  return (
+    <AppDialog
+      open={open}
+      onOpenChange={onOpenChange}
+      onClosed={() => setEditorVersion((version) => version + 1)}
+      icon={LockPasswordIcon}
+      title="Management Roles"
+      description={`Choose the management role for ${getGroupLabel(group)}.`}
+    >
+      <div className="relative min-h-66">
+        <PreloadOverlay
+          active={isAccessLoading}
+          label="Loading management roles"
+        />
+        {isAccessError ? (
+          <AppDialogScrollBody>
+            <Empty className="border border-dashed">
+              <EmptyHeader>
+                <EmptyMedia variant="icon">
+                  <HugeiconsIcon
+                    icon={Alert01Icon}
+                    className="text-muted-foreground"
+                  />
+                </EmptyMedia>
+                <EmptyTitle>Could Not Load Roles</EmptyTitle>
+                <EmptyDescription>{accessError.message}</EmptyDescription>
+              </EmptyHeader>
+            </Empty>
+          </AppDialogScrollBody>
+        ) : !isAccessLoading ? (
+          <GroupPermissionsForm
+            key={`${group.id}:${editorVersion}`}
+            group={group}
+            initialRole={initialRole}
+            roleDefinitions={roleDefinitions}
+            canEditBootstrapOnly={canEditBootstrapOnly}
+            immutable={immutable}
+            controlsDisabled={controlsDisabled}
+            onOpenChange={onOpenChange}
+          />
+        ) : null}
+      </div>
+    </AppDialog>
+  )
+}

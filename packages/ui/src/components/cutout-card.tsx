@@ -6,11 +6,7 @@ import type { ImageProps as UnpicImageProps } from "@unpic/react"
 import { cn } from "@workspace/ui/lib/utils"
 import { useControllableState } from "@radix-ui/react-use-controllable-state"
 
-// ============================================================================
-// Tokens — optional chrome for demos / quick styling
-// ============================================================================
 
-/** Border + shadow stack using theme tokens so elevation reads in light and dark. */
 export const cutoutCardSurfaceShadowClassName = cn(
   "border border-border/80 shadow dark:border-border/60"
 )
@@ -65,9 +61,6 @@ export function useCutoutContentStaggerVariants() {
 
 const CORNER_PATH = "M0 200C155.996 199.961 200.029 156.308 200 0V200H0Z"
 
-// ============================================================================
-// Context
-// ============================================================================
 
 export interface CutoutCardContextValue {
   hovered: boolean
@@ -88,9 +81,6 @@ export function useOptionalCutoutCard() {
   return useContext(CutoutCardContext)
 }
 
-// ============================================================================
-// Root
-// ============================================================================
 
 export type CutoutCardProps = Omit<
   ComponentProps<typeof m.div>,
@@ -181,9 +171,6 @@ export function CutoutCard({
   )
 }
 
-// ============================================================================
-// Layout primitives
-// ============================================================================
 
 export type CutoutCardMediaProps = HTMLAttributes<HTMLDivElement>
 
@@ -347,9 +334,6 @@ export function CutoutCardFooter({
   )
 }
 
-// ============================================================================
-// Cutout geometry
-// ============================================================================
 
 export type CutoutCornerProps = ComponentProps<"svg"> & {
   /** Pixel width/height of the SVG viewBox (square). */
@@ -410,9 +394,6 @@ export function CutoutCardPin({ className, ...props }: CutoutCardPinProps) {
   )
 }
 
-// ============================================================================
-// Context-sensitive action region
-// ============================================================================
 
 export type CutoutCardActionProps = ComponentProps<typeof m.div> & {
   /**

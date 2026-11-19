@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"log"
-	"time"
 
 	"github.com/MaxwellCaron/kamino/database"
 	"github.com/MaxwellCaron/kamino/internal/audit"
@@ -13,7 +12,6 @@ import (
 	"github.com/MaxwellCaron/kamino/internal/proxmox"
 	"github.com/MaxwellCaron/kamino/internal/vmactions"
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -34,7 +32,6 @@ const (
 	RequestKindPersonalPodCreate           = "personal_pod.create"
 
 	maxPendingRequestsPerUser = 3
-	StaleExecutingThreshold   = 15 * time.Minute
 )
 
 var (
@@ -74,14 +71,6 @@ type Service struct {
 	audit        *audit.Service
 	personalPods PersonalPodProvisioner
 	vmClaims     vmActionClaimer
-}
-
-type vmTarget struct {
-	ItemID       uuid.UUID
-	Node         string
-	VMID         int
-	UpstreamUUID uuid.UUID
-	GuestType    proxmox.GuestType
 }
 
 func NewService(
@@ -160,27 +149,20 @@ func (s *Service) recordAuditEvent(
 	})
 }
 
-func (s *Service) ListStaleExecutingRequests(
-	ctx context.Context,
-	threshold time.Duration,
-) ([]database.Requests, error) {
-	cutoff := pgtype.Timestamptz{
-		Time:  time.Now().Add(-threshold),
-		Valid: true,
-	}
-
-	return database.New(s.db).ListStaleExecutingRequests(ctx, cutoff)
-}
-
-func (s *Service) FailStaleExecutingRequests(ctx context.Context) ([]uuid.UUID, error) {
-	stale, err := s.ListStaleExecutingRequests(ctx, StaleExecutingThreshold)
+// RecoverInterruptedRequests runs before serving traffic in the single-API process.
+// Existing executions belong to the departed process; their external outcome is unknown.
+func (s *Service) RecoverInterruptedRequests(ctx context.Context) ([]uuid.UUID, error) {
+	interrupted, err := database.New(s.db).ListExecutingRequests(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	failed := make([]uuid.UUID, 0, len(stale))
-	for _, request := range stale {
-		errorMessage := "request was stranded in executing state (likely a prior process died mid-execution)"
+	failed := make([]uuid.UUID, 0, len(interrupted))
+	for _, request := range interrupted {
+		if err := ctx.Err(); err != nil {
+			return failed, err
+		}
+		errorMessage := "request execution was interrupted by an API restart; the external outcome is unconfirmed. Check the resource before retrying."
 		if err := s.markExecutionFailedRecord(
 			ctx,
 			request.ID,
@@ -189,7 +171,7 @@ func (s *Service) FailStaleExecutingRequests(ctx context.Context) ([]uuid.UUID, 
 			nil,
 			errorMessage,
 		); err != nil {
-			log.Printf("failed to fence stale executing request %s: %v", request.ID, err)
+			log.Printf("failed to recover interrupted request %s: %v", request.ID, err)
 			continue
 		}
 		failed = append(failed, request.ID)

@@ -164,7 +164,6 @@ func (c *Client) fetchGroupByDN(conn *ldap.Conn, groupDN string) (*Group, error)
 	return &group, nil
 }
 
-// FetchGroupsInDN returns groups under a specific DN subtree.
 func (c *Client) FetchGroupsInDN(ctx context.Context, baseDN string) ([]Group, error) {
 	return c.fetchGroups(ctx, baseDN)
 }

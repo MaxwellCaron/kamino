@@ -7,7 +7,7 @@ import { AlertCircleIcon } from "@hugeicons/core-free-icons"
 import { HugeiconsIcon } from "@hugeicons/react"
 import type { ReactNode } from "react"
 import { cn } from "@workspace/ui/lib/utils"
-import { formatErrorMessage } from "@/components/forms/form-errors"
+import { formatErrorMessage } from "@/lib/forms/form-errors"
 
 type InlineErrorAlertProps = {
   error?: unknown

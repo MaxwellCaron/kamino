@@ -1,0 +1,363 @@
+import {
+  DropdownMenuGroup,
+  DropdownMenuItem,
+} from "@workspace/ui/components/dropdown-menu"
+import type {
+  FolderPowerTargets,
+  InventoryPowerAction,
+} from "@/lib/inventory/actions/inventory-power-actions"
+import { useQuery, useQueryClient } from "@tanstack/react-query"
+import type { ApiTreeNode } from "@/lib/inventory/inventory-types"
+import { Delete01Icon } from "@hugeicons/core-free-icons"
+import { FOLDER_POWER_ACTION_DEFINITIONS } from "@/lib/inventory/actions/folder-power-action-definitions"
+import { FolderMenuItems } from "@/components/inventory/actions/folder-menu-items"
+import { InventoryDeleteConfirmItems } from "@/components/inventory/inventory-delete-confirm-items"
+import type { InventoryDialogsContextValue } from "@/lib/inventory/inventory-dialogs-context"
+import { TemplateMenuItems } from "@/components/inventory/actions/template-menu-items"
+import { VmIcon } from "@/components/vms/vm-icon"
+import { VmMenuItems } from "@/components/inventory/actions/vm-menu-items"
+import { createInventoryDeleteItems } from "@/components/inventory/actions/inventory-delete-items"
+import { createInventoryPowerActionToastOptions } from "@/lib/inventory/actions/inventory-power-actions"
+import { findInventoryTreeNode } from "@/lib/inventory/inventory-tree"
+import { formatVmReference } from "@/lib/vms/vm-reference"
+import { getFolderCapabilities } from "@/lib/inventory/inventory-capabilities"
+import { inventoryTreeQueryOptions } from "@/lib/inventory/inventory-api"
+import { showUnitMutationToast } from "@/components/feedback/mutation-progress-toast"
+import { toast } from "sonner"
+import { useDeleteFolder } from "@/hooks/inventory/use-inventory-actions"
+import { useInventoryDialogs } from "@/hooks/inventory/use-inventory-dialogs"
+import { useInventoryFavorites } from "@/hooks/inventory/use-inventory-favorites"
+import { vmStatusQueryOptions } from "@/lib/vms/vm-api"
+
+export function InventoryNodeMenuBody({
+  itemId,
+  data,
+  folderPower,
+}: {
+  itemId: string
+  data: ApiTreeNode
+  folderPower: FolderPowerTargets
+}) {
+  const queryClient = useQueryClient()
+  const { favoriteIds, toggleFavorite } = useInventoryFavorites()
+  const deleteFolderMutation = useDeleteFolder()
+  const {
+    openConfirm,
+    openCreateFolder,
+    openFolderLimit,
+    openRenameFolder,
+    openCreateVm,
+    openSnapshot,
+    openClone,
+    openMigrateVm,
+    openRenameVm,
+    openEditVmHardware,
+    openPermissions,
+  } = useInventoryDialogs()
+  const { data: vmStatuses } = useQuery(vmStatusQueryOptions)
+
+  function handleDeleteFolder() {
+    const tree =
+      queryClient.getQueryData<Array<ApiTreeNode>>(
+        inventoryTreeQueryOptions.queryKey
+      ) ?? []
+
+    const folder = findInventoryTreeNode(tree, itemId)
+
+    if (!folder || folder.kind !== "folder") {
+      toast.error("Failed to load folder details.")
+      return
+    }
+
+    const deleteItems = createInventoryDeleteItems({
+      folderTargets: [folder as ApiTreeNode & { kind: "folder" }],
+      vmTargets: [],
+      getVmStatus: (id) => {
+        const node = findInventoryTreeNode(tree, id)
+        return node?.vm ? vmStatuses?.[node.vm.vmid] : undefined
+      },
+    })
+
+    openConfirm({
+      title: `Delete folder "${data.name}"?`,
+      icon: Delete01Icon,
+      description: null,
+      body: <InventoryDeleteConfirmItems items={deleteItems} />,
+      actionLabel: "Delete",
+      variant: "destructive",
+      onConfirm: () => {
+        showUnitMutationToast({
+          title: `Deleting folder "${data.name}"`,
+          units: [
+            {
+              items: deleteItems.map(({ id, name, successDescription }) => ({
+                id,
+                name,
+                successDescription,
+              })),
+              run: async () => {
+                await deleteFolderMutation.mutateAsync({ id: itemId })
+              },
+            },
+          ],
+        })
+      },
+    })
+  }
+
+  function handleFolderPowerAction(action: InventoryPowerAction) {
+    const { targets } = folderPower
+    if (targets.length === 0) return
+
+    const definition = FOLDER_POWER_ACTION_DEFINITIONS.find(
+      (item) => item.action === action
+    )!
+    const count = `${targets.length} VM${targets.length === 1 ? "" : "s"}`
+
+    openConfirm({
+      title: definition.label,
+      icon: definition.icon,
+      description: definition.description(count, data.name),
+      body: (
+        <InventoryDeleteConfirmItems
+          items={targets.map((item) => ({
+            id: item.id,
+            name: formatVmReference(item.vm.vmid, item.name),
+            icon: (
+              <VmIcon
+                status={vmStatuses?.[item.vm.vmid]}
+                guestType={item.vm.guest_type}
+              />
+            ),
+          }))}
+        />
+      ),
+      actionLabel: definition.label,
+      variant: definition.dialogVariant,
+      onConfirm: () => {
+        const toastOptions = createInventoryPowerActionToastOptions({
+          queryClient,
+          action,
+          targets,
+        })
+        if (toastOptions) showUnitMutationToast(toastOptions)
+      },
+    })
+  }
+
+  return (
+    <InventoryNodeMenuItems
+      data={data}
+      dialogs={{
+        openConfirm,
+        openCreateFolder,
+        openFolderLimit,
+        openRenameFolder,
+        openCreateVm,
+        openSnapshot,
+        openClone,
+        openMigrateVm,
+        openRenameVm,
+        openEditVmHardware,
+        openPermissions,
+      }}
+      favoriteIds={favoriteIds}
+      folderPower={folderPower}
+      itemId={itemId}
+      onDeleteFolder={handleDeleteFolder}
+      onFolderPowerAction={handleFolderPowerAction}
+      onToggleFavorite={toggleFavorite}
+      vmStatuses={vmStatuses}
+    />
+  )
+}
+
+function InventoryNodeMenuItems({
+  data,
+  dialogs,
+  favoriteIds,
+  folderPower,
+  itemId,
+  onDeleteFolder,
+  onFolderPowerAction,
+  onToggleFavorite,
+  vmStatuses,
+}: {
+  data: ApiTreeNode
+  dialogs: InventoryDialogsContextValue
+  favoriteIds: ReadonlySet<string>
+  folderPower: FolderPowerTargets
+  itemId: string
+  onDeleteFolder: () => void
+  onFolderPowerAction: (action: InventoryPowerAction) => void
+  onToggleFavorite: (itemId: string) => void
+  vmStatuses?: Record<number, string>
+}) {
+  const {
+    openClone,
+    openConfirm,
+    openCreateFolder,
+    openCreateVm,
+    openEditVmHardware,
+    openFolderLimit,
+    openMigrateVm,
+    openPermissions,
+    openRenameFolder,
+    openRenameVm,
+    openSnapshot,
+  } = dialogs
+
+  if (data.kind === "folder") {
+    const capabilities = getFolderCapabilities(data.permissions)
+    const hasActions =
+      capabilities.hasCreateActions ||
+      capabilities.hasEditActions ||
+      capabilities.delete.visible ||
+      (folderPower.canPower && folderPower.targets.length > 0)
+
+    if (!hasActions) return <InventoryMenuEmptyState />
+
+    return (
+      <FolderMenuItems
+        permissions={data.permissions}
+        power={
+          folderPower.canPower
+            ? {
+                targetCount: folderPower.targets.length,
+                onPowerAction: onFolderPowerAction,
+              }
+            : null
+        }
+        onCreateFolder={() => openCreateFolder({ parentId: itemId })}
+        onCreateVm={() => openCreateVm({ initialFolderId: itemId })}
+        onManagePermissions={() =>
+          openPermissions({
+            itemId,
+            itemKind: "folder",
+            itemName: data.name,
+            itemVmid: data.vm?.vmid,
+          })
+        }
+        onEditLimit={() =>
+          openFolderLimit({
+            directVmLimit: data.direct_vm_limit,
+            effectiveVmLimit: data.effective_vm_limit,
+            folderId: itemId,
+            folderName: data.name,
+            vmCount: data.vm_count,
+          })
+        }
+        onRename={() =>
+          openRenameFolder({
+            folderId: itemId,
+            currentName: data.name,
+            currentDescription: data.description,
+          })
+        }
+        onDelete={onDeleteFolder}
+        disabled={false}
+      />
+    )
+  }
+
+  const isFavorite = favoriteIds.has(itemId)
+  const managePermissions = () =>
+    openPermissions({
+      itemId,
+      itemKind: "vm",
+      itemName: data.name,
+      itemVmid: data.vm?.vmid,
+    })
+  const clone = () => {
+    if (!data.vm?.node) return
+    openClone({
+      itemId,
+      currentName: data.name,
+      currentVmid: data.vm.vmid,
+      isTemplate: data.vm.is_template,
+    })
+  }
+  const rename = () => {
+    if (!data.vm?.node) return
+    openRenameVm({
+      itemId,
+      currentName: data.name,
+      currentVmid: data.vm.vmid,
+    })
+  }
+
+  if (data.vm?.is_template) {
+    return (
+      <TemplateMenuItems
+        permissions={data.permissions}
+        isFavorite={isFavorite}
+        onToggleFavorite={() => onToggleFavorite(itemId)}
+        itemId={itemId}
+        vmid={data.vm.vmid}
+        name={data.name}
+        onAction={openConfirm}
+        onManagePermissions={managePermissions}
+        onClone={clone}
+        onRename={rename}
+        disabled={false}
+      />
+    )
+  }
+
+  return (
+    <VmMenuItems
+      permissions={data.permissions}
+      isFavorite={isFavorite}
+      onToggleFavorite={() => onToggleFavorite(itemId)}
+      itemId={itemId}
+      vmid={data.vm?.vmid ?? 0}
+      name={data.name}
+      onAction={openConfirm}
+      onManagePermissions={managePermissions}
+      onSnapshot={(mode) => {
+        if (data.vm?.vmid == null) return
+        openSnapshot({
+          itemId,
+          currentName: data.name,
+          currentVmid: data.vm.vmid,
+          guestType: data.vm.guest_type,
+          mode,
+        })
+      }}
+      onClone={clone}
+      onMigrate={() => {
+        if (!data.vm?.node) return
+        openMigrateVm({
+          items: [
+            {
+              id: itemId,
+              name: data.name,
+              node: data.vm.node,
+              vmid: data.vm.vmid,
+            },
+          ],
+        })
+      }}
+      onRename={rename}
+      onEditHardware={() => {
+        if (!data.vm?.node) return
+        openEditVmHardware({
+          itemId,
+          currentName: data.name,
+          currentVmid: data.vm.vmid,
+        })
+      }}
+      disabled={false}
+      powerStatus={data.vm ? vmStatuses?.[data.vm.vmid] : undefined}
+      guestType={data.vm?.guest_type}
+    />
+  )
+}
+
+export function InventoryMenuEmptyState() {
+  return (
+    <DropdownMenuGroup>
+      <DropdownMenuItem disabled>No actions available</DropdownMenuItem>
+    </DropdownMenuGroup>
+  )
+}

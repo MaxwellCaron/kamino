@@ -6,18 +6,17 @@ import (
 )
 
 func (c *Catalog) Profile(key string) (Profile, error) {
-	profile, ok := c.profiles[key]
-	if !ok {
-		return Profile{}, fmt.Errorf("unknown network profile %q", key)
+	for _, profile := range c.profiles {
+		if profile.Key == key {
+			return copyProfile(profile), nil
+		}
 	}
-	return copyProfile(profile), nil
+	return Profile{}, fmt.Errorf("unknown network profile %q", key)
 }
 
 func (c *Catalog) PublicProfiles() []PublicProfile {
-	keys := []string{ProfileLANRouterV1, ProfileLANDMZRouterV1}
-	result := make([]PublicProfile, 0, len(keys))
-	for _, key := range keys {
-		profile := c.profiles[key]
+	result := make([]PublicProfile, 0, len(c.profiles))
+	for _, profile := range c.profiles {
 		public := PublicProfile{
 			Key:                 profile.Key,
 			Label:               profile.Label,
@@ -64,10 +63,10 @@ func (c *Catalog) RequiredVNets(target Target, profileKey string) ([]string, err
 		return nil, err
 	}
 
-	seen := make(map[string]struct{}, len(profile.RequiredVNets))
-	names := make([]string, 0, len(profile.RequiredVNets))
-	for _, kind := range profile.RequiredVNets {
-		name, err := c.VNetName(target, kind)
+	seen := make(map[string]struct{}, len(profile.Segments))
+	names := make([]string, 0, len(profile.Segments))
+	for _, segment := range profile.Segments {
+		name, err := c.VNetName(target, segment.VNetKind)
 		if err != nil {
 			return nil, err
 		}
@@ -182,7 +181,7 @@ func (c *Catalog) ValidateAssignments(profileKey string, routerCount int, worklo
 		}
 	}
 
-	if profile.Key == ProfileLANDMZRouterV1 {
+	if profile.RequiresExplicitSegments() {
 		if len(workloadSegments) == 0 {
 			return fmt.Errorf("profile %s requires an explicit segment for every workload", profileKey)
 		}

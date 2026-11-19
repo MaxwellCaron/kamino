@@ -46,7 +46,6 @@ import { createPortal } from "react-dom"
 import { mergeProps } from "@base-ui/react/merge-props"
 import { useRender } from "@base-ui/react/use-render"
 
-// Sortable Item Context
 const SortableItemContext = createContext<{
   listeners: DraggableSyntheticListeners | undefined
   isDragging?: boolean
@@ -80,7 +79,6 @@ const dropAnimationConfig: DropAnimation = {
   }),
 }
 
-// Multipurpose Sortable Component
 export interface SortableRootProps<T> extends Omit<
   useRender.ComponentProps<"div">,
   "onDragStart" | "onDragEnd" | "children"
@@ -152,7 +150,6 @@ function Sortable<T>({
 
       if (!over) return
 
-      // Handle item reordering
       const activeIndex = value.findIndex(
         (item: T) => getItemValue(item) === active.id
       )
@@ -202,7 +199,6 @@ function Sortable<T>({
     children,
   }
 
-  // Find the active child for the overlay
   const overlayContent = useMemo(() => {
     if (!activeId) return null
     let result: ReactNode = null

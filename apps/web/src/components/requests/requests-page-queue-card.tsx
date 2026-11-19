@@ -1,0 +1,151 @@
+import type {
+  ApiRequestActionResponse,
+  ApiRequestScope,
+  ApiRequestSummary,
+} from "@/lib/requests/request-types"
+import type {
+  AppTableFeatures,
+  DataTableServerPagination,
+} from "@/lib/data-table-types"
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@workspace/ui/components/card"
+import { CheckmarkSquare01Icon, Clock01Icon } from "@hugeicons/core-free-icons"
+import { Tabs, TabsList, TabsTrigger } from "@workspace/ui/components/tabs"
+import { Badge } from "@workspace/ui/components/badge"
+import type { ColumnDef } from "@tanstack/react-table"
+import type { ConfirmConfig } from "@/lib/confirm-dialog"
+import { DataTable } from "@/components/data-table/data-table"
+import { HugeiconsIcon } from "@hugeicons/react"
+import { RequestsSelectionActions } from "@/components/requests/requests-selection-actions"
+import { Skeleton } from "@workspace/ui/components/skeleton"
+import type { UseMutationResult } from "@tanstack/react-query"
+import { formatRequestScope } from "@/lib/requests/request-presenters"
+
+type RequestsPageQueueCardProps = {
+  scope: ApiRequestScope
+  onScopeChange: (scope: ApiRequestScope) => void
+  pendingCount: number
+  completedCount: number | null
+  columns: Array<ColumnDef<AppTableFeatures, ApiRequestSummary>>
+  activeRequests: Array<ApiRequestSummary>
+  isActiveLoading: boolean
+  activeError: Error | null
+  canReview: boolean
+  approveMutation: UseMutationResult<
+    ApiRequestActionResponse,
+    Error,
+    Array<string>,
+    unknown
+  >
+  denyMutation: UseMutationResult<
+    ApiRequestActionResponse,
+    Error,
+    Array<string>,
+    unknown
+  >
+  onOpenConfirm: (config: ConfirmConfig) => void
+  serverPagination: DataTableServerPagination
+}
+
+export function RequestsPageQueueCard({
+  scope,
+  onScopeChange,
+  pendingCount,
+  completedCount,
+  columns,
+  activeRequests,
+  isActiveLoading,
+  activeError,
+  canReview,
+  approveMutation,
+  denyMutation,
+  onOpenConfirm,
+  serverPagination,
+}: RequestsPageQueueCardProps) {
+  return (
+    <Card>
+      <CardHeader>
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+          <div className="flex flex-col gap-1">
+            <CardTitle className="flex items-center gap-2">
+              {scope === "pending" ? (
+                <HugeiconsIcon
+                  icon={Clock01Icon}
+                  className="size-5 text-muted-foreground"
+                />
+              ) : (
+                <HugeiconsIcon
+                  icon={CheckmarkSquare01Icon}
+                  className="size-5 text-muted-foreground"
+                />
+              )}
+              {formatRequestScope(scope)}
+            </CardTitle>
+            <CardDescription>
+              {scope === "pending"
+                ? "Pending requests are those that have not been approved or denied yet."
+                : "Completed requests are those that have been approved or denied."}
+            </CardDescription>
+          </div>
+          <Tabs
+            value={scope}
+            onValueChange={(value) => onScopeChange(value as ApiRequestScope)}
+            className="w-full lg:w-auto"
+          >
+            <TabsList className="w-full lg:w-auto">
+              <TabsTrigger value="pending">
+                Pending
+                <Badge variant="outline">{pendingCount}</Badge>
+              </TabsTrigger>
+              <TabsTrigger value="completed">
+                Completed
+                <Badge variant="outline">
+                  {completedCount === null ? (
+                    <Skeleton className="h-3 w-4 rounded-full" />
+                  ) : (
+                    completedCount
+                  )}
+                </Badge>
+              </TabsTrigger>
+            </TabsList>
+          </Tabs>
+        </div>
+      </CardHeader>
+      <CardContent className="px-0">
+        <DataTable
+          columns={columns}
+          data={activeRequests}
+          features={{ loading: isActiveLoading }}
+          error={activeError}
+          searchLabel="Search requests"
+          getRowId={(request: ApiRequestSummary) => request.id}
+          serverPagination={serverPagination}
+          selectionActions={
+            canReview && scope === "pending"
+              ? ({
+                  clearSelection,
+                  selectedRows,
+                }: {
+                  clearSelection: () => void
+                  selectedRows: Array<ApiRequestSummary>
+                }) => (
+                  <RequestsSelectionActions
+                    selectedRows={selectedRows}
+                    clearSelection={clearSelection}
+                    approveMutation={approveMutation}
+                    denyMutation={denyMutation}
+                    onOpenConfirm={onOpenConfirm}
+                  />
+                )
+              : undefined
+          }
+        />
+      </CardContent>
+    </Card>
+  )
+}

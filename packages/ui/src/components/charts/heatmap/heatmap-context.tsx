@@ -201,7 +201,6 @@ export function HeatmapInteractionBoundary({
   );
 }
 
-/** Nests a provider only when one is not already present upstream. */
 export function HeatmapInteractionRoot({ children }: { children: ReactNode }) {
   const existing = useContext(HeatmapInteractionContext);
   if (existing) {

@@ -3,10 +3,6 @@ import * as React from "react"
 type PossibleRef<T> = React.Ref<T> | undefined
 type RefCleanup = void | (() => void)
 
-/**
- * Set a given ref to a given value
- * This utility takes care of different types of refs: callback refs and RefObject(s)
- */
 function setRef<T>(ref: PossibleRef<T>, value: T): RefCleanup {
   if (typeof ref === "function") {
     return ref(value)
@@ -17,10 +13,6 @@ function setRef<T>(ref: PossibleRef<T>, value: T): RefCleanup {
   }
 }
 
-/**
- * A utility to compose multiple refs together
- * Accepts callback refs and RefObject(s)
- */
 function composeRefs<T>(...refs: Array<PossibleRef<T>>): React.RefCallback<T> {
   return (node) => {
     const cleanups = refs.map((ref) => {
@@ -46,10 +38,6 @@ function composeRefs<T>(...refs: Array<PossibleRef<T>>): React.RefCallback<T> {
   }
 }
 
-/**
- * A custom hook that composes multiple refs
- * Accepts callback refs and RefObject(s)
- */
 function useComposedRefs<T>(
   ...refs: Array<PossibleRef<T>>
 ): React.RefCallback<T> {

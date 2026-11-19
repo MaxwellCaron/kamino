@@ -1,0 +1,321 @@
+import type { AuthSession } from "@/lib/auth/auth-types"
+import { apiUrl } from "@/lib/api/api-url"
+import { z } from "zod"
+
+const AUTH_REFRESH_BUFFER_MS = 60_000
+const AUTH_BOOTSTRAP_RETRY_BUFFER_MS = 5_000
+const REFRESH_COLLISION_RETRY_DELAY_MS = 300
+
+const loginRequestSchema = z.object({
+  username: z.string().trim(),
+  password: z.string(),
+})
+
+let currentSession: AuthSession | null = null
+let refreshPromise: Promise<AuthSession> | null = null
+let bootstrapPromise: Promise<AuthSession> | null = null
+let refreshTimer: number | null = null
+let authFailure: AuthenticationError | null = null
+let authGeneration = 0
+let logoutPromise: Promise<void> | null = null
+
+export class AuthenticationError extends Error {}
+
+function clearRefreshTimer() {
+  if (refreshTimer) {
+    window.clearTimeout(refreshTimer)
+    refreshTimer = null
+  }
+}
+
+function scheduleRefresh(expiresAt: string) {
+  clearRefreshTimer()
+
+  if (typeof window === "undefined") return
+
+  const refreshAt = new Date(expiresAt).getTime() - AUTH_REFRESH_BUFFER_MS
+  const delay = Math.max(refreshAt - Date.now(), 0)
+
+  refreshTimer = window.setTimeout(() => {
+    void refreshAuth().catch(() => {
+      // Keep the current UI alive on transient failures.
+    })
+  }, delay)
+}
+
+function applyAuthSession(session: AuthSession): AuthSession {
+  currentSession = session
+  authFailure = null
+  scheduleRefresh(session.access_token_expires_at)
+  return session
+}
+
+function resetAuthState() {
+  authGeneration += 1
+  currentSession = null
+  bootstrapPromise = null
+  clearRefreshTimer()
+  refreshPromise = null
+}
+
+function clearAuthState() {
+  resetAuthState()
+  authFailure = null
+}
+
+function invalidateAuthState(message = "authentication failed") {
+  resetAuthState()
+  authFailure = new AuthenticationError(message)
+}
+
+function redirectToLogin() {
+  if (typeof window === "undefined") return
+  if (window.location.pathname === "/login") return
+
+  const redirect = `${window.location.pathname}${window.location.search}${window.location.hash}`
+  window.location.assign(`/login?redirect=${encodeURIComponent(redirect)}`)
+}
+
+function isAuthEndpoint(input: string) {
+  return input.startsWith("/api/v1/auth/")
+}
+
+const CSRF_HEADER_NAME = "X-Kamino-Request"
+const CSRF_HEADER_VALUE = "1"
+
+function mergeRequestHeaders(init?: RequestInit): HeadersInit {
+  const csrfHeader = { [CSRF_HEADER_NAME]: CSRF_HEADER_VALUE }
+  if (!init?.headers) {
+    return csrfHeader
+  }
+  if (init.headers instanceof Headers) {
+    const merged = new Headers(init.headers)
+    merged.set(CSRF_HEADER_NAME, CSRF_HEADER_VALUE)
+    return merged
+  }
+  if (Array.isArray(init.headers)) {
+    return [...init.headers, [CSRF_HEADER_NAME, CSRF_HEADER_VALUE]]
+  }
+  return { ...csrfHeader, ...init.headers }
+}
+
+export async function apiFetch(
+  input: string,
+  init?: RequestInit,
+  options?: { retryOn401?: boolean }
+): Promise<Response> {
+  const retryOn401 = options?.retryOn401 ?? true
+  const requestInit = {
+    credentials: "include" as const,
+    ...init,
+    headers: mergeRequestHeaders(init),
+  }
+  const isProtectedRequest = retryOn401 && !isAuthEndpoint(input)
+
+  if (isProtectedRequest) {
+    if (authFailure) {
+      redirectToLogin()
+      return new Response(null, { status: 401, statusText: "Unauthorized" })
+    }
+
+    try {
+      if (refreshPromise) {
+        await refreshPromise
+      } else if (currentSession !== null && isSessionExpired(currentSession)) {
+        await refreshAuth()
+      }
+    } catch (error) {
+      if (error instanceof AuthenticationError) {
+        redirectToLogin()
+      }
+
+      return new Response(null, { status: 401, statusText: "Unauthorized" })
+    }
+  }
+
+  const response = await fetch(apiUrl(input), requestInit)
+  if (response.status !== 401 || !retryOn401 || isAuthEndpoint(input)) {
+    return response
+  }
+
+  try {
+    await refreshAuth()
+  } catch (error) {
+    if (error instanceof AuthenticationError) {
+      redirectToLogin()
+    }
+    return response
+  }
+
+  const retried = await fetch(apiUrl(input), requestInit)
+  if (retried.status === 401) {
+    invalidateAuthState("request retry failed")
+    redirectToLogin()
+  }
+
+  return retried
+}
+
+async function fetchAuthSession(): Promise<AuthSession> {
+  const res = await apiFetch("/api/v1/auth/me")
+  if (!res.ok) throw new Error("not authenticated")
+  return applyAuthSession(await res.json())
+}
+
+export async function ensureAuth(): Promise<AuthSession> {
+  if (authFailure) {
+    redirectToLogin()
+    throw authFailure
+  }
+
+  if (isSessionUsable(currentSession)) {
+    return currentSession
+  }
+
+  if (bootstrapPromise) {
+    return bootstrapPromise
+  }
+
+  bootstrapPromise = (async () => {
+    if (isSessionExpired(currentSession)) {
+      return refreshAuth()
+    }
+
+    try {
+      return await fetchAuthSession()
+    } catch {
+      return await refreshAuth()
+    }
+  })()
+
+  try {
+    return await bootstrapPromise
+  } finally {
+    bootstrapPromise = null
+  }
+}
+
+export async function login(params: {
+  username: string
+  password: string
+}): Promise<AuthSession> {
+  const payload = loginRequestSchema.parse(params)
+  const res = await fetch(apiUrl("/api/v1/auth/login"), {
+    ...{ method: "POST", credentials: "include" as const },
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  })
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}))
+    throw new Error(body.error ?? "Login failed")
+  }
+
+  return applyAuthSession(await res.json())
+}
+
+export async function logout(): Promise<void> {
+  if (logoutPromise) return logoutPromise
+
+  const inFlightRefresh = refreshPromise
+  clearAuthState()
+
+  const pendingLogout = (async () => {
+    await inFlightRefresh?.catch(() => undefined)
+    await fetch(apiUrl("/api/v1/auth/logout"), {
+      method: "POST",
+      credentials: "include" as const,
+      headers: { [CSRF_HEADER_NAME]: CSRF_HEADER_VALUE },
+    })
+  })()
+  logoutPromise = pendingLogout
+
+  try {
+    await pendingLogout
+  } finally {
+    clearAuthState()
+    if (logoutPromise === pendingLogout) logoutPromise = null
+  }
+}
+
+export async function changeOwnPassword(params: {
+  current_password: string
+  new_password: string
+}): Promise<void> {
+  const res = await apiFetch("/api/v1/principals/self/password", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(params),
+  })
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}))
+    throw new Error(body.error ?? `Failed to change password: ${res.status}`)
+  }
+
+  clearAuthState()
+  redirectToLogin()
+}
+
+function wait(ms: number) {
+  return new Promise((resolve) => window.setTimeout(resolve, ms))
+}
+
+function requestRefresh() {
+  return fetch(apiUrl("/api/v1/auth/refresh"), {
+    method: "POST",
+    credentials: "include",
+    headers: { [CSRF_HEADER_NAME]: CSRF_HEADER_VALUE },
+  })
+}
+
+export async function refreshAuth(): Promise<AuthSession> {
+  if (logoutPromise) {
+    throw new AuthenticationError("logout in progress")
+  }
+  if (refreshPromise) {
+    return refreshPromise
+  }
+
+  const generation = authGeneration
+  refreshPromise = (async () => {
+    let res = await requestRefresh()
+    if (res.status === 409) {
+      await wait(REFRESH_COLLISION_RETRY_DELAY_MS)
+      res = await requestRefresh()
+    }
+    if (!res.ok) {
+      if (res.status === 401) {
+        invalidateAuthState("refresh failed")
+        throw authFailure ?? new AuthenticationError("refresh failed")
+      }
+      throw new Error("refresh failed")
+    }
+
+    const session = (await res.json()) as AuthSession
+    if (generation === authGeneration) {
+      applyAuthSession(session)
+    }
+    return session
+  })()
+
+  try {
+    return await refreshPromise
+  } finally {
+    refreshPromise = null
+  }
+}
+
+function getSessionExpiryMs(session: AuthSession | null) {
+  if (!session) return 0
+  return new Date(session.access_token_expires_at).getTime()
+}
+
+function isSessionExpired(session: AuthSession | null) {
+  return Date.now() >= getSessionExpiryMs(session)
+}
+
+function isSessionUsable(session: AuthSession | null): session is AuthSession {
+  return (
+    !!session &&
+    Date.now() < getSessionExpiryMs(session) - AUTH_BOOTSTRAP_RETRY_BUFFER_MS
+  )
+}

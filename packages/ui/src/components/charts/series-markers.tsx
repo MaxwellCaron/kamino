@@ -137,8 +137,6 @@ export function SeriesMarkers({
     ]
   )
 
-  // Memo so the inner <SeriesMarkersActiveHighlight> sees a stable prop and
-  // can be cheaply re-rendered on hover without re-creating the spread.
   const markerStyle = useMemo<MarkerStyle>(
     () => ({
       fill: resolvedFill,
@@ -181,8 +179,6 @@ export function SeriesMarkers({
     )
   }
 
-  // Stable base layer — its children come from the parent and stay
-  // referentially identical when the dim wrapper re-renders for hover.
   const baseMarkers = points.map((point) => (
     <StaticSeriesPointMarker
       cx={point.cx}
@@ -261,10 +257,6 @@ interface SeriesMarkersActiveHighlightProps {
   activeScale: number
 }
 
-/**
- * Renders the scaled "active" marker on top of the base grid. Subscribes to
- * hover internally; the parent doesn't re-render on cursor m.
- */
 function SeriesMarkersActiveHighlight({
   enabled,
   points,

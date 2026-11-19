@@ -1,0 +1,52 @@
+import { getRouteApi, notFound } from "@tanstack/react-router"
+import { PodPage } from "@/components/pods/pod-page"
+import { clonedPodQueryOptions } from "@/lib/pods/clone-pod-api"
+import { isApiErrorStatus } from "@/lib/api/api-error"
+import { podCatalogEntryQueryOptions } from "@/lib/pods/publish-pod-api"
+import { useQuery } from "@tanstack/react-query"
+
+const podSlugRouteApi = getRouteApi("/_pods/pods/$podSlug")
+export function PodSlugPage() {
+  const { user } = podSlugRouteApi.useRouteContext()
+  const { podSlug } = podSlugRouteApi.useParams()
+  const {
+    data: pod,
+    error: podError,
+    isError: isPodError,
+    isLoading: isPodLoading,
+  } = useQuery(podCatalogEntryQueryOptions(podSlug))
+  const {
+    data: clonedPodData,
+    error: clonedPodError,
+    isError: isClonedPodError,
+    isLoading: isClonedPodLoading,
+  } = useQuery(clonedPodQueryOptions(podSlug))
+
+  const isPreloading = isPodLoading || isClonedPodLoading
+  if (isPodError) {
+    if (isApiErrorStatus(podError, 404)) {
+      throw notFound()
+    }
+    throw podError
+  }
+
+  if (!isPreloading && !pod) {
+    throw notFound()
+  }
+
+  if (isClonedPodError) {
+    if (isApiErrorStatus(clonedPodError, 404)) {
+      throw notFound()
+    }
+    throw clonedPodError
+  }
+
+  const clonedPod = clonedPodData ?? null
+  return (
+    <div className="relative flex h-full flex-1 flex-col">
+      {!isPreloading && pod && (
+        <PodPage pod={pod} clonedPod={clonedPod} username={user.username} />
+      )}
+    </div>
+  )
+}

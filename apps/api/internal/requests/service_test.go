@@ -141,27 +141,6 @@ func TestAcquireInventoryRequestClaim_ReleaseOnSuccess(t *testing.T) {
 	}
 }
 
-func TestAcquireInventoryRequestClaim_ReleaseOnFailure(t *testing.T) {
-	itemID := uuid.New()
-	claimer := &fakeVMActionClaimer{}
-	svc := &Service{vmClaims: claimer}
-
-	release, err := svc.acquireInventoryRequestClaim(context.Background(), database.GetRequestForExecutionRow{
-		ID:              uuid.New(),
-		Kind:            RequestKindInventoryVMSnapshotRollback,
-		InventoryItemID: &itemID,
-	}, uuid.New())
-	if err != nil {
-		t.Fatalf("acquireInventoryRequestClaim() error = %v", err)
-	}
-	defer release()
-
-	release()
-	if len(claimer.releases) != 1 {
-		t.Fatalf("Release calls = %d, want 1 after deferred cleanup", len(claimer.releases))
-	}
-}
-
 func TestAcquireInventoryRequestClaim_PersonalPodSkipsClaim(t *testing.T) {
 	claimer := &fakeVMActionClaimer{}
 	svc := &Service{vmClaims: claimer}

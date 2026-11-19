@@ -5,6 +5,16 @@ import (
 
 	"github.com/MaxwellCaron/kamino/internal/auth"
 	"github.com/MaxwellCaron/kamino/internal/handlers"
+	audithttp "github.com/MaxwellCaron/kamino/internal/handlers/audit"
+	authhttp "github.com/MaxwellCaron/kamino/internal/handlers/auth"
+	inventoryhttp "github.com/MaxwellCaron/kamino/internal/handlers/inventory"
+	podshttp "github.com/MaxwellCaron/kamino/internal/handlers/pods"
+	principalshttp "github.com/MaxwellCaron/kamino/internal/handlers/principals"
+	proxmoxadminhttp "github.com/MaxwellCaron/kamino/internal/handlers/proxmoxadmin"
+	requestshttp "github.com/MaxwellCaron/kamino/internal/handlers/requests"
+	sdnhttp "github.com/MaxwellCaron/kamino/internal/handlers/sdn"
+	streamshttp "github.com/MaxwellCaron/kamino/internal/handlers/streams"
+	vmshttp "github.com/MaxwellCaron/kamino/internal/handlers/vms"
 	"github.com/MaxwellCaron/kamino/internal/middleware"
 	"github.com/gin-gonic/gin"
 )
@@ -12,22 +22,23 @@ import (
 func RegisterRoutes(
 	r *gin.Engine,
 	health *handlers.HealthHandler,
-	authHandler *handlers.AuthHandler,
+	authHandler *authhttp.AuthHandler,
 	authService *auth.Service,
 	sessionManager *auth.SessionManager,
-	inventory *handlers.InventoryHandler,
-	vnc *handlers.VNCHandler,
-	console *handlers.ConsoleHandler,
-	vm *handlers.VMHandler,
-	vmCreate *handlers.VMCreateHandler,
-	pods *handlers.PodsHandler,
-	sdn *handlers.SDNHandler,
-	principals *handlers.PrincipalsHandler,
-	authz *handlers.AuthorizationHandler,
-	requests *handlers.RequestsHandler,
-	events *handlers.EventsHandler,
-	proxmoxSync *handlers.ProxmoxSyncHandler,
-	auditHandler *handlers.AuditHandler,
+	inventory *inventoryhttp.InventoryHandler,
+	vnc *vmshttp.VNCHandler,
+	console *vmshttp.ConsoleHandler,
+	vm *vmshttp.VMHandler,
+	vmCreate *vmshttp.VMCreateHandler,
+	pods *podshttp.PodsHandler,
+	sdn *sdnhttp.SDNHandler,
+	principals *principalshttp.PrincipalsHandler,
+	authz *principalshttp.AuthorizationHandler,
+	requests *requestshttp.RequestsHandler,
+	events *streamshttp.EventsHandler,
+	proxmoxSync *proxmoxadminhttp.ProxmoxSyncHandler,
+	metrics *proxmoxadminhttp.MetricsHandler,
+	auditHandler *audithttp.AuditHandler,
 ) {
 	v1 := r.Group("/api/v1")
 	protected := v1
@@ -68,7 +79,6 @@ func RegisterRoutes(
 		protected.GET("/events", events.Stream)
 	}
 
-	// Inventory endpoints
 	protected.GET("/inventory/tree", inventory.GetTree)
 	protected.GET("/inventory/items/:id", inventory.GetItem)
 	protected.GET("/inventory/items/:id/acl", inventory.GetACL)
@@ -81,7 +91,6 @@ func RegisterRoutes(
 	protected.POST("/inventory/folders/:id/ensure-proxmox-pool", inventory.EnsureFolderProxmoxPool)
 	protected.DELETE("/inventory/folders/:id", inventory.DeleteFolder)
 
-	// VM endpoints
 	protected.GET("/vms/status", vm.GetStatuses)
 	protected.POST("/inventory/vms/power", vm.PowerAction)
 	protected.POST("/inventory/vms/migrate", vm.MigrateVMs)
@@ -99,7 +108,6 @@ func RegisterRoutes(
 	protected.GET("/inventory/items/:id/vm/snapshots", vm.GetSnapshots)
 	protected.DELETE("/inventory/items/:id/vm/snapshots/:snapname", vm.DeleteSnapshot)
 
-	// VM creation & Proxmox metadata endpoints
 	protected.POST("/vms", vmCreate.CreateVM)
 	protected.GET("/proxmox/nodes", vmCreate.GetNodes)
 	protected.GET("/proxmox/create/options", vmCreate.GetCreateOptions)
@@ -109,9 +117,8 @@ func RegisterRoutes(
 	protected.GET("/proxmox/nodes/:node/bridges", vmCreate.GetBridges)
 	protected.GET("/proxmox/vmid/:vmid/validate", vmCreate.ValidateVMID)
 	protected.GET("/proxmox/nextid", vmCreate.GetNextVMID)
-	protected.GET("/proxmox/cluster/usage-history", vmCreate.GetClusterUsageHistory)
+	protected.GET("/proxmox/cluster/usage-history", metrics.GetClusterUsageHistory)
 
-	// Pod endpoints
 	if pods != nil {
 		protected.GET("/pods/create/options", pods.GetCreateOptions)
 		protected.GET("/pods/create/name-availability", pods.ValidateCreateName)
@@ -153,7 +160,6 @@ func RegisterRoutes(
 		protected.POST("/pods", pods.Create)
 	}
 
-	// SDN endpoints
 	protected.POST("/sdn/apply", sdn.ApplySDN)
 	protected.GET("/sdn/vnets", sdn.GetVNets)
 	protected.POST("/sdn/vnets", sdn.CreateVNet)
@@ -162,7 +168,6 @@ func RegisterRoutes(
 	protected.PUT("/sdn/vnets/:vnet", sdn.UpdateVNet)
 	protected.GET("/sdn/zones", sdn.GetSDNZones)
 
-	// Management authorization endpoints
 	if authz != nil {
 		protected.GET("/principals/groups/:id/management-access", authz.GetManagementACLForGroup)
 		protected.PUT("/principals/groups/:id/management-access", authz.UpdateManagementACLForGroup)
@@ -182,18 +187,15 @@ func RegisterRoutes(
 		protected.POST("/requests/:id/cancel", requests.Cancel)
 	}
 
-	// Proxmox drift sync endpoints
 	if proxmoxSync != nil {
 		protected.GET("/admin/proxmox/sync/preview", proxmoxSync.Preview)
 		protected.POST("/admin/proxmox/sync/apply", proxmoxSync.Apply)
 	}
 
-	// Audit ledger endpoints
 	if auditHandler != nil {
 		protected.GET("/admin/audit/actions", auditHandler.List)
 	}
 
-	// Principals endpoints (AD users & groups)
 	if principals != nil {
 		protected.GET("/principals/provider", principals.GetProvider)
 		protected.GET("/principals/users", principals.ListUsers)
@@ -218,10 +220,8 @@ func RegisterRoutes(
 		protected.POST("/principals/sync", principals.TriggerSync)
 	}
 
-	// VNC proxy endpoints
 	protected.POST("/inventory/items/:id/vm/vnc/proxy", vnc.PostProxy)
 	protected.GET("/vnc/ws", vnc.WebSocket)
 
-	// Console endpoints
 	protected.POST("/inventory/items/:id/vm/console/spice-config", console.DownloadSPICEConfig)
 }

@@ -1,8 +1,8 @@
 import { createFileRoute, redirect } from "@tanstack/react-router"
-import { DocumentationPage } from "@/features/documentation/components/documentation-page"
-import { canAccessRequestQueue } from "@/features/auth/utils/management-permissions"
-import managerGuideContent from "@/features/documentation/content/manager-guide.md?raw"
-import { pageTitle } from "@/features/shared/utils/page-title"
+import { DocumentationPage } from "@/components/documentation/documentation-page"
+import { canAccessRequestQueue } from "@/lib/auth/management-permissions"
+import managerGuideContent from "@/lib/documentation/content/manager-guide.md?raw"
+import { pageTitle } from "@/lib/app-shell/page-title"
 
 export const Route = createFileRoute("/_dashboard/manager/docs")({
   staticData: {

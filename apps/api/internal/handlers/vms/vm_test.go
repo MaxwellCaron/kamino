@@ -1,0 +1,225 @@
+package vms
+
+import (
+	"context"
+	"errors"
+	"net/http/httptest"
+	"strings"
+	"testing"
+
+	"github.com/MaxwellCaron/kamino/internal/authorization"
+	"github.com/MaxwellCaron/kamino/internal/proxmox"
+	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
+)
+
+// fakeVMAuthz is a minimal, configurable vmAuthz implementation used to
+// characterize the permission-denial / not-found / error-shape branches of
+// the VM mutation handlers without a live database.
+type fakeVMAuthz struct {
+	requireErr        error
+	lastRequired      authorization.Mask
+	vmRecord          authorization.VMRecord
+	vmRecordErr       error
+	filterStatuses    map[int]string
+	filterStatusesErr error
+	isManager         bool
+}
+
+var _ vmAuthz = (*fakeVMAuthz)(nil)
+
+// fakeVMProxmox is a minimal, configurable vmProxmox implementation. Methods
+// without a configured function panic so unexpected Proxmox calls fail loudly.
+type fakeVMProxmox struct {
+	identity                 *proxmox.VMIdentity
+	identityErr              error
+	hardwareConfigFn         func(context.Context, string, int) (*proxmox.VMHardwareConfig, error)
+	lxcNetworksConfigFn      func(context.Context, string, int) ([]proxmox.VMHardwareNetwork, error)
+	setVMNetworkAttachmentFn func(context.Context, string, int, string, proxmox.NetworkAttachment) error
+	updateVMHardwareFn       func(context.Context, string, int, proxmox.VMHardwareConfig) error
+}
+
+var _ vmProxmox = (*fakeVMProxmox)(nil)
+
+// newVMTestHandler builds a VMHandler wired with the given fakes. Fields not
+// needed by the permission/error branches under test (Service, Notifier,
+// Actions, Claims, Audit, Importer) are left nil; those branches return
+// before the handler ever touches them.
+func newVMTestHandler(authz vmAuthz, px vmProxmox) *VMHandler {
+	return &VMHandler{
+		PX:              px,
+		Authz:           authz,
+		TemplateLibrary: &fakeTemplateLibraryReader{},
+	}
+}
+
+// withPrincipal mounts a stub middleware that sets the authenticated
+// principal on the gin context, mirroring how the real auth middleware
+// populates "userID" before handlers run.
+
+func assertBodyContains(t *testing.T, w *httptest.ResponseRecorder, substr string) {
+	t.Helper()
+	if !strings.Contains(w.Body.String(), substr) {
+		t.Fatalf("expected body to contain %q, got %s", substr, w.Body.String())
+	}
+}
+
+func (f *fakeVMAuthz) Require(ctx context.Context, principalID uuid.UUID, itemID uuid.UUID, required authorization.Mask) error {
+	return f.requireErr
+}
+
+func (f *fakeVMAuthz) GetVMRecord(ctx context.Context, itemID uuid.UUID) (authorization.VMRecord, error) {
+	return f.vmRecord, f.vmRecordErr
+}
+
+func (f *fakeVMAuthz) GetVMRecordForUpdate(ctx context.Context, itemID uuid.UUID) (authorization.VMRecord, error) {
+	return f.vmRecord, f.vmRecordErr
+}
+
+func (f *fakeVMAuthz) ResolveVMItems(
+	ctx context.Context,
+	principalID uuid.UUID,
+	itemIDs []uuid.UUID,
+	required authorization.Mask,
+	lock bool,
+) (map[uuid.UUID]authorization.VMItemAccess, error) {
+	f.lastRequired = required
+	if f.requireErr != nil {
+		switch {
+		case errors.Is(f.requireErr, authorization.ErrForbidden):
+			result := make(map[uuid.UUID]authorization.VMItemAccess, len(itemIDs))
+			for _, itemID := range itemIDs {
+				result[itemID] = authorization.VMItemAccess{Allowed: false}
+			}
+			return result, nil
+		case errors.Is(f.requireErr, pgx.ErrNoRows):
+			return map[uuid.UUID]authorization.VMItemAccess{}, nil
+		default:
+			return nil, f.requireErr
+		}
+	}
+
+	if f.vmRecordErr != nil {
+		switch {
+		case errors.Is(f.vmRecordErr, pgx.ErrNoRows):
+			result := make(map[uuid.UUID]authorization.VMItemAccess, len(itemIDs))
+			for _, itemID := range itemIDs {
+				result[itemID] = authorization.VMItemAccess{Allowed: true}
+			}
+			return result, nil
+		default:
+			return nil, f.vmRecordErr
+		}
+	}
+
+	result := make(map[uuid.UUID]authorization.VMItemAccess, len(itemIDs))
+	for _, itemID := range itemIDs {
+		record := f.vmRecord
+		if record.InventoryItemID == uuid.Nil {
+			record.InventoryItemID = itemID
+		}
+		result[itemID] = authorization.VMItemAccess{
+			Allowed: true,
+			HasVM:   true,
+			Record:  record,
+		}
+	}
+
+	return result, nil
+}
+
+func (f *fakeVMAuthz) FilterVisibleStatuses(ctx context.Context, principalID uuid.UUID, statuses map[int]string) (map[int]string, error) {
+	return f.filterStatuses, f.filterStatusesErr
+}
+
+func (f *fakeVMAuthz) IsManager(ctx context.Context, principalID uuid.UUID) (bool, error) {
+	return f.isManager, nil
+}
+
+func (f *fakeVMProxmox) GetVMIdentity(ctx context.Context, gt proxmox.GuestType, node string, vmid int) (*proxmox.VMIdentity, error) {
+	return f.identity, f.identityErr
+}
+
+func (f *fakeVMProxmox) GetVMs(ctx context.Context) ([]proxmox.VM, error) {
+	panic("fakeVMProxmox: GetVMs not configured for this test")
+}
+
+func (f *fakeVMProxmox) RenameVM(ctx context.Context, gt proxmox.GuestType, node string, vmid int, name string) error {
+	panic("fakeVMProxmox: RenameVM not configured for this test")
+}
+
+func (f *fakeVMProxmox) UpdateVMNotes(ctx context.Context, gt proxmox.GuestType, node string, vmid int, notes string) error {
+	panic("fakeVMProxmox: UpdateVMNotes not configured for this test")
+}
+
+func (f *fakeVMProxmox) GetVMHardwareConfig(ctx context.Context, node string, vmid int) (*proxmox.VMHardwareConfig, error) {
+	if f.hardwareConfigFn == nil {
+		panic("fakeVMProxmox: GetVMHardwareConfig not configured for this test")
+	}
+	return f.hardwareConfigFn(ctx, node, vmid)
+}
+
+func (f *fakeVMProxmox) GetLXCNetworks(ctx context.Context, node string, vmid int) ([]proxmox.VMHardwareNetwork, error) {
+	if f.lxcNetworksConfigFn == nil {
+		panic("fakeVMProxmox: GetLXCNetworks not configured for this test")
+	}
+	return f.lxcNetworksConfigFn(ctx, node, vmid)
+}
+
+func (f *fakeVMProxmox) UpdateVMHardware(ctx context.Context, node string, vmid int, config proxmox.VMHardwareConfig) error {
+	if f.updateVMHardwareFn == nil {
+		panic("fakeVMProxmox: UpdateVMHardware not configured for this test")
+	}
+	return f.updateVMHardwareFn(ctx, node, vmid, config)
+}
+
+func (f *fakeVMProxmox) SetVMNetworkAttachment(ctx context.Context, node string, vmid int, device string, attachment proxmox.NetworkAttachment) error {
+	if f.setVMNetworkAttachmentFn == nil {
+		panic("fakeVMProxmox: SetVMNetworkAttachment not configured for this test")
+	}
+	return f.setVMNetworkAttachmentFn(ctx, node, vmid, device, attachment)
+}
+
+func (f *fakeVMProxmox) GetOptimalNode(ctx context.Context) (proxmox.Node, error) {
+	panic("fakeVMProxmox: GetOptimalNode not configured for this test")
+}
+
+func (f *fakeVMProxmox) GetNextVMID(ctx context.Context) (int, error) {
+	panic("fakeVMProxmox: GetNextVMID not configured for this test")
+}
+
+func (f *fakeVMProxmox) IsVMIDAvailable(ctx context.Context, vmid int) (bool, error) {
+	panic("fakeVMProxmox: IsVMIDAvailable not configured for this test")
+}
+
+func (f *fakeVMProxmox) CloneVM(ctx context.Context, node string, vmid int, newid int, name string, full bool, target string) error {
+	panic("fakeVMProxmox: CloneVM not configured for this test")
+}
+
+func (f *fakeVMProxmox) MigrateVM(ctx context.Context, gt proxmox.GuestType, node string, vmid int, target string) error {
+	panic("fakeVMProxmox: MigrateVM not configured for this test")
+}
+
+func (f *fakeVMProxmox) SetVMUpstreamUUID(ctx context.Context, node string, vmid int, upstreamUUID uuid.UUID) error {
+	panic("fakeVMProxmox: SetVMUpstreamUUID not configured for this test")
+}
+
+func (f *fakeVMProxmox) SyncVMPoolMembership(ctx context.Context, node string, vmid int, desiredPool string, path []string) error {
+	panic("fakeVMProxmox: SyncVMPoolMembership not configured for this test")
+}
+
+func (f *fakeVMProxmox) GetSnapshots(ctx context.Context, gt proxmox.GuestType, node string, vmid int) ([]proxmox.Snapshot, error) {
+	panic("fakeVMProxmox: GetSnapshots not configured for this test")
+}
+
+func (f *fakeVMProxmox) DeleteSnapshot(ctx context.Context, gt proxmox.GuestType, node string, vmid int, snapname string) error {
+	panic("fakeVMProxmox: DeleteSnapshot not configured for this test")
+}
+
+func (f *fakeVMProxmox) ConvertToTemplate(ctx context.Context, node string, vmid int) error {
+	panic("fakeVMProxmox: ConvertToTemplate not configured for this test")
+}
+
+func (f *fakeVMProxmox) DeleteVM(ctx context.Context, gt proxmox.GuestType, node string, vmid int) error {
+	panic("fakeVMProxmox: DeleteVM not configured for this test")
+}

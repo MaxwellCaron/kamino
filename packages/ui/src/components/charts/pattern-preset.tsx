@@ -25,7 +25,6 @@ export interface PatternPresetOptions {
   tileBackground?: string;
 }
 
-/** Presets rendered with @visx/pattern `PatternCircles`. */
 export function isCirclePattern(preset: PatternPresetId): boolean {
   return preset === "circles" || preset === "dots";
 }
@@ -99,7 +98,6 @@ function renderPatternCircles(
   );
 }
 
-/** Renders a @visx/pattern definition node for the given preset. */
 export function renderPatternPreset(
   preset: PatternPresetId,
   id: string,

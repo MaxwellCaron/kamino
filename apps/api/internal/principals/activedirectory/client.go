@@ -20,7 +20,6 @@ const (
 
 var ldapOperationTimeout = adOperationTimeout
 
-// User represents an Active Directory user account.
 type User struct {
 	DN          string
 	SID         string
@@ -31,7 +30,6 @@ type User struct {
 	Enabled     bool
 }
 
-// Group represents an Active Directory group with its member DNs.
 type Group struct {
 	DN        string
 	SID       string
@@ -40,7 +38,6 @@ type Group struct {
 	CreatedAt time.Time
 }
 
-// Client connects to Active Directory via LDAP.
 type Client struct {
 	url      string
 	bindDN   string
@@ -51,7 +48,6 @@ type Client struct {
 	insecure bool
 }
 
-// NewClient creates a new LDAP client for Active Directory.
 func NewClient(url, bindDN, bindPass, baseDN, userOU, groupOU string, insecure bool) *Client {
 	return &Client{
 		url:      url,
@@ -132,7 +128,6 @@ func configureLDAPConn(conn *ldap.Conn) {
 	conn.SetTimeout(ldapOperationTimeout)
 }
 
-// AuthResult holds the identity of a successfully authenticated AD user.
 type AuthResult struct {
 	DN       string
 	SID      string

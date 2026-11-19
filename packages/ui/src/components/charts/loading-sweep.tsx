@@ -24,12 +24,10 @@ import { scaleLinear } from "@visx/scale"
 // biome-ignore lint/suspicious/noExplicitAny: d3 curve factory type
 type CurveFactory = any
 
-/** One shimmer sweep, in seconds. */
 const DEFAULT_SWEEP_DURATION_S = 2
 /** Sweep travel in objectBoundingBox space: off the left edge to off the right. */
 const SWEEP_START_X = -1
 const SWEEP_END_X = 2
-/** Diagonal tilt of the shimmer band, in degrees. */
 const SWEEP_ANGLE_DEG = 25
 const HEIGHT_MIN_PCT = 20
 const HEIGHT_MAX_PCT = 80
@@ -94,7 +92,6 @@ function generateEasedGradientStops(
   })
 }
 
-// ─── Shared mask defs (`${chartId}-mask` is the mask id) ─────────────────────
 
 function LoadingSweepMask({
   chartId,
@@ -170,7 +167,6 @@ function LoadingSweepMask({
   )
 }
 
-// ─── Line / Area loading sweep (its own re-randomizing silhouette) ───────────
 
 export interface LineLoadingSweepProps {
   /** Curve factory from the host `<Line>` / `<Area>`, so the silhouette matches
@@ -191,11 +187,6 @@ export interface LineLoadingSweepProps {
   durationSeconds?: number
 }
 
-/**
- * Renders a placeholder line/area silhouette (its own, not the chart's skeleton)
- * with the shimmer sweeping across it. The silhouette re-randomizes between
- * passes. Reads inner dimensions from chart context.
- */
 export function LineLoadingSweep({
   curve,
   withArea = false,
@@ -320,8 +311,6 @@ export function LineLoadingSweep({
     )
   }
 
-  // Transition: fade the swept silhouette out (exit) or in (enter), then hand
-  // off to the chart so it can reveal the real series.
   return (
     <>
       {defs}
@@ -343,7 +332,6 @@ export function LineLoadingSweep({
 
 LineLoadingSweep.displayName = "LineLoadingSweep"
 
-// ─── Bar loading skeleton (seeded bars under the sweep, inner coords) ─────────
 
 function SkeletonBars({
   heights,

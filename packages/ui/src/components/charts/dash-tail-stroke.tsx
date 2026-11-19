@@ -7,7 +7,6 @@ export interface DashTailStrokeProps {
   pathD: string | null;
   /** Total length of `pathD` in user units. */
   pathLength: number;
-  /** Path length at which the dashed tail begins. */
   dashStartLength: number;
   /** X coordinate (chart inner space) where the tail clip begins. */
   dashStartX: number;
@@ -51,7 +50,6 @@ export function DashTailStroke({
           />
         </clipPath>
       </defs>
-      {/* Solid head — same curved path, gradient/fade preserved */}
       <path
         d={pathD}
         fill="none"
@@ -60,7 +58,6 @@ export function DashTailStroke({
         strokeLinecap="round"
         strokeWidth={strokeWidth}
       />
-      {/* Dashed tail — clipped to x ≥ dashStartX so dashes follow the curve */}
       <path
         clipPath={`url(#${clipPathId})`}
         d={pathD}

@@ -1,10 +1,8 @@
 import type { HeatmapBin, HeatmapColumn } from "./heatmap-context"
 import type { HeatmapLevelStyles } from "./heatmap-colors"
 
-/** Calendar months shown in default one-year contribution grids. */
 export const HEATMAP_MONTHS_ONE_YEAR = 12
 
-/** Half-year contribution grids (gallery card demos). */
 export const HEATMAP_MONTHS_SIX = 6
 
 /** Nominal week count for one year (~52). Default data uses calendar-month math instead. */
@@ -74,7 +72,6 @@ export function getHeatmapWeekStartAlignedToRange(
   const weekEnd = new Date(startDate)
   weekEnd.setDate(weekEnd.getDate() + 6)
 
-  // Keep the Sun–Sat column that contains the 1st (e.g. Jan 1 in a partial lead week).
   if (rangeStart >= startDate && rangeStart <= weekEnd) {
     return startDate
   }
@@ -258,7 +255,6 @@ export function formatHeatmapContributionLabel(
   return `${count} ${word}`
 }
 
-/** Sunday-first day labels for heatmap row bins. */
 export const HEATMAP_DAY_LABELS = [
   "Sun",
   "Mon",
@@ -304,7 +300,6 @@ export function rotateHeatmapColumnBins(
   }))
 }
 
-/** Which Y-axis row ticks to display. */
 export type HeatmapYAxisTickFilter = "all" | "odd" | "even"
 
 /** Y-axis label display — `initial` shows the first letter only (Mon → M). */
@@ -333,7 +328,6 @@ export function shouldShowHeatmapYAxisTick(
   }
 }
 
-/** Layout spacing parsed from {@link HeatmapSeparator}. */
 export type HeatmapSeparatorGroupBy = "every" | "quarter"
 
 /** Separator config from props — resolved to column indices once data is known. */
@@ -351,14 +345,12 @@ export interface HeatmapSeparatorGroup {
   label: string
 }
 
-/** Resolved separator layout used for column offsets and rendering. */
 export interface HeatmapSeparatorLayout {
   spacing: number
   atColumns: Array<number>
   groups: Array<HeatmapSeparatorGroup>
 }
 
-/** Separator line style. */
 export type HeatmapSeparatorStrokeStyle = "solid" | "dashed"
 
 /** Vertical stroke gradient for separator lines (`from` → optional `via` → `to`). */
@@ -377,7 +369,6 @@ export interface HeatmapSeparatorGradientStop {
   opacity: number
 }
 
-/** Builds SVG gradient stops for a vertical separator line. */
 export function buildHeatmapSeparatorGradientStops(
   gradient: HeatmapSeparatorGradient,
   strokeOpacity = 1
@@ -697,7 +688,6 @@ export function getHeatmapSeparatorCount(
   return separator?.atColumns.length ?? 0
 }
 
-/** Extra x-offset for a column when separator spacing is enabled. */
 export function getHeatmapColumnXOffset(
   columnIndex: number,
   separator: Pick<HeatmapSeparatorLayout, "spacing" | "atColumns"> | null
@@ -837,7 +827,6 @@ export interface HeatmapHoverStyleParams {
   activeScale: number
 }
 
-/** Whether hover styling runs (disabled when all scale/opacity props are 1). */
 export function isHeatmapHoverEffectEnabled(
   params: HeatmapHoverStyleParams
 ): boolean {
@@ -848,7 +837,6 @@ export function isHeatmapHoverEffectEnabled(
   )
 }
 
-/** Whether inactive hover styling runs (disabled when both props are 1). */
 export function isHeatmapInactiveEffectEnabled(
   inactiveOpacity: number,
   inactiveScale: number
@@ -860,7 +848,6 @@ export function isHeatmapInactiveEffectEnabled(
   })
 }
 
-/** Opacity and scale for highlighted vs dimmed cells and legend swatches. */
 export function resolveHeatmapHoverStyle(
   isHighlighted: boolean,
   isDimmed: boolean,
@@ -880,7 +867,6 @@ export function resolveHeatmapHoverStyle(
   return { opacity: 1, scale: 1 }
 }
 
-/** Opacity and scale for an inactive cell or legend swatch. */
 export function resolveHeatmapInactiveStyle(
   isInactive: boolean,
   inactiveOpacity: number,

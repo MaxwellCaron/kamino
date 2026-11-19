@@ -25,7 +25,6 @@ func clampFraction(value float64) float64 {
 	return value
 }
 
-// nodeCapacityScore returns combined memory/CPU headroom in [0,1]; higher means less utilized.
 func nodeCapacityScore(node Node) float64 {
 	if node.MaxMem <= 0 || node.MaxCPU <= 0 {
 		return 0

@@ -8,7 +8,7 @@ import (
 	"strings"
 
 	"github.com/MaxwellCaron/kamino/database"
-	"github.com/MaxwellCaron/kamino/internal/proxmox"
+	"github.com/MaxwellCaron/kamino/internal/proxmox/poolpath"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 )
@@ -99,14 +99,14 @@ func buildFolderDeletionPlan(
 		return FolderDeletionPlan{}, err
 	}
 
-	plan := FolderDeletionPlan{RootPoolID: proxmox.EncodePoolPath(basePath)}
+	plan := FolderDeletionPlan{RootPoolID: poolpath.Encode(basePath)}
 
 	var walk func(uuid.UUID, []string)
 	walk = func(itemID uuid.UUID, path []string) {
 		current := itemsByID[itemID]
 
 		if current.Kind == database.InventoryItemKindFolder {
-			plan.ProxmoxPools = append(plan.ProxmoxPools, proxmox.EncodePoolPath(path))
+			plan.ProxmoxPools = append(plan.ProxmoxPools, poolpath.Encode(path))
 			for _, childID := range childrenByParent[itemID] {
 				child := itemsByID[childID]
 				walk(childID, appendFolderPathSegment(path, child.Name))

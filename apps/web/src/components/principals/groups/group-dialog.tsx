@@ -1,0 +1,216 @@
+import * as React from "react"
+import {
+  Add01Icon,
+  PencilEdit01Icon,
+  UserGroupIcon,
+} from "@hugeicons/core-free-icons"
+import type {
+  ApiBulkCreateResponse,
+  ApiPrincipal,
+  CreateGroupInput,
+} from "@/lib/principals/principals-types"
+import {
+  AppDialogPrimaryButton,
+  AppDialogScrollBody,
+} from "@/components/dialogs/app-dialog"
+import {
+  buildCreateGroups,
+  getDefaultGroupFormValues,
+  groupSchema,
+  normalizeDescription,
+} from "@/lib/principals/group-dialog-utils"
+import { createGroup, updateGroup } from "@/lib/principals/principals-api"
+import {
+  showSingleMutationToast,
+  showUnitMutationToast,
+} from "@/components/feedback/mutation-progress-toast"
+import { useMutation, useQueryClient } from "@tanstack/react-query"
+import { BulkCreateResultsSummary } from "@/components/principals/create-results-summary"
+import type { CreateMode } from "@/lib/principals/group-dialog-utils"
+import { DialogFooter } from "@workspace/ui/components/dialog"
+import { FieldError } from "@workspace/ui/components/field"
+import { GroupDialogCreateForm } from "@/components/principals/groups/group-dialog-create-form"
+import { GroupDialogEditForm } from "@/components/principals/groups/group-dialog-edit-form"
+import { PrincipalDialogShell } from "@/components/principals/principal-dialog-shell"
+import { nestedDialogAnimationClassName } from "@/lib/motion/animate"
+import { useForm } from "@tanstack/react-form"
+
+export function GroupDialog({
+  group,
+  open,
+  onOpenChange,
+}: {
+  group?: ApiPrincipal
+  open: boolean
+  onOpenChange: (open: boolean) => void
+}) {
+  const isEdit = !!group
+  const queryClient = useQueryClient()
+  const [mode, setMode] = React.useState<CreateMode>("single")
+  const [resultSummary, setResultSummary] =
+    React.useState<ApiBulkCreateResponse | null>(null)
+
+  const mutation = useMutation({
+    mutationFn: async (
+      values: Array<CreateGroupInput> | ReturnType<typeof groupSchema.parse>
+    ) => {
+      if (isEdit) {
+        const parsed = values as ReturnType<typeof groupSchema.parse>
+        await updateGroup(group.id, {
+          name: parsed.name,
+          description: normalizeDescription(parsed.description ?? ""),
+        })
+        return null
+      }
+
+      return createGroup(values as Array<CreateGroupInput>)
+    },
+    onSuccess: async (result) => {
+      const invalidatePrincipals = queryClient.invalidateQueries({
+        queryKey: ["principals"],
+      })
+
+      if (isEdit || result === null) {
+        await invalidatePrincipals
+        return
+      }
+
+      await invalidatePrincipals
+      if (result.failures.length > 0) {
+        setResultSummary(() => result)
+      }
+    },
+  })
+
+  const form = useForm({
+    defaultValues: getDefaultGroupFormValues(group),
+    onSubmit: ({ value }) => {
+      onOpenChange(false)
+
+      if (isEdit) {
+        const parsed = groupSchema.parse(value)
+        showSingleMutationToast({
+          title: "Updating group",
+          name: parsed.name,
+          promise: mutation.mutateAsync(parsed),
+          successDescription: "Updated",
+        })
+        return
+      }
+
+      const payload = buildCreateGroups(mode, value)
+      const createGroups = async (inputs: Array<CreateGroupInput>) => {
+        const result = await mutation.mutateAsync(inputs)
+        if (result === null) {
+          throw new Error("Group creation returned no result")
+        }
+        return result
+      }
+      const groupItems = payload.map((input, index) => ({
+        id: `${index}:${input.name}`,
+        input,
+      }))
+
+      showUnitMutationToast({
+        title: "Creating groups",
+        units: groupItems.map(({ id, input }) => ({
+          items: [
+            {
+              id,
+              name: input.name,
+              successDescription: "Created",
+            },
+          ],
+          run: async () => {
+            const result = await createGroups([input])
+            const failure = result.failures.at(0)
+            if (failure) {
+              return { failed: [{ id, error: failure.error }] }
+            }
+          },
+        })),
+      })
+    },
+  })
+
+  const resetFields = React.useCallback(() => {
+    form.reset(getDefaultGroupFormValues(group))
+    setMode("single")
+  }, [form, group])
+
+  const resetDialog = React.useCallback(() => {
+    resetFields()
+    setResultSummary(null)
+  }, [resetFields])
+
+  const dialogProps = {
+    open,
+    onOpenChange,
+    onClosed: resetDialog,
+    className: nestedDialogAnimationClassName,
+    icon: isEdit ? PencilEdit01Icon : Add01Icon,
+    title: isEdit ? "Edit Group" : "Create Groups",
+    description: isEdit
+      ? `Update the group account details for ${group.name ?? group.external_id}.`
+      : "Create one or more groups in Kamino.",
+  }
+
+  const formContent = (
+    <form
+      action={() => {
+        void form.handleSubmit()
+      }}
+    >
+      {isEdit ? (
+        <GroupDialogEditForm form={form} />
+      ) : (
+        <AppDialogScrollBody>
+          <GroupDialogCreateForm form={form} />
+        </AppDialogScrollBody>
+      )}
+
+      <form.Subscribe selector={(state) => state.canSubmit}>
+        {(canSubmit) =>
+          canSubmit ? null : (
+            <FieldError>Correct the highlighted fields to continue.</FieldError>
+          )
+        }
+      </form.Subscribe>
+
+      <DialogFooter>
+        <form.Subscribe selector={(state) => state.isSubmitting}>
+          {(isSubmitting) => (
+            <AppDialogPrimaryButton pending={isSubmitting}>
+              {isEdit ? "Save" : "Create"}
+            </AppDialogPrimaryButton>
+          )}
+        </form.Subscribe>
+      </DialogFooter>
+    </form>
+  )
+
+  const resultSummaryDialog = resultSummary ? (
+    <BulkCreateResultsSummary
+      entityLabel="group"
+      open={true}
+      onOpenChange={(nextOpen) => {
+        if (!nextOpen) {
+          setResultSummary(null)
+        }
+      }}
+      result={resultSummary}
+    />
+  ) : null
+
+  return (
+    <PrincipalDialogShell
+      dialogProps={dialogProps}
+      formContent={formContent}
+      isEdit={isEdit}
+      mode={mode}
+      onModeChange={setMode}
+      resultSummaryDialog={resultSummaryDialog}
+      singleIcon={UserGroupIcon}
+    />
+  )
+}

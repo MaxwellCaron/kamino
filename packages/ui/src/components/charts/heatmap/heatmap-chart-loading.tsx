@@ -14,7 +14,6 @@ export interface HeatmapChartLoadingProps {
   data: Array<HeatmapColumn>;
   /** Visible time range — filters week columns that overlap the domain. */
   xDomain?: [Date, Date];
-  /** Chart margins */
   margin?: Partial<Margin>;
   /** Gap between cells in pixels. Default: 2 */
   gap?: number;
@@ -22,7 +21,6 @@ export interface HeatmapChartLoadingProps {
   cornerRadius?: number;
   /** Centered shimmer label text. Default: "Loading" */
   label?: string;
-  /** Additional class name for the container */
   className?: string;
 }
 

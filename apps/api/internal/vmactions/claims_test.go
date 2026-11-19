@@ -7,6 +7,7 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"testing/synctest"
 	"time"
 
 	"github.com/google/uuid"
@@ -255,24 +256,26 @@ func TestClaimsSweepStaleDeletesOnlyOldRows(t *testing.T) {
 }
 
 func TestClaimsRecoveryLoopExitsOnCancel(t *testing.T) {
-	db := newFakeClaimsDB()
-	claims := NewClaims(db)
+	synctest.Test(t, func(t *testing.T) {
+		db := newFakeClaimsDB()
+		claims := NewClaims(db)
 
-	ctx, cancel := context.WithCancel(context.Background())
-	done := make(chan struct{})
-	go func() {
-		claims.startRecovery(ctx, time.Minute, 10*time.Millisecond)
-		close(done)
-	}()
+		ctx, cancel := context.WithCancel(context.Background())
+		done := make(chan struct{})
+		go func() {
+			claims.startRecovery(ctx, time.Minute, 10*time.Millisecond)
+			close(done)
+		}()
 
-	time.Sleep(50 * time.Millisecond)
-	cancel()
+		synctest.Wait()
+		cancel()
 
-	select {
-	case <-done:
-	case <-time.After(time.Second):
-		t.Fatal("recovery loop did not exit after context cancellation")
-	}
+		select {
+		case <-done:
+		case <-time.After(time.Second):
+			t.Fatal("recovery loop did not exit after context cancellation")
+		}
+	})
 }
 
 func TestClaimsUnrelatedVMsDoNotBlockEachOther(t *testing.T) {

@@ -5,48 +5,18 @@ import (
 	"errors"
 
 	"github.com/MaxwellCaron/kamino/database"
+	"github.com/MaxwellCaron/kamino/internal/inventory/poolmapping"
 	"github.com/MaxwellCaron/kamino/internal/names"
-	"github.com/MaxwellCaron/kamino/internal/proxmox"
+	"github.com/MaxwellCaron/kamino/internal/proxmox/poolpath"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 )
 
 type FolderPlacement struct {
 	FolderID uuid.UUID
 	Path     []string
 	PoolID   string
-}
-
-func findInventoryRootFolderID(rows []database.GetAllInventoryItemsRow) *uuid.UUID {
-	var (
-		namedRootID *uuid.UUID
-		soleRootID  *uuid.UUID
-		rootCount   int
-	)
-
-	for _, row := range rows {
-		if row.ParentID != nil || row.Kind != database.InventoryItemKindFolder {
-			continue
-		}
-
-		rootCount++
-		id := row.ID
-		if row.Name == proxmox.RootFolderName {
-			namedRootID = &id
-		}
-		if soleRootID == nil {
-			soleRootID = &id
-		}
-	}
-
-	if namedRootID != nil {
-		return namedRootID
-	}
-	if rootCount == 1 {
-		return soleRootID
-	}
-
-	return nil
 }
 
 func normalizeFolderPath(path []string) ([]string, error) {
@@ -132,10 +102,10 @@ func (s *Service) EnsureFolderPathWithDescription(ctx context.Context, path []st
 		return uuid.Nil, err
 	}
 
-	rootID := findInventoryRootFolderID(rows)
+	rootID := poolmapping.FindManagedRootFolderID(rows)
 	created := false
 	if rootID == nil {
-		id, err := q.CreateRootFolder(ctx, proxmox.RootFolderName)
+		id, err := q.CreateRootFolder(ctx, poolmapping.RootFolderName)
 		if err != nil {
 			return uuid.Nil, err
 		}
@@ -235,7 +205,7 @@ func (s *Service) FindFolderPath(ctx context.Context, path []string) (uuid.UUID,
 		return uuid.Nil, false, err
 	}
 
-	rootID := findInventoryRootFolderID(rows)
+	rootID := poolmapping.FindManagedRootFolderID(rows)
 	if rootID == nil {
 		return uuid.Nil, false, nil
 	}
@@ -328,6 +298,11 @@ func (s *Service) ResolveFolderPlacement(ctx context.Context, id uuid.UUID) (Fol
 	return FolderPlacement{
 		FolderID: id,
 		Path:     path,
-		PoolID:   proxmox.EncodePoolPath(path),
+		PoolID:   poolpath.Encode(path),
 	}, nil
+}
+
+func isUniqueViolation(err error) bool {
+	var pgErr *pgconn.PgError
+	return errors.As(err, &pgErr) && pgErr.Code == "23505"
 }

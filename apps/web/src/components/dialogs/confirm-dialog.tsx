@@ -5,20 +5,9 @@ import {
   AlertDialogFooter,
 } from "@workspace/ui/components/alert-dialog"
 import { useLayoutEffect, useRef, useState } from "react"
-import { AppActionButton } from "@/components/actions/app-action-button"
+import { AppActionButton } from "@/components/app-action-button"
 import { AppAlertDialogContent } from "@/components/dialogs/app-dialog"
-import type { IconSvgElement } from "@hugeicons/react"
-import type { ReactNode } from "react"
-
-export type ConfirmConfig = {
-  title: string
-  description: ReactNode
-  body?: ReactNode
-  actionLabel: string
-  icon?: IconSvgElement
-  variant?: "default" | "destructive"
-  onConfirm: () => Promise<void> | void
-}
+import type { ConfirmConfig } from "@/lib/confirm-dialog"
 
 function ConfirmDialogSession({
   config,

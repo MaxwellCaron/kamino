@@ -7,8 +7,6 @@ import (
 	"github.com/MaxwellCaron/kamino/internal/vmidalloc"
 )
 
-// Config holds all application configuration
-
 type vmidRanges struct {
 	Publish  vmidalloc.Range
 	Clone    vmidalloc.Range
@@ -30,16 +28,15 @@ func buildVMIDRangeConfig(config *Config) (vmidRanges, error) {
 	}
 
 	type namedRange struct {
-		name   string
 		minVar string
 		maxVar string
 		r      vmidalloc.Range
 	}
 	named := []namedRange{
-		{"publish", "POD_PUBLISH_VMID_MIN", "POD_PUBLISH_VMID_MAX", ranges.Publish},
-		{"clone", "POD_CLONE_VMID_MIN", "POD_CLONE_VMID_MAX", ranges.Clone},
-		{"dev", "POD_DEV_VMID_MIN", "POD_DEV_VMID_MAX", ranges.Dev},
-		{"personal", "PERSONAL_POD_VMID_MIN", "PERSONAL_POD_VMID_MAX", ranges.Personal},
+		{"POD_PUBLISH_VMID_MIN", "POD_PUBLISH_VMID_MAX", ranges.Publish},
+		{"POD_CLONE_VMID_MIN", "POD_CLONE_VMID_MAX", ranges.Clone},
+		{"POD_DEV_VMID_MIN", "POD_DEV_VMID_MAX", ranges.Dev},
+		{"PERSONAL_POD_VMID_MIN", "PERSONAL_POD_VMID_MAX", ranges.Personal},
 	}
 
 	for _, nr := range named {
@@ -54,22 +51,15 @@ func buildVMIDRangeConfig(config *Config) (vmidRanges, error) {
 		}
 	}
 
-	pairs := [][2]namedRange{
-		{named[0], named[1]},
-		{named[0], named[2]},
-		{named[0], named[3]},
-		{named[1], named[2]},
-		{named[1], named[3]},
-		{named[2], named[3]},
-	}
-	for _, pair := range pairs {
-		a, b := pair[0], pair[1]
-		if a.r.Min <= b.r.Max && b.r.Min <= a.r.Max {
-			return vmidRanges{}, fmt.Errorf(
-				"%s..%s (%d–%d) must not overlap %s..%s (%d–%d)",
-				a.minVar, a.maxVar, a.r.Min, a.r.Max,
-				b.minVar, b.maxVar, b.r.Min, b.r.Max,
-			)
+	for index, a := range named {
+		for _, b := range named[index+1:] {
+			if a.r.Min <= b.r.Max && b.r.Min <= a.r.Max {
+				return vmidRanges{}, fmt.Errorf(
+					"%s..%s (%d–%d) must not overlap %s..%s (%d–%d)",
+					a.minVar, a.maxVar, a.r.Min, a.r.Max,
+					b.minVar, b.maxVar, b.r.Min, b.r.Max,
+				)
+			}
 		}
 	}
 

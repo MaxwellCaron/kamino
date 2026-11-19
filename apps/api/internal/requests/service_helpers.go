@@ -78,12 +78,3 @@ func powerActionForRequest(action database.InventoryRequestPowerAction) vmaction
 		return ""
 	}
 }
-
-func toActionTarget(target vmTarget) vmactions.Target {
-	return vmactions.Target{
-		ItemID:    target.ItemID,
-		Node:      target.Node,
-		VMID:      target.VMID,
-		GuestType: target.GuestType,
-	}
-}

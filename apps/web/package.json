@@ -7,7 +7,7 @@
     "dev": "PORTLESS_LAN=1 portless run --name kamino vite dev",
     "build": "vite build",
     "preview": "vite preview",
-    "lint": "oxlint --type-aware .",
+    "lint": "bun scripts/check-structure.ts && oxlint --type-aware .",
     "format": "prettier --write \"**/*.{ts,tsx}\"",
     "typecheck": "bun check",
     "typecheck:stable": "tsc6 --noEmit",

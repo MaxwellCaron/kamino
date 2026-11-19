@@ -75,13 +75,11 @@ export interface HeatmapChartProps {
    * `fill` — expands cells to fill the parent.
    */
   layout?: HeatmapLayout
-  /** Chart margins */
   margin?: Partial<Margin>
   /** Fixed cell size in pixels. When 0, cells are square and sized to fit the plot. Default: 0 */
   binSize?: number
   /** Gap between cells in pixels. Default: 2 */
   gap?: number
-  /** Override the default color scale. */
   colorScale?: (count: number | null | undefined) => string
   /** Per-level colors for the Less → More scale (5 entries). */
   levelColors?: HeatmapLevelColors
@@ -89,11 +87,9 @@ export interface HeatmapChartProps {
   levelStyles?: HeatmapLevelStyles
   /** Optional outer aspect ratio (e.g. "2 / 1"). Omit to fill the parent. */
   aspectRatio?: string
-  /** Additional class name for the container */
   className?: string
   /** Fetch / display status. Default: `"ready"`. */
   status?: ChartStatus
-  /** Centered label while loading. */
   loadingLabel?: string
   /** Enter animation duration in milliseconds. Default: 1600 */
   animationDuration?: number
@@ -123,7 +119,6 @@ export interface HeatmapChartProps {
    * Rotates column bins for display without reshaping source data.
    */
   weekStartDay?: HeatmapWeekStartDay
-  /** Child components (HeatmapCells, HeatmapXAxis, HeatmapYAxis) */
   children: ReactNode
 }
 

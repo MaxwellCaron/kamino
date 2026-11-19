@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"testing/synctest"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -69,15 +70,24 @@ func TestLoginRateLimit_IsolatesIPs(t *testing.T) {
 }
 
 func TestLoginRateLimit_ResetsAfterWindow(t *testing.T) {
-	r := newTestEngine(2, 50*time.Millisecond, nil)
-	for i := 0; i < 3; i++ {
-		doRequest(r, "1.2.3.4:1234", "")
-	}
-	time.Sleep(60 * time.Millisecond)
-	code := doRequest(r, "1.2.3.4:1234", "")
-	if code != http.StatusOK {
-		t.Fatalf("expected 200 after window reset, got %d", code)
-	}
+	synctest.Test(t, func(t *testing.T) {
+		r := newTestEngine(2, 50*time.Millisecond, nil)
+		for i := 0; i < 3; i++ {
+			code := doRequest(r, "1.2.3.4:1234", "")
+			want := http.StatusOK
+			if i == 2 {
+				want = http.StatusTooManyRequests
+			}
+			if code != want {
+				t.Fatalf("request %d: status = %d, want %d", i+1, code, want)
+			}
+		}
+		time.Sleep(50 * time.Millisecond)
+		code := doRequest(r, "1.2.3.4:1234", "")
+		if code != http.StatusOK {
+			t.Fatalf("expected 200 after window reset, got %d", code)
+		}
+	})
 }
 
 // Addresses below use RFC 5737 TEST-NET ranges (documentation-only).

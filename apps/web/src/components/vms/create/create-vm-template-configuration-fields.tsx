@@ -1,0 +1,129 @@
+import {
+  CloneFullCloneField,
+  CloneNameField,
+  CloneNodeField,
+} from "./clone-form-fields"
+import {
+  Combobox,
+  ComboboxContent,
+  ComboboxEmpty,
+  ComboboxInput,
+  ComboboxList,
+} from "@workspace/ui/components/combobox"
+import {
+  Field,
+  FieldDescription,
+  FieldError,
+  FieldGroup,
+  FieldLabel,
+  FieldLegend,
+  FieldSeparator,
+  FieldSet,
+} from "@workspace/ui/components/field"
+import {
+  createVmFormOptions,
+  withCreateVmForm,
+} from "@/hooks/vms/use-create-vm-form"
+import type { ApiNode } from "@/lib/vms/vm-types"
+import { VMIDField } from "@/components/vms/vmid-field"
+import { VmTemplateComboboxItem } from "@/components/inventory/vm-template-combobox-item"
+import type { VmTemplateOption } from "@/lib/vms/create/create-vm-form"
+import { formatFieldError } from "../../../lib/vms/create/create-vm-step-utils"
+import { getSelectedTemplate } from "@/lib/vms/create/create-vm-form"
+
+export const TemplateConfigurationFields = withCreateVmForm({
+  ...createVmFormOptions,
+  props: {
+    templateOptions: [] as Array<VmTemplateOption>,
+    nodes: [] as Array<ApiNode>,
+  },
+  render: function Render({ form, templateOptions, nodes }) {
+    return (
+      <div className="flex flex-col gap-6">
+        <FieldSet>
+          <FieldLegend>Template Source</FieldLegend>
+          <FieldDescription>
+            Select a template to clone into a new VM.
+          </FieldDescription>
+          <FieldGroup>
+            <form.AppField name="template_id">
+              {(field) => (
+                <Field
+                  data-invalid={field.state.meta.errors.length > 0 || undefined}
+                >
+                  <FieldLabel>Template</FieldLabel>
+                  <Combobox
+                    items={templateOptions}
+                    itemToStringValue={(template: VmTemplateOption) =>
+                      template.label
+                    }
+                    value={
+                      getSelectedTemplate(templateOptions, field.state.value) ??
+                      null
+                    }
+                    onValueChange={(template: VmTemplateOption | null) =>
+                      field.handleChange(template?.id ?? "")
+                    }
+                    autoHighlight
+                  >
+                    <ComboboxInput
+                      placeholder="ubuntu-26"
+                      onBlur={field.handleBlur}
+                      aria-invalid={
+                        field.state.meta.errors.length > 0 || undefined
+                      }
+                    />
+                    <ComboboxContent>
+                      <ComboboxEmpty>No templates found.</ComboboxEmpty>
+                      <ComboboxList>
+                        {(template: VmTemplateOption) => (
+                          <VmTemplateComboboxItem
+                            key={template.id}
+                            template={template}
+                          />
+                        )}
+                      </ComboboxList>
+                    </ComboboxContent>
+                  </Combobox>
+                  <FieldError>
+                    {formatFieldError(field.state.meta.errors[0])}
+                  </FieldError>
+                </Field>
+              )}
+            </form.AppField>
+
+            <CloneNameField
+              FieldComponent={form.AppField}
+              fieldName="name"
+              inputId="template-name"
+              placeholder="Name of template (Default)"
+            />
+
+            <div className="grid grid-cols-2 gap-6">
+              <CloneNodeField
+                FieldComponent={form.AppField}
+                fieldName="node"
+                inputId="template-node"
+                nodes={nodes}
+              />
+              <VMIDField
+                FieldComponent={form.AppField}
+                fieldName="vmid"
+                inputId="template-vmid"
+              />
+            </div>
+
+            <FieldSeparator />
+
+            <CloneFullCloneField
+              FieldComponent={form.AppField}
+              fieldName="full_clone"
+              inputId="template-full-clone"
+              dependencyLabel="source template"
+            />
+          </FieldGroup>
+        </FieldSet>
+      </div>
+    )
+  },
+})

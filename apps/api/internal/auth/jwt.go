@@ -20,7 +20,6 @@ const (
 	jwtAudience     = "kamino-api"
 )
 
-// Claims holds the custom JWT claims for a Kamino access token.
 type Claims struct {
 	jwt.RegisteredClaims
 	TokenType string `json:"typ"`
@@ -36,12 +35,10 @@ func (c *Claims) SessionIDParsed() (uuid.UUID, error) {
 	return uuid.Parse(c.SessionID)
 }
 
-// Service handles access JWT creation and validation.
 type Service struct {
 	secret []byte
 }
 
-// NewService creates a new auth service with the given signing secret.
 func NewService(secret string) (*Service, error) {
 	if len(secret) < 32 {
 		return nil, fmt.Errorf("JWT_SECRET must be at least 32 characters")
@@ -50,7 +47,6 @@ func NewService(secret string) (*Service, error) {
 	return &Service{secret: []byte(secret)}, nil
 }
 
-// GenerateAccessToken creates a new signed access token for the given session.
 func (s *Service) GenerateAccessToken(
 	principalID uuid.UUID,
 	sessionID uuid.UUID,
@@ -81,7 +77,6 @@ func (s *Service) GenerateAccessToken(
 	return signed, expiresAt, nil
 }
 
-// ValidateAccessToken parses and validates an access JWT string.
 func (s *Service) ValidateAccessToken(tokenStr string) (*Claims, error) {
 	token, err := jwt.ParseWithClaims(
 		tokenStr,

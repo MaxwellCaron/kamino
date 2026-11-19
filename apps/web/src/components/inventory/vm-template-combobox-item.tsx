@@ -5,7 +5,7 @@ import {
   ItemTitle,
 } from "@workspace/ui/components/item"
 import { ComboboxItem } from "@workspace/ui/components/combobox"
-import { VmIcon } from "@/components/status/vm-icon"
+import { VmIcon } from "@/components/vms/vm-icon"
 
 type VmTemplateOption = {
   id: string

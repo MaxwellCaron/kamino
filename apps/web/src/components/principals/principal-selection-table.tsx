@@ -13,19 +13,13 @@ import {
 } from "@workspace/ui/components/table"
 import { UserGroupIcon, UserIcon } from "@hugeicons/core-free-icons"
 import { flexRender, useTable } from "@tanstack/react-table"
-import type { AppTableFeatures } from "@/components/data-table/data-table-types"
+import type { AppTableFeatures } from "@/lib/data-table-types"
 import { Badge } from "@workspace/ui/components/badge"
 import { Checkbox } from "@workspace/ui/components/checkbox"
 import { HugeiconsIcon } from "@hugeicons/react"
-import { appTableFeatures } from "@/components/data-table/data-table-types"
+import type { PrincipalSelectionItem } from "@/lib/principals/principal-selection"
+import { appTableFeatures } from "@/lib/data-table-types"
 import { useMemo } from "react"
-
-export type PrincipalSelectionItem = {
-  description: string
-  id: string
-  label: string
-  type: "group" | "user"
-}
 
 export type PrincipalSelectionTableProps = {
   data: Array<PrincipalSelectionItem>

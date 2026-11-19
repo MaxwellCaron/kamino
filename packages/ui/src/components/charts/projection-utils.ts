@@ -3,7 +3,6 @@ export interface ProjectionPoint {
   value: number;
 }
 
-/** Collect numeric Y extents from projection point arrays. */
 export function projectionValueExtents(
   paths: Array<Array<ProjectionPoint>>
 ): { minValue: number; maxValue: number } | null {
@@ -28,7 +27,6 @@ export function projectionValueExtents(
   return { minValue, maxValue };
 }
 
-/** Collect date extents from projection point arrays. */
 export function projectionDateExtents(
   paths: Array<Array<ProjectionPoint>>
 ): { minTime: number; maxTime: number } | null {

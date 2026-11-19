@@ -3,25 +3,10 @@ import { Kbd, KbdGroup } from "@workspace/ui/components/kbd"
 import { Button } from "@workspace/ui/components/button"
 import { HugeiconsIcon } from "@hugeicons/react"
 import { Search01Icon } from "@hugeicons/core-free-icons"
+import { SiteCommandContext } from "@/lib/app-shell/site-command-context"
 import { SiteCommandDialog } from "./site-command-dialog"
 import { useRouterState } from "@tanstack/react-router"
-
-type SiteCommandContextValue = {
-  open: boolean
-  setOpen: React.Dispatch<React.SetStateAction<boolean>>
-}
-
-const SiteCommandContext = React.createContext<SiteCommandContextValue | null>(
-  null
-)
-
-function useSiteCommand() {
-  const context = React.use(SiteCommandContext)
-  if (!context) {
-    throw new Error("useSiteCommand must be used within SiteCommandProvider")
-  }
-  return context
-}
+import { useSiteCommand } from "@/hooks/app-shell/use-site-command"
 
 export function SiteCommandProvider({
   children,

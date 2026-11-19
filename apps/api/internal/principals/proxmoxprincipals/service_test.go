@@ -26,7 +26,7 @@ func (f *fakeAccessClient) AuthenticateTicket(
 	_ = ctx
 	userid := normalizeManagedUserID(username, defaultRealm)
 	if password != "good" {
-		return proxmox.TicketAuthResult{}, principals.ErrInvalidCredentials
+		return proxmox.TicketAuthResult{}, proxmox.ErrInvalidCredentials
 	}
 	return proxmox.TicketAuthResult{UserID: userid}, nil
 }
@@ -182,5 +182,13 @@ func TestNormalizeManagedUserID(t *testing.T) {
 	}
 	if got := normalizeManagedUserID("bob@pam", "ad"); got != "bob@pam" {
 		t.Fatalf("got %q", got)
+	}
+}
+
+func TestAuthenticateMapsInvalidProviderCredentials(t *testing.T) {
+	service := &Service{client: &fakeAccessClient{}, defaultRealm: "ad"}
+	_, err := service.Authenticate(context.Background(), "alice", "bad")
+	if !errors.Is(err, principals.ErrInvalidCredentials) {
+		t.Fatalf("Authenticate() = %v, want principal credential error", err)
 	}
 }

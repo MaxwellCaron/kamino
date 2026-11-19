@@ -29,7 +29,6 @@ type ScaleBand<Domain extends { toString: () => string }> = ReturnType<
   typeof scaleBand<Domain>
 >;
 
-// CSS variable references for theming
 export const chartCssVars = {
   background: "var(--chart-background)",
   foreground: "var(--chart-foreground)",
@@ -86,50 +85,39 @@ export interface LineConfig {
  * can subscribe to the stable slice and skip re-rendering on every hover.
  */
 export interface ChartHoverContextValue {
-  // Tooltip state
   tooltipData: TooltipData | null;
   setTooltipData: Dispatch<SetStateAction<TooltipData | null>>;
 
   // Selection state (optional - only present when useChartInteraction is used)
-  /** Current drag/pinch selection range */
   selection?: ChartSelection | null;
-  /** Clear the current selection */
   clearSelection?: () => void;
 
   // Bar chart hover (optional - only present in BarChart)
-  /** Index of currently hovered bar */
   hoveredBarIndex?: number | null;
-  /** Setter for hovered bar index */
   setHoveredBarIndex?: (index: number | null) => void;
 
   // Candlestick hover (optional - only present in CandlestickChart)
-  /** Index of currently hovered candle */
   hoveredCandleIndex?: number | null;
-  /** Setter for hovered candle index */
   setHoveredCandleIndex?: (index: number | null) => void;
 }
 
 export interface ChartContextValue extends ChartHoverContextValue {
-  // Data
   data: Array<Record<string, unknown>>;
   /** Decimated subset for SVG path rendering; equals `data` when no decimation is needed. */
   renderData: Array<Record<string, unknown>>;
 
-  // Scales
   xScale: ScaleTime<number, number>;
   /** Primary (left) y-scale — alias for `yScales[DEFAULT_Y_AXIS_ID]`. */
   yScale: ScaleLinear<number, number>;
   /** Per-axis y-scales keyed by `yAxisId`. */
   yScales: Record<string, ScaleLinear<number, number>>;
 
-  // Dimensions
   width: number;
   height: number;
   innerWidth: number;
   innerHeight: number;
   margin: Margin;
 
-  // Column width for spacing calculations
   columnWidth: number;
 
   // Container ref for portals
@@ -153,7 +141,6 @@ export interface ChartContextValue extends ChartHoverContextValue {
   /** Nice’d y-domains per axis from the current target data. */
   yDomainTargetByAxis: Record<string, YDomain>;
 
-  // Animation state
   isLoaded: boolean;
   animationDuration: number;
   /** CSS easing for clip-reveal / line draw (cartesian charts). */
@@ -165,7 +152,6 @@ export interface ChartContextValue extends ChartHoverContextValue {
   /** Fired when a one-shot loading pulse (exit / enter) completes. */
   notifyLoadingPulseComplete?: () => void;
 
-  // X accessor - how to get the x value from data points
   xAccessor: (d: Record<string, unknown>) => Date;
 
   // Pre-computed date labels for ticker animation
@@ -177,15 +163,10 @@ export interface ChartContextValue extends ChartHoverContextValue {
   xDomainSlotCount?: number;
 
   // Bar chart specific (optional - only present in BarChart)
-  /** Band scale for categorical x-axis (bar charts) */
   barScale?: ScaleBand<string>;
-  /** Width of each bar band */
   bandWidth?: number;
-  /** X accessor for bar charts (returns string instead of Date) */
   barXAccessor?: (d: Record<string, unknown>) => string;
-  /** Bar chart orientation */
   orientation?: "vertical" | "horizontal";
-  /** Whether bars are stacked */
   stacked?: boolean;
   /** Stack offsets: Map of data index -> Map of dataKey -> cumulative offset */
   stackOffsets?: Map<number, Map<string, number>>;
@@ -411,8 +392,5 @@ export function useChartHover(): ChartHoverContextValue {
 export function useChart(): ChartContextValue {
   const stable = useChartStable();
   const hover = useChartHover();
-  // Identity changes on every hover (hover is the volatile slice) — that's
-  // fine for consumers using this merged hook; they explicitly opted in to
-  // re-rendering on hover.
   return { ...stable, ...hover };
 }

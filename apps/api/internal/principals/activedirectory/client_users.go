@@ -19,7 +19,6 @@ func encodePassword(password string) []byte {
 	return buf
 }
 
-// CreateUser creates a new user account in Active Directory.
 func (c *Client) CreateUser(ctx context.Context, username, password, description string) (User, error) {
 	conn, err := c.connect(ctx)
 	if err != nil {
@@ -83,7 +82,6 @@ func (c *Client) UpdateUser(ctx context.Context, dn, username, fullName, descrip
 	return nil
 }
 
-// SetPassword sets the password for an existing user account.
 func (c *Client) SetPassword(ctx context.Context, dn, password string) error {
 	conn, err := c.connect(ctx)
 	if err != nil {
@@ -100,7 +98,6 @@ func (c *Client) SetPassword(ctx context.Context, dn, password string) error {
 	return nil
 }
 
-// EnableUser enables a user account by setting userAccountControl to NORMAL_ACCOUNT.
 func (c *Client) EnableUser(ctx context.Context, dn string) error {
 	conn, err := c.connect(ctx)
 	if err != nil {
@@ -117,7 +114,6 @@ func (c *Client) EnableUser(ctx context.Context, dn string) error {
 	return nil
 }
 
-// DisableUser disables a user account by setting the ACCOUNTDISABLE flag.
 func (c *Client) DisableUser(ctx context.Context, dn string) error {
 	conn, err := c.connect(ctx)
 	if err != nil {
@@ -135,7 +131,6 @@ func (c *Client) DisableUser(ctx context.Context, dn string) error {
 	return nil
 }
 
-// DeleteUser deletes a user account from Active Directory.
 func (c *Client) DeleteUser(ctx context.Context, dn string) error {
 	conn, err := c.connect(ctx)
 	if err != nil {

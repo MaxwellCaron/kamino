@@ -40,7 +40,6 @@ export function getPrimaryYScale(
   return first ?? fallback;
 }
 
-/** Build y-scales from pre-computed (already nice'd) domain endpoints. */
 export function buildYScalesFromDomains({
   lines,
   innerHeight,
@@ -74,7 +73,6 @@ export function buildYScalesFromDomains({
   return scales;
 }
 
-/** Single-axis charts (bar, scatter, candlestick, live line). */
 export function wrapSingleYScale(yScale: YScale): Record<string, YScale> {
   return { [DEFAULT_Y_AXIS_ID]: yScale };
 }

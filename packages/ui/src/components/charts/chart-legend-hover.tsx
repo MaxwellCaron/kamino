@@ -16,7 +16,6 @@ export function useChartLegendHover(): ChartLegendHoverContextValue {
     context ?? {
       hoveredIndex: null,
       setHoveredIndex: () => {
-        /* noop outside ChartLegendHoverProvider */
       },
     }
   );

@@ -19,7 +19,7 @@ import { HugeiconsIcon } from "@hugeicons/react"
 import { Logout01Icon } from "@hugeicons/core-free-icons"
 import { Spinner } from "@workspace/ui/components/spinner"
 import { ThemeToggleMenuItems } from "./theme-toggle"
-import { logout } from "@/features/auth/api/auth-api"
+import { logout } from "@/lib/auth/auth-session"
 import { toast } from "sonner"
 import { useRouter } from "@tanstack/react-router"
 

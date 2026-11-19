@@ -5,17 +5,16 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/MaxwellCaron/kamino/internal/handlers/httpx"
 	"github.com/gin-gonic/gin"
 )
 
 const readinessTimeout = 2 * time.Second
 
-// DatabasePinger is the narrow database seam used for readiness checks.
 type DatabasePinger interface {
 	Ping(ctx context.Context) error
 }
 
-// HealthHandler serves process liveness and database readiness endpoints.
 type HealthHandler struct {
 	DB DatabasePinger
 }
@@ -29,7 +28,7 @@ func (h *HealthHandler) Readiness(c *gin.Context) {
 	defer cancel()
 
 	if err := h.DB.Ping(ctx); err != nil {
-		logRequestError(c, "readiness", err)
+		httpx.LogRequestError(c, "readiness", err)
 		c.JSON(http.StatusServiceUnavailable, gin.H{"status": "not_ready"})
 		return
 	}

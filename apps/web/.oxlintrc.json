@@ -1,4 +1,35 @@
 {
   "$schema": "../../node_modules/oxlint/configuration_schema.json",
-  "extends": ["../../.oxlintrc.json"]
+  "extends": ["../../.oxlintrc.json"],
+  "rules": {
+    "no-restricted-imports": [
+      "error",
+      {
+        "patterns": [
+          {
+            "regex": "(^|/)features(/|$)",
+            "message": "Application logic now lives in @/lib/<area>; the features folder has been retired."
+          }
+        ]
+      }
+    ]
+  },
+  "overrides": [
+    {
+      "files": ["src/lib/**/*.{ts,tsx}"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "regex": "(^|/)(features|components|hooks)(/|$)|^sonner$",
+                "message": "lib owns non-rendering logic and contracts. Import hooks from components, and keep renderers in components; lib must not depend on either."
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ]
 }

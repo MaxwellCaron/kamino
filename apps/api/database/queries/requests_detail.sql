@@ -92,7 +92,3 @@ LEFT JOIN principals actor
 WHERE re.request_id = $1
 ORDER BY re.created_at ASC, re.id ASC;
 
--- ---------------------------------------------------------------------------
--- Request status updates
--- ---------------------------------------------------------------------------
-

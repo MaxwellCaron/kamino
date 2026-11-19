@@ -33,11 +33,9 @@ export interface PieChartProps {
   startAngle?: number
   /** End angle in radians. Default: 3*PI/2 (full circle from top) */
   endAngle?: number
-  /** Additional class name for the container */
   className?: string
   /** Controlled hover state - index of hovered slice */
   hoveredIndex?: number | null
-  /** Callback when hover state changes */
   onHoverChange?: (index: number | null) => void
   /**
    * Hover offset in pixels for slice hover effects.
@@ -45,7 +43,6 @@ export interface PieChartProps {
    * Default: 10
    */
   hoverOffset?: number
-  /** Child components (PieSlice, PieCenter, patterns, gradients, etc.) */
   children: ReactNode
 }
 
@@ -65,7 +62,6 @@ interface PieChartInnerProps {
   onHoverChange?: (index: number | null) => void
 }
 
-// Helper to check if a child is a PieCenter component
 function isPieCenter(child: ReactNode): boolean {
   return (
     isValidElement(child) &&
@@ -75,7 +71,6 @@ function isPieCenter(child: ReactNode): boolean {
   )
 }
 
-// Helper to check if a component is a gradient or pattern definition
 function isDefsComponent(child: ReactElement): boolean {
   const displayName =
     (child.type as { displayName?: string }).displayName ||
@@ -110,7 +105,6 @@ function PieChartInner({
   const [animationKey] = useState(0)
   const [isLoaded, setIsLoaded] = useState(false)
 
-  // Use controlled or uncontrolled hover state
   const isControlled = hoveredIndexProp !== undefined
   const hoveredIndex = isControlled ? hoveredIndexProp : internalHoveredIndex
   const setHoveredIndex = useCallback(
@@ -124,22 +118,18 @@ function PieChartInner({
     [isControlled, onHoverChange]
   )
 
-  // Use the smaller dimension to ensure the chart fits
   const size = Math.min(width, height)
   const center = size / 2
 
-  // Calculate radii with padding based on hover offset to prevent clipping
   const padding = hoverOffset
   const outerRadius = center - padding
   const innerRadius = innerRadiusProp
 
-  // Calculate total value
   const totalValue = useMemo(
     () => data.reduce((sum, d) => sum + d.value, 0),
     [data]
   )
 
-  // Get color for a slice index
   const getColor = useCallback(
     (index: number) => {
       const item = data[index]
@@ -151,21 +141,17 @@ function PieChartInner({
     [data]
   )
 
-  // Get fill for a slice index (supports patterns/gradients)
   const getFill = useCallback(
     (index: number) => {
       const item = data[index]
-      // Check for explicit fill (pattern/gradient URL)
       if (item.fill) {
         return item.fill
       }
-      // Fall back to color
       return getColor(index)
     },
     [data, getColor]
   )
 
-  // Compute arcs using d3-shape pie
   const arcs = useMemo(() => {
     const pieGenerator = d3Pie<PieData>()
       .value((d: PieData) => d.value)
@@ -186,7 +172,6 @@ function PieChartInner({
     }))
   }, [data, startAngle, endAngle, padAngle])
 
-  // Mark as loaded after initial render
   useState(() => {
     const timer = setTimeout(() => {
       setIsLoaded(true)
@@ -194,7 +179,6 @@ function PieChartInner({
     return () => clearTimeout(timer)
   })
 
-  // Separate children into categories
   const { svgChildren, centerChildren, defsChildren } = useMemo(() => {
     const svgNodes: Array<ReactNode> = []
     const centerNodes: Array<ReactNode> = []
@@ -222,7 +206,6 @@ function PieChartInner({
     }
   }, [children])
 
-  // Early return if dimensions not ready
   if (size < 10) {
     return null
   }
@@ -260,14 +243,12 @@ function PieChartInner({
           height: size,
         }}
       >
-        {/* SVG layer with pie slices */}
         <svg
           aria-hidden="true"
           height={size}
           style={{ gridArea: "1 / 1" }}
           width={size}
         >
-          {/* Defs for patterns and gradients */}
           {defsChildren.length > 0 && <defs>{defsChildren}</defs>}
 
           <Group left={center} top={center}>
@@ -275,7 +256,6 @@ function PieChartInner({
           </Group>
         </svg>
 
-        {/* HTML layer with center content - stacked on top via grid */}
         {centerChildren.length > 0 && (
           <div
             className="pointer-events-none flex items-center justify-center"
@@ -305,7 +285,6 @@ export function PieChart({
 }: PieChartProps) {
   const containerRef = useRef<HTMLDivElement>(null)
 
-  // If fixed size is provided, use it directly
   if (fixedSize) {
     return (
       <div
@@ -333,7 +312,6 @@ export function PieChart({
     )
   }
 
-  // Otherwise use ParentSize for responsive sizing
   return (
     <div
       className={cn("relative aspect-square w-full", className)}

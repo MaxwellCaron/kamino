@@ -1,7 +1,7 @@
-import { DocumentationPage } from "@/features/documentation/components/documentation-page"
-import adminGuideContent from "@/features/documentation/content/admin-guide.md?raw"
+import { DocumentationPage } from "@/components/documentation/documentation-page"
+import adminGuideContent from "@/lib/documentation/content/admin-guide.md?raw"
 import { createFileRoute } from "@tanstack/react-router"
-import { pageTitle } from "@/features/shared/utils/page-title"
+import { pageTitle } from "@/lib/app-shell/page-title"
 
 export const Route = createFileRoute("/_dashboard/admin/docs")({
   staticData: {

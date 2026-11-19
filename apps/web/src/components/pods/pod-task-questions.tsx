@@ -1,0 +1,248 @@
+import { BulbIcon, SearchIcon } from "@hugeicons/core-free-icons"
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from "@workspace/ui/components/card"
+import type {
+  ClonedPod,
+  PodTaskQuestion,
+  PodTaskQuestionAnswer,
+  UUID,
+} from "@/lib/pods/pod-types"
+import { Dialog, DialogTrigger } from "@workspace/ui/components/dialog"
+import {
+  Field,
+  FieldDescription,
+  FieldError,
+  FieldGroup,
+  FieldLabel,
+} from "@workspace/ui/components/field"
+import {
+  answerClonedPodQuestion,
+  catalogCloneSummariesQueryOptions,
+  podQuestionActivityQueryOptions,
+} from "@/lib/pods/clone-pod-api"
+import {
+  podCatalogQueryOptions,
+  publishedPodClonesQueryOptions,
+} from "@/lib/pods/publish-pod-api"
+import { useMutation, useQueryClient } from "@tanstack/react-query"
+import { AppActionButton } from "@/components/app-action-button"
+import { AppDialogContent } from "@/components/dialogs/app-dialog"
+import { Button } from "@workspace/ui/components/button"
+import { HugeiconsIcon } from "@hugeicons/react"
+import { Input } from "@workspace/ui/components/input"
+import { useState } from "react"
+
+export function PodTaskQuestions({
+  questions,
+  clonedPodId,
+  answersByQuestionId,
+  disabled = false,
+  onAnswered,
+}: {
+  questions: Array<PodTaskQuestion>
+  clonedPodId?: string
+  answersByQuestionId: Map<UUID, PodTaskQuestionAnswer> | null
+  disabled?: boolean
+  onAnswered?: (clonedPod: ClonedPod) => void
+}) {
+  return (
+    <Card className="bg-muted/50">
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <HugeiconsIcon
+            icon={SearchIcon}
+            className="size-4.5 text-muted-foreground"
+          />
+          Questions
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="flex flex-col gap-4">
+        <FieldGroup>
+          {questions.map((question, questionIndex) => {
+            const answer = answersByQuestionId?.get(question.id)
+
+            return (
+              <PodTaskQuestionField
+                key={question.id}
+                question={question}
+                questionNumber={questionIndex + 1}
+                clonedPodId={clonedPodId}
+                answer={answer}
+                disabled={disabled}
+                onAnswered={onAnswered}
+              />
+            )
+          })}
+        </FieldGroup>
+      </CardContent>
+    </Card>
+  )
+}
+
+function QuestionHint({
+  disabled,
+  hint,
+}: {
+  disabled: boolean
+  hint: string | undefined
+}) {
+  if (!hint) return null
+
+  return (
+    <Dialog>
+      <DialogTrigger
+        render={
+          <Button
+            type="button"
+            variant="secondary"
+            size="icon"
+            disabled={disabled}
+            className="bg-amber-600/20 text-amber-600 hover:bg-amber-600/15 dark:bg-amber-400/10 dark:text-amber-400 dark:hover:bg-amber-400/5"
+          />
+        }
+      >
+        <HugeiconsIcon icon={BulbIcon} />
+        <span className="sr-only">Show hint</span>
+      </DialogTrigger>
+      <AppDialogContent icon={BulbIcon} title="Hint" description="">
+        <p className="text-sm leading-6 whitespace-pre-wrap">{hint}</p>
+      </AppDialogContent>
+    </Dialog>
+  )
+}
+
+function QuestionFeedback({
+  answerIsIncorrect,
+  description,
+  error,
+  questionId,
+}: {
+  answerIsIncorrect: boolean
+  description: string | undefined
+  error: Error | null
+  questionId: string
+}) {
+  return (
+    <>
+      {description ? <FieldDescription>{description}</FieldDescription> : null}
+      {answerIsIncorrect ? (
+        <FieldError id={`${questionId}-error`}>
+          That answer is incorrect.
+        </FieldError>
+      ) : null}
+      {error ? <FieldDescription>{error.message}</FieldDescription> : null}
+    </>
+  )
+}
+
+function getQuestionValue(
+  draft: { answer: string | undefined; value: string } | null,
+  answer: PodTaskQuestionAnswer | undefined
+) {
+  if (draft !== null && draft.answer === answer?.answer) return draft.value
+  return answer?.answer ?? ""
+}
+
+function PodTaskQuestionField({
+  question,
+  questionNumber,
+  clonedPodId,
+  answer,
+  disabled,
+  onAnswered,
+}: {
+  question: PodTaskQuestion
+  questionNumber: number
+  clonedPodId?: string
+  answer?: PodTaskQuestionAnswer
+  disabled: boolean
+  onAnswered?: (clonedPod: ClonedPod) => void
+}) {
+  const queryClient = useQueryClient()
+  const [draft, setDraft] = useState<{
+    answer: string | undefined
+    value: string
+  } | null>(null)
+  const value = getQuestionValue(draft, answer)
+  const mutation = useMutation({
+    mutationFn: answerClonedPodQuestion,
+    onSuccess: async (clonedPod) => {
+      onAnswered?.(clonedPod)
+      await Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: catalogCloneSummariesQueryOptions().queryKey,
+        }),
+        queryClient.invalidateQueries({
+          queryKey: publishedPodClonesQueryOptions(clonedPod.pod_id).queryKey,
+        }),
+        queryClient.invalidateQueries({
+          queryKey: podQuestionActivityQueryOptions().queryKey,
+        }),
+        queryClient.invalidateQueries({
+          queryKey: podCatalogQueryOptions.queryKey,
+        }),
+      ])
+    },
+  })
+  const answerSubmitted = answer != null
+  const answerIsCorrect = answer?.is_correct === true
+  const answerIsIncorrect = answerSubmitted && !answerIsCorrect
+  const hint = question.hint?.trim()
+  const controlsDisabled = disabled || answerIsCorrect || mutation.isPending
+  const canSubmit =
+    !disabled && !answerIsCorrect && !!clonedPodId && value.trim().length > 0
+
+  return (
+    <Field
+      data-disabled={disabled || undefined}
+      data-invalid={answerIsIncorrect || undefined}
+    >
+      <FieldLabel htmlFor={question.id}>
+        {questionNumber}. {question.title}
+      </FieldLabel>
+      <div className="flex gap-2">
+        <Input
+          id={question.id}
+          type="text"
+          value={value}
+          placeholder={question.answerMask || "Type your answer here..."}
+          disabled={controlsDisabled}
+          aria-invalid={answerIsIncorrect || undefined}
+          aria-errormessage={
+            answerIsIncorrect ? `${question.id}-error` : undefined
+          }
+          onChange={(event) =>
+            setDraft({ answer: answer?.answer, value: event.target.value })
+          }
+        />
+        <QuestionHint disabled={controlsDisabled} hint={hint} />
+        <AppActionButton
+          type="button"
+          disabled={!canSubmit}
+          pending={mutation.isPending}
+          pendingLabel="Submitting..."
+          onClick={() => {
+            if (!clonedPodId) return
+            mutation.mutate({
+              clonedPodId,
+              questionId: question.id,
+              answer: value.trim(),
+            })
+          }}
+        >
+          {answerIsCorrect ? "Correct" : "Submit"}
+        </AppActionButton>
+      </div>
+      <QuestionFeedback
+        answerIsIncorrect={answerIsIncorrect}
+        description={question.description}
+        error={mutation.error}
+        questionId={question.id}
+      />
+    </Field>
+  )
+}

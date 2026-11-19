@@ -17,18 +17,68 @@ Kamino is a small internal VM-management application for ~100 users that wraps P
 ```
 apps/api/          Go API server
   cmd/api/         Entry point and dependency wiring
-  internal/        Handlers, services, auth, authorization, proxmox, principals, requests, vmactions
+  internal/handlers/<domain>/ HTTP endpoints and colocated tests
+  internal/handlers/httpx/    Shared HTTP response/session policy
+  internal/handlers/vmaccess/ Shared VM access verification
+  internal/handlers/inventoryview/ Inventory response presenters
+  internal/proxmox/          Proxmox transport/client and status polling
+  internal/proxmoxsync/      Inventory import, reconciliation, sync plans
+  internal/inventory/        Inventory state and pure poolmapping
+  internal/inventoryops/     Shared folder/template/deletion workflows
+  internal/podnetwork/       Network profiles and subnet calculations
+  internal/podnetworkallocation/ Allocation transactions and locking
+  internal/podprogress/      Pod progress snapshots, reporters, subscriptions
+  internal/                  Auth, authorization, principals, requests, VM actions
   database/        sqlc-generated query layer (*.sql.go — do not hand-edit)
   database/schema/ schema.sql — Postgres schema source of truth
   database/queries/ *.sql — sqlc query sources
 
 apps/web/          TanStack Start SPA
   src/routes/      File-based TanStack Router pages (routeTree.gen.ts — do not hand-edit)
-  src/features/    Feature modules (API clients, components, hooks, types per feature)
-  src/components/  App-wide shared components
+  src/components/  All application UI, grouped by area (pods, vms, inventory, ...)
+  src/lib/         Functions, schemas, types, presentation metadata, API/query code
+  src/hooks/       React hooks, grouped by area; generic hooks at the root
 
 packages/ui/       Shared UI primitives exported as @workspace/ui
 ```
+
+### Frontend file placement
+
+Application files have three homes, each grouped by area and workflow:
+
+- `components/<area>`: rendered UI, including pages, dialogs, tables, providers,
+  and JSX-producing renderers. Component-local props and event handlers stay here.
+- `hooks/<area>`: React hooks for data, forms, state, and UI orchestration.
+  Generic hooks live directly under `hooks`. Inferred hook return types stay with
+  their hooks.
+- `lib/<area>`: functions, schemas, defaults, shared types, constants, presentation
+  mappings, API/query definitions, and application rules. Shared HTTP transport
+  lives in `lib/api`, authentication in `lib/auth`, and generic utilities in `lib`.
+
+Keep files directly under each lib area instead of adding `api`, `utils`, or
+`types` subfolders. Retain workflow folders and shared HTTP infrastructure in
+`lib/api`.
+
+Use corresponding workflow folders such as `components/pods/publish`,
+`hooks/pods/publish`, and `lib/pods/publish`. Tests live beside the code they test.
+There is no separate `features` folder and no nested `components` folders.
+Avoid single-file folders in components, lib, and hooks; keep the file directly in its
+parent until related files justify a folder.
+
+Components consume hooks and lib. Hooks may coordinate components (for example,
+rendering a toast). Lib must not import components or hooks or render JSX; icon
+identifiers, style mappings, and shared context contracts may live there.
+Generic UI primitives remain in `packages/ui`. Routes stay thin, importing pages
+from components and loaders from lib.
+
+Web lint checks file placement and rejects hooks under components/lib,
+non-TSX helper modules under components, JSX under lib, upward lib imports,
+and imports from the retired features path.
+
+This convention combines domain grouping and colocation with one predictable UI
+root. React's [file organization guidance](https://legacy.reactjs.org/docs/faq-structure.html)
+allows several layouts, and shadcn's [monorepo guidance](https://ui.shadcn.com/docs/monorepo)
+separates application components from shared primitives.
 
 ## Prerequisites
 

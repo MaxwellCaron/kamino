@@ -15,54 +15,24 @@ import {
   Refresh03Icon,
 } from "@hugeicons/core-free-icons"
 import type {
+  MutationItemState,
   MutationItemUpdate,
   MutationResult,
   MutationToastItem,
-} from "@/components/feedback/mutation-progress-toast"
+  MutationToastState,
+} from "@/lib/mutation-progress-toast"
 import { useEffect, useRef, useState } from "react"
 import { Button } from "@workspace/ui/components/button"
 import { HugeiconsIcon } from "@hugeicons/react"
 import { Spinner } from "@workspace/ui/components/spinner"
+import { applyItemUpdate } from "@/lib/mutation-progress-toast"
 import { toast } from "sonner"
-
-type ItemState = "processing" | "done" | "error"
 
 const mutationSessions = new Map<string | number, Promise<MutationResult>>()
 const liveReporters = new Map<
   string | number,
   (update: MutationItemUpdate) => void
 >()
-
-function applyItemUpdate(
-  prev: {
-    itemStates: Record<string, ItemState>
-    itemErrors: Record<string, string>
-    itemDescriptions: Record<string, string>
-  },
-  update: MutationItemUpdate
-) {
-  if (update.status === "progress") {
-    return {
-      ...prev,
-      itemDescriptions: {
-        ...prev.itemDescriptions,
-        [update.id]: update.description,
-      },
-    }
-  }
-  const nextStates: Record<string, ItemState> = {
-    ...prev.itemStates,
-    [update.id]: update.status,
-  }
-  const nextErrors = { ...prev.itemErrors }
-  if (update.status === "error") nextErrors[update.id] = update.error
-  else delete nextErrors[update.id]
-  return {
-    itemStates: nextStates,
-    itemErrors: nextErrors,
-    itemDescriptions: prev.itemDescriptions,
-  }
-}
 
 export function MutationProgressToast({
   toastId,
@@ -79,11 +49,7 @@ export function MutationProgressToast({
     report: (update: MutationItemUpdate) => void
   ) => Promise<MutationResult>
 }) {
-  const [toastState, setToastState] = useState<{
-    itemStates: Record<string, ItemState>
-    itemErrors: Record<string, string>
-    itemDescriptions: Record<string, string>
-  }>(() => ({
+  const [toastState, setToastState] = useState<MutationToastState>(() => ({
     itemStates: Object.fromEntries(
       [...progressItems, ...items].map((item) => [item.id, "processing"])
     ),
@@ -195,7 +161,7 @@ export function MutationProgressToast({
     try {
       await item.retry()
       setToastState((prev) => {
-        const next: Record<string, ItemState> = {
+        const next: Record<string, MutationItemState> = {
           ...prev.itemStates,
           [item.id]: "done",
         }

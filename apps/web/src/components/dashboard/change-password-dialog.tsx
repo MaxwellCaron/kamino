@@ -1,0 +1,208 @@
+import {
+  AppDialog,
+  AppDialogPrimaryButton,
+} from "@/components/dialogs/app-dialog"
+import {
+  Field,
+  FieldContent,
+  FieldDescription,
+  FieldError,
+  FieldGroup,
+  FieldLabel,
+} from "@workspace/ui/components/field"
+import { useMutation, useQueryClient } from "@tanstack/react-query"
+import { DialogFooter } from "@workspace/ui/components/dialog"
+import { Input } from "@workspace/ui/components/input"
+import { Settings01Icon } from "@hugeicons/core-free-icons"
+import { authSessionQueryOptions } from "@/lib/auth/auth-queries"
+import { changeOwnPassword } from "@/lib/auth/auth-session"
+import { changePasswordSchema } from "@/lib/auth/change-password-form"
+import { isTouchedInvalid } from "@/lib/forms/form-errors"
+import { showSingleMutationToast } from "@/components/feedback/mutation-progress-toast"
+import { useForm } from "@tanstack/react-form"
+
+export function ChangePasswordDialog({
+  open,
+  onOpenChange,
+}: {
+  open: boolean
+  onOpenChange: (open: boolean) => void
+}) {
+  const queryClient = useQueryClient()
+  const mutation = useMutation({
+    mutationFn: changeOwnPassword,
+    onSuccess: () =>
+      queryClient.invalidateQueries({
+        queryKey: authSessionQueryOptions.queryKey,
+        exact: true,
+      }),
+  })
+
+  const form = useForm({
+    defaultValues: {
+      currentPassword: "",
+      newPassword: "",
+      confirmPassword: "",
+    },
+    validators: {
+      onSubmit: changePasswordSchema,
+    },
+    onSubmit: ({ value }) => {
+      const parsed = changePasswordSchema.parse(value)
+      const promise = mutation.mutateAsync({
+        current_password: parsed.currentPassword,
+        new_password: parsed.newPassword,
+      })
+      onOpenChange(false)
+      showSingleMutationToast({
+        title: "Updating password",
+        name: "Account",
+        promise,
+        successDescription: "Password updated",
+      })
+    },
+  })
+
+  return (
+    <AppDialog
+      open={open}
+      onOpenChange={onOpenChange}
+      onClosed={() => {
+        form.reset()
+      }}
+      icon={Settings01Icon}
+      title="Settings"
+      description="Change your password by confirming the current one first."
+    >
+      <form
+        action={() => {
+          void form.handleSubmit()
+        }}
+      >
+        <FieldGroup>
+          <form.Field name="currentPassword">
+            {(field) => {
+              const isInvalid = isTouchedInvalid(field.state.meta)
+
+              return (
+                <Field data-invalid={isInvalid}>
+                  <FieldLabel htmlFor="current-password">
+                    Current Password
+                  </FieldLabel>
+                  <FieldContent>
+                    <Input
+                      id="current-password"
+                      type="password"
+                      autoComplete="current-password"
+                      value={field.state.value}
+                      onChange={(event) =>
+                        field.handleChange(event.target.value)
+                      }
+                      onBlur={field.handleBlur}
+                      aria-invalid={isInvalid}
+                      aria-errormessage={
+                        isInvalid ? "current-password-error" : undefined
+                      }
+                      placeholder="************"
+                    />
+                  </FieldContent>
+                  {isInvalid && (
+                    <FieldError
+                      id="current-password-error"
+                      errors={field.state.meta.errors}
+                    />
+                  )}
+                </Field>
+              )
+            }}
+          </form.Field>
+
+          <form.Field name="newPassword">
+            {(field) => {
+              const isInvalid = isTouchedInvalid(field.state.meta)
+
+              return (
+                <Field data-invalid={isInvalid}>
+                  <FieldLabel htmlFor="new-password">New Password</FieldLabel>
+                  <FieldContent>
+                    <Input
+                      id="new-password"
+                      type="password"
+                      autoComplete="new-password"
+                      value={field.state.value}
+                      onChange={(event) =>
+                        field.handleChange(event.target.value)
+                      }
+                      onBlur={field.handleBlur}
+                      aria-invalid={isInvalid}
+                      aria-errormessage={
+                        isInvalid ? "new-password-error" : undefined
+                      }
+                      placeholder="************"
+                    />
+                    <FieldDescription>
+                      Use at least 8 characters.
+                    </FieldDescription>
+                    {isInvalid && (
+                      <FieldError
+                        id="new-password-error"
+                        errors={field.state.meta.errors}
+                      />
+                    )}
+                  </FieldContent>
+                </Field>
+              )
+            }}
+          </form.Field>
+
+          <form.Field name="confirmPassword">
+            {(field) => {
+              const isInvalid = isTouchedInvalid(field.state.meta)
+
+              return (
+                <Field data-invalid={isInvalid}>
+                  <FieldLabel htmlFor="confirm-password">
+                    Confirm New Password
+                  </FieldLabel>
+                  <FieldContent>
+                    <Input
+                      id="confirm-password"
+                      type="password"
+                      autoComplete="new-password"
+                      value={field.state.value}
+                      onChange={(event) =>
+                        field.handleChange(event.target.value)
+                      }
+                      onBlur={field.handleBlur}
+                      placeholder="************"
+                      aria-invalid={isInvalid}
+                      aria-errormessage={
+                        isInvalid ? "confirm-password-error" : undefined
+                      }
+                    />
+                  </FieldContent>
+                  {isInvalid && (
+                    <FieldError
+                      id="confirm-password-error"
+                      errors={field.state.meta.errors}
+                    />
+                  )}
+                </Field>
+              )
+            }}
+          </form.Field>
+        </FieldGroup>
+
+        <DialogFooter className="mt-6">
+          <AppDialogPrimaryButton
+            pending={mutation.isPending}
+            disabled={mutation.isPending}
+            aria-busy={mutation.isPending || undefined}
+          >
+            Update
+          </AppDialogPrimaryButton>
+        </DialogFooter>
+      </form>
+    </AppDialog>
+  )
+}
