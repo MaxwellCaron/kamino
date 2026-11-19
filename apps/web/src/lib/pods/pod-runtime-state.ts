@@ -1,8 +1,8 @@
 import type {
-  ClonedPodQuestionSummary,
-  ClonedPodTaskState,
+  PodQuestionSummary,
   PodTask,
   PodTaskQuestionAnswer,
+  PodTaskState,
   UUID,
 } from "@/lib/pods/pod-types"
 
@@ -12,8 +12,8 @@ export function createQuestionAnswerMap(answers: Array<PodTaskQuestionAnswer>) {
   )
 }
 
-export function createTaskStateMap(taskStates: Array<ClonedPodTaskState>) {
-  return new Map<UUID, ClonedPodTaskState>(
+export function createTaskStateMap(taskStates: Array<PodTaskState>) {
+  return new Map<UUID, PodTaskState>(
     taskStates.map((taskState) => [taskState.task_id, taskState])
   )
 }
@@ -21,7 +21,7 @@ export function createTaskStateMap(taskStates: Array<ClonedPodTaskState>) {
 export function createQuestionSummary(
   tasks: Array<PodTask>,
   answers: Array<PodTaskQuestionAnswer> | null
-): ClonedPodQuestionSummary {
+): PodQuestionSummary {
   const answersByQuestionId = answers ? createQuestionAnswerMap(answers) : null
   const questionIds = new Set<UUID>()
 

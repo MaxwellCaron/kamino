@@ -36,14 +36,14 @@ export const POD_CLONE_ACTION_CONFIG = {
     icon: ReloadIcon,
     label: "Re-clone",
     pendingLabel: "Re-cloning",
-    menuDescription: "Recreate virtual machines.",
+    menuDescription: "Recreate pod environment from scratch.",
     variant: "destructive",
   },
   delete: {
     icon: Delete01Icon,
     label: "Delete",
     pendingLabel: "Deleting",
-    menuDescription: "Delete virtual machines and task progress.",
+    menuDescription: "Delete pod environment.",
     variant: "destructive",
   },
 } satisfies Record<

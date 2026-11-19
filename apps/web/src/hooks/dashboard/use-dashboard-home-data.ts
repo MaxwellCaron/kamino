@@ -300,10 +300,8 @@ function useDashboardPodData() {
           profile_key: "lan-router-v1",
         },
         vms: [],
-        question_summary: item.summary.question_summary,
-        task_states: [],
-        question_answers: [],
       },
+      questionSummary: item.summary.question_summary,
       pod: {
         id: item.pod.id,
         slug: item.pod.slug,

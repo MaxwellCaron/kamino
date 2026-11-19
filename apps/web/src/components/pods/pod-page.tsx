@@ -1,4 +1,4 @@
-import type { ClonedPod, Pod } from "@/lib/pods/pod-types"
+import type { ClonedPod, Pod, PodProgress } from "@/lib/pods/pod-types"
 import { useCallback, useState } from "react"
 import { ClonePodDialog } from "@/components/pods/clone/clone-pod-dialog"
 import { InventoryDialogsProvider } from "@/components/inventory/inventory-dialogs-provider"
@@ -14,10 +14,12 @@ type CloneDialogMode = "clone" | "reclone"
 export function PodPage({
   pod,
   clonedPod,
+  progress,
   username,
 }: {
   pod: Pod
   clonedPod?: ClonedPod | null
+  progress: PodProgress
   username: string
 }) {
   const queryClient = useQueryClient()
@@ -42,6 +44,7 @@ export function PodPage({
         <div className="@container/main flex flex-1 flex-col">
           <PodHeader
             pod={pod}
+            questionSummary={progress.question_summary}
             showClone={isPreview}
             onClone={() => setCloneDialogMode("clone")}
           />
@@ -57,12 +60,12 @@ export function PodPage({
             )}
             {pod.tasks.length > 0 && (
               <PodTasks
+                pod={pod}
                 tasks={pod.tasks}
                 clonedPodId={clonedPod?.id}
-                taskStates={clonedPod?.task_states ?? null}
-                questionAnswers={clonedPod?.question_answers ?? null}
+                taskStates={progress.task_states}
+                questionAnswers={progress.question_answers}
                 questionsDisabled={isPreview}
-                onClonedPodChange={setClonedPod}
               />
             )}
           </div>

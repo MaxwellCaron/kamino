@@ -386,7 +386,7 @@ func (h *PodsHandler) replacePublishedPodChildren(
 			keptQuestionIDs = append(keptQuestionIDs, questionID)
 			if existing, ok := existingQuestionsByID[questionID]; ok {
 				if publishedPodQuestionAnswerStateChanged(existing, question) {
-					if err := q.DeleteClonedPodQuestionAnswersByQuestionID(ctx, questionID); err != nil {
+					if err := q.DeletePrincipalPodQuestionAnswersByQuestionID(ctx, questionID); err != nil {
 						return &httpx.RequestError{
 							Status:      http.StatusInternalServerError,
 							UserMessage: "failed to replace published pod details",
@@ -443,15 +443,6 @@ func (h *PodsHandler) replacePublishedPodChildren(
 			Err:         err,
 		}
 	}
-	if err := q.RefreshClonedPodTaskStatesForPublishedPod(ctx, req.ID); err != nil {
-		return &httpx.RequestError{
-			Status:      http.StatusInternalServerError,
-			UserMessage: "failed to replace published pod details",
-			Operation:   "refresh cloned pod task states",
-			Err:         err,
-		}
-	}
-
 	return nil
 }
 

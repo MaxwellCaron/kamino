@@ -6,7 +6,7 @@ Kamino is a small internal VM-management application for ~100 users that wraps P
 
 | Layer | Technology |
 |-------|-----------|
-| API | Go 1.27.3 · Gin · pgx/v5 · sqlc |
+| API | Go 1.27.4 · Gin · pgx/v5 · sqlc |
 | Frontend | TanStack Start · Vite · TanStack Query/Router |
 | UI primitives | Shared shadcn-style package (`@workspace/ui`) |
 | Tooling | Bun 1.4.4 · Turbo monorepo |
@@ -83,7 +83,7 @@ separates application components from shared primitives.
 ## Prerequisites
 
 - **Bun** 1.4.4 (`curl -fsSL https://bun.sh/install | bash -s "bun-v1.4.4"`)
-- **Go** 1.27.3
+- **Go** 1.27.4
 - **Portless** 0.15.7+ (`bun add --global portless`) — provides local HTTPS and automatic ports; Linux LAN mode also needs `avahi-utils` and a running Avahi daemon
 - **Air** (Go live-reload; `go install github.com/air-verse/air@latest`) — required for `bun run dev` API watch mode
 - **Postgres** instance reachable from the API
@@ -124,7 +124,7 @@ The API healthcheck endpoint is `GET /api/v1/health`.
 
 The intended fast loop is `bun run dev` on a **dedicated internal dev
 VM/workstation** — not a Kubernetes control-plane or worker node. Use the
-existing Bun 1.4.4, Go 1.27.3, and Air prerequisites above.
+existing Bun 1.4.4, Go 1.27.4, and Air prerequisites above.
 
 ```
 dedicated dev VM/workstation (bun run dev, hot reload)

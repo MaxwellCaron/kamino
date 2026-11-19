@@ -24,14 +24,8 @@ func TestBuildPrincipalPodQuestionAnswerParamsUsesSubmittingPrincipal(t *testing
 		PodSlug:   "pod-slug",
 		PodTitle:  "Pod",
 	}
-	answer := database.UpsertClonedPodQuestionAnswerRow{
-		QuestionID: question.ID,
-		Answer:     "answer",
-		IsCorrect:  true,
-		AnsweredAt: pgtype.Timestamptz{Time: time.Now().UTC(), Valid: true},
-	}
 
-	params := buildPrincipalPodQuestionAnswerParams(submittingPrincipalID, clone, question, answer)
+	params := buildPrincipalPodQuestionAnswerParams(submittingPrincipalID, clone, question, "answer", true)
 
 	if params.PrincipalID != submittingPrincipalID {
 		t.Fatalf("PrincipalID = %v, want %v", params.PrincipalID, submittingPrincipalID)
@@ -57,14 +51,8 @@ func TestBuildPrincipalPodQuestionAnswerParamsCopiesSourceMetadata(t *testing.T)
 		PodSlug:   "ctf-pod",
 		PodTitle:  "CTF Pod",
 	}
-	answer := database.UpsertClonedPodQuestionAnswerRow{
-		QuestionID: questionID,
-		Answer:     "flag{kamino}",
-		IsCorrect:  false,
-		AnsweredAt: pgtype.Timestamptz{Time: time.Now().UTC(), Valid: true},
-	}
 
-	params := buildPrincipalPodQuestionAnswerParams(principalID, clone, question, answer)
+	params := buildPrincipalPodQuestionAnswerParams(principalID, clone, question, "flag{kamino}", false)
 
 	if params.SourcePodID != podID {
 		t.Fatalf("SourcePodID = %v, want %v", params.SourcePodID, podID)
@@ -90,42 +78,54 @@ func TestBuildPrincipalPodQuestionAnswerParamsCopiesSourceMetadata(t *testing.T)
 	if params.QuestionTitle != question.Title {
 		t.Fatalf("QuestionTitle = %q, want %q", params.QuestionTitle, question.Title)
 	}
-	if params.Answer != answer.Answer {
-		t.Fatalf("Answer = %q, want %q", params.Answer, answer.Answer)
+	if params.Answer != "flag{kamino}" {
+		t.Fatalf("Answer = %q, want %q", params.Answer, "flag{kamino}")
 	}
-	if params.IsCorrect != answer.IsCorrect {
-		t.Fatalf("IsCorrect = %t, want %t", params.IsCorrect, answer.IsCorrect)
+	if params.IsCorrect {
+		t.Fatalf("IsCorrect = true, want false")
 	}
 }
 
-func TestBuildPrincipalPodQuestionAnswerParamsCopiesLiveAnsweredAt(t *testing.T) {
-	answeredAt := pgtype.Timestamptz{
-		Time:  time.Date(2026, time.June, 21, 14, 5, 0, 0, time.UTC),
-		Valid: true,
-	}
+func TestBuildPodProgressResponse(t *testing.T) {
+	doneTask, openTask, emptyTask := uuid.New(), uuid.New(), uuid.New()
+	q1, q2, q3 := uuid.New(), uuid.New(), uuid.New()
+	early := time.Date(2026, time.June, 1, 10, 0, 0, 0, time.UTC)
+	late := time.Date(2026, time.June, 2, 10, 0, 0, 0, time.UTC)
 
-	params := buildPrincipalPodQuestionAnswerParams(
-		uuid.New(),
-		database.ClonedPods{ID: uuid.New()},
-		database.GetQuestionForClonedPodRow{
-			ID:        uuid.New(),
-			TaskID:    uuid.New(),
-			PodID:     uuid.New(),
-			Title:     "Question",
-			TaskTitle: "Task",
-			PodSlug:   "pod-slug",
-			PodTitle:  "Pod",
+	progress := buildPodProgressResponse(
+		[]database.ListPublishedPodTasksByPodIDsRow{{ID: doneTask}, {ID: openTask}, {ID: emptyTask}},
+		[]database.ListPublishedPodQuestionsByTaskIDsRow{
+			{ID: q1, TaskID: doneTask},
+			{ID: q2, TaskID: doneTask},
+			{ID: q3, TaskID: openTask},
 		},
-		database.UpsertClonedPodQuestionAnswerRow{
-			QuestionID: uuid.New(),
-			Answer:     "correct",
-			IsCorrect:  true,
-			AnsweredAt: answeredAt,
+		[]database.ListPrincipalPodQuestionAnswersRow{
+			{QuestionID: q1, Answer: "a", IsCorrect: true, AnsweredAt: pgtype.Timestamptz{Time: early, Valid: true}},
+			{QuestionID: q2, Answer: "b", IsCorrect: true, AnsweredAt: pgtype.Timestamptz{Time: late, Valid: true}},
+			{QuestionID: q3, Answer: "wrong", IsCorrect: false, AnsweredAt: pgtype.Timestamptz{Time: late, Valid: true}},
 		},
 	)
 
-	if params.AnsweredAt != answeredAt {
-		t.Fatalf("AnsweredAt = %#v, want %#v", params.AnsweredAt, answeredAt)
+	want := podQuestionSummaryResponse{Total: 3, Answered: 2, Progress: float64(2) / 3 * 100}
+	if progress.QuestionSummary != want {
+		t.Fatalf("QuestionSummary = %+v, want %+v", progress.QuestionSummary, want)
+	}
+	if len(progress.QuestionAnswers) != 3 {
+		t.Fatalf("len(QuestionAnswers) = %d, want 3", len(progress.QuestionAnswers))
+	}
+	if len(progress.TaskStates) != 3 {
+		t.Fatalf("len(TaskStates) = %d, want 3", len(progress.TaskStates))
+	}
+
+	done := progress.TaskStates[0]
+	if !done.Completed || done.CompletedAt == nil || !done.CompletedAt.Equal(late) {
+		t.Fatalf("done task = %+v, want completed at %v", done, late)
+	}
+	if open := progress.TaskStates[1]; open.Completed || open.CompletedAt != nil {
+		t.Fatalf("open task = %+v, want incomplete", open)
+	}
+	if empty := progress.TaskStates[2]; !empty.Completed || empty.CompletedAt != nil {
+		t.Fatalf("question-less task = %+v, want completed without timestamp", empty)
 	}
 }
 

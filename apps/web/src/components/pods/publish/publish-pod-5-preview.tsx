@@ -46,6 +46,7 @@ export function PublishPodPreviewStep({
           <PublishPodStepLayout form={form} clonedPod={preview} actionsDisabled>
             {values.tasks.length > 0 ? (
               <PodTasks
+                pod={values}
                 tasks={maskTaskAnswers(values.tasks)}
                 taskStates={null}
                 questionAnswers={null}

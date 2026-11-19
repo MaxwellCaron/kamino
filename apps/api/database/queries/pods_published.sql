@@ -306,9 +306,9 @@ WHERE q.task_id = t.id
   AND t.pod_id = $1
   AND NOT (q.id = ANY(sqlc.arg(keep_ids)::UUID[]));
 
--- name: DeleteClonedPodQuestionAnswersByQuestionID :exec
-DELETE FROM cloned_pod_question_answers
-WHERE question_id = $1;
+-- name: DeletePrincipalPodQuestionAnswersByQuestionID :exec
+DELETE FROM principal_pod_question_answers
+WHERE source_question_id = $1;
 
 -- name: ListPublishedPodCreatorsByPodIDs :many
 SELECT

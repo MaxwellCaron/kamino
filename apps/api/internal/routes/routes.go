@@ -148,6 +148,7 @@ func RegisterRoutes(
 		protected.GET("/pods/question-activity", pods.ListPodQuestionActivity)
 		protected.GET("/pods/catalog", pods.ListCatalog)
 		protected.GET("/pods/catalog/:slug", pods.GetCatalogPod)
+		protected.GET("/pods/catalog/:slug/progress", pods.GetCatalogPodProgress)
 		protected.GET("/pods/catalog/:slug/clone", pods.GetCatalogPodClone)
 		protected.POST("/pods/catalog/:slug/clone", pods.CloneCatalogPod)
 		protected.GET("/pods/catalog/clones/summary", pods.ListCatalogCloneSummaries)

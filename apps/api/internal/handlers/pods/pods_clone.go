@@ -48,17 +48,14 @@ type clonedRouterCloudInitConfig struct {
 }
 
 type clonedPodResponse struct {
-	ID              uuid.UUID                         `json:"id"`
-	PodID           uuid.UUID                         `json:"pod_id"`
-	Owner           publishedPodCloneOwnerResponse    `json:"owner"`
-	ClonedAt        time.Time                         `json:"cloned_at"`
-	Status          string                            `json:"status"`
-	Network         clonedPodNetworkResponse          `json:"network"`
-	VMs             []clonedPodVMResponse             `json:"vms"`
-	QuestionSummary podQuestionSummaryResponse        `json:"question_summary"`
-	TaskStates      []clonedPodTaskStateResponse      `json:"task_states"`
-	QuestionAnswers []clonedPodQuestionAnswerResponse `json:"question_answers"`
-	PowerResult     *podPowerResultResponse           `json:"power_result,omitempty"`
+	ID          uuid.UUID                      `json:"id"`
+	PodID       uuid.UUID                      `json:"pod_id"`
+	Owner       publishedPodCloneOwnerResponse `json:"owner"`
+	ClonedAt    time.Time                      `json:"cloned_at"`
+	Status      string                         `json:"status"`
+	Network     clonedPodNetworkResponse       `json:"network"`
+	VMs         []clonedPodVMResponse          `json:"vms"`
+	PowerResult *podPowerResultResponse        `json:"power_result,omitempty"`
 }
 
 type clonedPodVMResponse struct {
@@ -98,17 +95,24 @@ func newPodQuestionSummaryResponse(total, answered int32) podQuestionSummaryResp
 	}
 }
 
-type clonedPodTaskStateResponse struct {
+type podTaskStateResponse struct {
 	TaskID      uuid.UUID  `json:"task_id"`
 	Completed   bool       `json:"completed"`
 	CompletedAt *time.Time `json:"completed_at,omitempty"`
 }
 
-type clonedPodQuestionAnswerResponse struct {
+type podQuestionAnswerResponse struct {
 	QuestionID uuid.UUID `json:"question_id"`
 	Answer     string    `json:"answer"`
 	IsCorrect  bool      `json:"is_correct"`
 	AnsweredAt time.Time `json:"answered_at"`
+}
+
+// podProgressResponse is the current principal's question progress for a pod.
+type podProgressResponse struct {
+	QuestionSummary podQuestionSummaryResponse  `json:"question_summary"`
+	TaskStates      []podTaskStateResponse      `json:"task_states"`
+	QuestionAnswers []podQuestionAnswerResponse `json:"question_answers"`
 }
 
 type podQuestionActivityResponse struct {

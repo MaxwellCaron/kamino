@@ -1,12 +1,7 @@
-import type {
-  ClonedPod,
-  ClonedPodNetwork,
-  PodVM,
-} from "@/lib/pods/pod-types"
+import type { ClonedPod, ClonedPodNetwork, PodVM } from "@/lib/pods/pod-types"
 import type { PodCloneTarget } from "@/lib/pods/clone-targets-api"
 import type { PublishPodFolder } from "@/lib/pods/publish-pod-api"
 import type { PublishPodFormValues } from "@/lib/pods/publish/publish-pod-form"
-import { createQuestionSummary } from "@/lib/pods/pod-runtime-state"
 
 const PREVIEW_NETWORK_NUMBER = 1
 const LAN_SUBNET = "192.168.1.0/24"
@@ -127,8 +122,5 @@ export function createPublishPodPreview(
     status: "running",
     network: createPreviewNetwork(folder, target),
     vms: values.virtual_machines.map(createPreviewVm),
-    question_summary: createQuestionSummary(values.tasks, null),
-    task_states: [],
-    question_answers: [],
   }
 }

@@ -18,10 +18,10 @@ import {
   CardTitle,
 } from "@workspace/ui/components/card"
 import type {
-  ClonedPod,
-  ClonedPodTaskState,
+  Pod,
   PodTask,
   PodTaskQuestionAnswer,
+  PodTaskState,
 } from "@/lib/pods/pod-types"
 import {
   createQuestionAnswerMap,
@@ -35,19 +35,19 @@ import { PodTaskQuestions } from "@/components/pods/pod-task-questions"
 import { cn } from "@workspace/ui/lib/utils"
 
 export function PodTasks({
+  pod,
   tasks,
   clonedPodId,
   taskStates,
   questionAnswers,
   questionsDisabled = false,
-  onClonedPodChange,
 }: {
+  pod: Pick<Pod, "id" | "slug">
   tasks: Array<PodTask>
   clonedPodId?: string
-  taskStates: Array<ClonedPodTaskState> | null
+  taskStates: Array<PodTaskState> | null
   questionAnswers: Array<PodTaskQuestionAnswer> | null
   questionsDisabled?: boolean
-  onClonedPodChange?: (clonedPod: ClonedPod) => void
 }) {
   const defaultValue = tasks[0] ? [tasks[0].id] : []
   const taskStatesByTaskId = taskStates ? createTaskStateMap(taskStates) : null
@@ -55,9 +55,7 @@ export function PodTasks({
     ? createQuestionAnswerMap(questionAnswers)
     : null
   const questionSummary = createQuestionSummary(tasks, questionAnswers)
-  const isFullyComplete =
-    questionSummary.total === 0 ||
-    questionSummary.answered === questionSummary.total
+  const isFullyComplete = questionSummary.answered === questionSummary.total
 
   return (
     <Card className="rounded-b-2xl! pb-0">
@@ -75,14 +73,16 @@ export function PodTasks({
           Questions that must be answered or objectives that must be reached in
           order to complete the pod.
         </CardDescription>
-        <CardAction>
-          <Badge
-            variant={isFullyComplete ? "default" : "destructive"}
-            aria-label={`${questionSummary.answered} of ${questionSummary.total} questions answered`}
-          >
-            {questionSummary.answered} / {questionSummary.total}
-          </Badge>
-        </CardAction>
+        {questionSummary.total > 0 && (
+          <CardAction>
+            <Badge
+              variant={isFullyComplete ? "default" : "destructive"}
+              aria-label={`${questionSummary.answered} of ${questionSummary.total} questions answered`}
+            >
+              {questionSummary.answered} / {questionSummary.total}
+            </Badge>
+          </CardAction>
+        )}
       </CardHeader>
       <CardContent className="-mx-6 border-t">
         <Accordion
@@ -139,11 +139,11 @@ export function PodTasks({
 
                     {task.questions && task.questions.length > 0 && (
                       <PodTaskQuestions
+                        pod={pod}
                         questions={task.questions}
                         clonedPodId={clonedPodId}
                         answersByQuestionId={answersByQuestionId}
                         disabled={questionsDisabled}
-                        onAnswered={onClonedPodChange}
                       />
                     )}
                   </div>

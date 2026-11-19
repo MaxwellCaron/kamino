@@ -1,8 +1,14 @@
+import {
+  CircularProgress,
+  CircularProgressIndicator,
+  CircularProgressRange,
+  CircularProgressTrack,
+} from "@workspace/ui/components/circular-progress"
+import type { Pod, PodQuestionSummary } from "@/lib/pods/pod-types"
 import { Button } from "@workspace/ui/components/button"
 import { CopyIcon } from "@hugeicons/core-free-icons"
 import { GrainientBackground } from "@/components/app-shell/grainient-background"
 import { HugeiconsIcon } from "@hugeicons/react"
-import type { Pod } from "@/lib/pods/pod-types"
 import { PodCoverImage } from "@/components/pods/pod-cover-image"
 import { PodCreators } from "@/components/pods/pod-creators"
 import type { ReactNode } from "react"
@@ -33,10 +39,12 @@ function PodHeaderMetaChip({
 
 export function PodHeader({
   pod,
+  questionSummary = null,
   showClone = true,
   onClone,
 }: {
   pod: Pod
+  questionSummary?: PodQuestionSummary | null
   showClone?: boolean
   onClone?: () => void
 }) {
@@ -114,6 +122,31 @@ export function PodHeader({
                       value={pod.clone_count}
                       label="Clones"
                     />
+                    {questionSummary && questionSummary.total > 0 && (
+                      <>
+                        <Separator
+                          orientation="vertical"
+                          className="bg-foreground/15"
+                        />
+                        <PodHeaderMetaChip
+                          icon={
+                            <CircularProgress
+                              size={16}
+                              thickness={2}
+                              value={questionSummary.progress}
+                              aria-label="Questions answered"
+                            >
+                              <CircularProgressIndicator>
+                                <CircularProgressTrack />
+                                <CircularProgressRange />
+                              </CircularProgressIndicator>
+                            </CircularProgress>
+                          }
+                          value={`${questionSummary.answered} / ${questionSummary.total}`}
+                          label="answered"
+                        />
+                      </>
+                    )}
                   </div>
                 </div>
               </div>

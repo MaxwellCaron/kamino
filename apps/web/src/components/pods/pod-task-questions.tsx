@@ -5,12 +5,6 @@ import {
   CardHeader,
   CardTitle,
 } from "@workspace/ui/components/card"
-import type {
-  ClonedPod,
-  PodTaskQuestion,
-  PodTaskQuestionAnswer,
-  UUID,
-} from "@/lib/pods/pod-types"
 import { Dialog, DialogTrigger } from "@workspace/ui/components/dialog"
 import {
   Field,
@@ -19,35 +13,32 @@ import {
   FieldGroup,
   FieldLabel,
 } from "@workspace/ui/components/field"
-import {
-  answerClonedPodQuestion,
-  catalogCloneSummariesQueryOptions,
-  podQuestionActivityQueryOptions,
-} from "@/lib/pods/clone-pod-api"
-import {
-  podCatalogQueryOptions,
-  publishedPodClonesQueryOptions,
-} from "@/lib/pods/publish-pod-api"
-import { useMutation, useQueryClient } from "@tanstack/react-query"
+import type {
+  Pod,
+  PodTaskQuestion,
+  PodTaskQuestionAnswer,
+  UUID,
+} from "@/lib/pods/pod-types"
 import { AppActionButton } from "@/components/app-action-button"
 import { AppDialogContent } from "@/components/dialogs/app-dialog"
 import { Button } from "@workspace/ui/components/button"
 import { HugeiconsIcon } from "@hugeicons/react"
 import { Input } from "@workspace/ui/components/input"
+import { useAnswerPodQuestion } from "@/hooks/pods/use-answer-pod-question"
 import { useState } from "react"
 
 export function PodTaskQuestions({
+  pod,
   questions,
   clonedPodId,
   answersByQuestionId,
   disabled = false,
-  onAnswered,
 }: {
+  pod: Pick<Pod, "id" | "slug">
   questions: Array<PodTaskQuestion>
   clonedPodId?: string
   answersByQuestionId: Map<UUID, PodTaskQuestionAnswer> | null
   disabled?: boolean
-  onAnswered?: (clonedPod: ClonedPod) => void
 }) {
   return (
     <Card className="bg-muted/50">
@@ -68,12 +59,12 @@ export function PodTaskQuestions({
             return (
               <PodTaskQuestionField
                 key={question.id}
+                pod={pod}
                 question={question}
                 questionNumber={questionIndex + 1}
                 clonedPodId={clonedPodId}
                 answer={answer}
                 disabled={disabled}
-                onAnswered={onAnswered}
               />
             )
           })}
@@ -148,46 +139,26 @@ function getQuestionValue(
 }
 
 function PodTaskQuestionField({
+  pod,
   question,
   questionNumber,
   clonedPodId,
   answer,
   disabled,
-  onAnswered,
 }: {
+  pod: Pick<Pod, "id" | "slug">
   question: PodTaskQuestion
   questionNumber: number
   clonedPodId?: string
   answer?: PodTaskQuestionAnswer
   disabled: boolean
-  onAnswered?: (clonedPod: ClonedPod) => void
 }) {
-  const queryClient = useQueryClient()
   const [draft, setDraft] = useState<{
     answer: string | undefined
     value: string
   } | null>(null)
   const value = getQuestionValue(draft, answer)
-  const mutation = useMutation({
-    mutationFn: answerClonedPodQuestion,
-    onSuccess: async (clonedPod) => {
-      onAnswered?.(clonedPod)
-      await Promise.all([
-        queryClient.invalidateQueries({
-          queryKey: catalogCloneSummariesQueryOptions().queryKey,
-        }),
-        queryClient.invalidateQueries({
-          queryKey: publishedPodClonesQueryOptions(clonedPod.pod_id).queryKey,
-        }),
-        queryClient.invalidateQueries({
-          queryKey: podQuestionActivityQueryOptions().queryKey,
-        }),
-        queryClient.invalidateQueries({
-          queryKey: podCatalogQueryOptions.queryKey,
-        }),
-      ])
-    },
-  })
+  const mutation = useAnswerPodQuestion(pod)
   const answerSubmitted = answer != null
   const answerIsCorrect = answer?.is_correct === true
   const answerIsIncorrect = answerSubmitted && !answerIsCorrect

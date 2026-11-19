@@ -86,13 +86,13 @@ func (q *Queries) CreatePublishedPod(ctx context.Context, arg CreatePublishedPod
 	return i, err
 }
 
-const deleteClonedPodQuestionAnswersByQuestionID = `-- name: DeleteClonedPodQuestionAnswersByQuestionID :exec
-DELETE FROM cloned_pod_question_answers
-WHERE question_id = $1
+const deletePrincipalPodQuestionAnswersByQuestionID = `-- name: DeletePrincipalPodQuestionAnswersByQuestionID :exec
+DELETE FROM principal_pod_question_answers
+WHERE source_question_id = $1
 `
 
-func (q *Queries) DeleteClonedPodQuestionAnswersByQuestionID(ctx context.Context, questionID uuid.UUID) error {
-	_, err := q.db.Exec(ctx, deleteClonedPodQuestionAnswersByQuestionID, questionID)
+func (q *Queries) DeletePrincipalPodQuestionAnswersByQuestionID(ctx context.Context, sourceQuestionID uuid.UUID) error {
+	_, err := q.db.Exec(ctx, deletePrincipalPodQuestionAnswersByQuestionID, sourceQuestionID)
 	return err
 }
 
